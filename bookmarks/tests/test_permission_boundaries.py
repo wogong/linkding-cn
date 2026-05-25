@@ -1,7 +1,7 @@
 from django.urls import reverse
 from rest_framework import status
 
-from bookmarks.models import BookmarkBundle
+from bookmarks.models import BookmarkAsset, BookmarkBundle
 from bookmarks.tests.helpers import BookmarkFactoryMixin, LinkdingApiTestCase
 
 
@@ -230,3 +230,26 @@ class AssetApiCrossUserTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
             kwargs={"bookmark_id": other_bookmark.id, "pk": other_asset.id},
         )
         self.delete(url, expected_status_code=status.HTTP_404_NOT_FOUND)
+
+
+class SharedReaderWriteBoundaryTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
+    """Shared reader page can trigger article generation via bookmark reader flow."""
+
+    def test_shared_reader_page_can_create_article_for_non_owner(self):
+        owner = self.setup_user(enable_sharing=True)
+        viewer = self.get_or_create_test_user()
+        self.client.force_login(viewer)
+
+        bookmark = self.setup_bookmark(
+            user=owner,
+            shared=True,
+            url="https://example.com/shared-reader-boundary",
+        )
+
+        read_url = reverse("linkding:bookmarks.read", args=[bookmark.id])
+        response = self.client.get(read_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        bookmark.refresh_from_db()
+        self.assertIsNotNone(bookmark.latest_article)
+        self.assertEqual(bookmark.latest_article.asset_type, BookmarkAsset.TYPE_ARTICLE)

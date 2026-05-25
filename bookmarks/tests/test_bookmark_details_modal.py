@@ -203,15 +203,13 @@ class BookmarkDetailsModalTestCase(TestCase, BookmarkFactoryMixin, HtmlTestMixin
         self.assertIsNotNone(link)
 
         # snapshot is complete
-        asset = self.setup_asset(
+        self.setup_asset(
             bookmark,
             asset_type=BookmarkAsset.TYPE_SNAPSHOT,
             status=BookmarkAsset.STATUS_COMPLETE,
         )
         soup = self.get_index_details_modal(bookmark)
         self.assertEqual(self.count_weblinks(soup), 3)
-
-        reader_mode_url = reverse("linkding:assets.read", args=[asset.id])
         link = self.find_weblink(soup, reader_mode_url)
         self.assertIsNotNone(link)
 

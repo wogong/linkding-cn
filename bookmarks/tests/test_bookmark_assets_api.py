@@ -339,3 +339,65 @@ class BookmarkAssetsApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
             kwargs={"bookmark_id": asset.bookmark.id, "pk": asset.id},
         )
         self.delete(url, expected_status_code=status.HTTP_401_UNAUTHORIZED)
+
+    def test_patch_asset_allows_display_name_only(self):
+        self.authenticate()
+
+        bookmark = self.setup_bookmark()
+        asset = self.setup_asset(
+            bookmark=bookmark,
+            asset_type=BookmarkAsset.TYPE_UPLOAD,
+            content_type="image/png",
+            status=BookmarkAsset.STATUS_COMPLETE,
+            display_name="old-name.png",
+        )
+
+        url = reverse(
+            "linkding:bookmark_asset-detail",
+            kwargs={"bookmark_id": asset.bookmark.id, "pk": asset.id},
+        )
+
+        response = self.patch(
+            url,
+            {"display_name": "new-name.png"},
+            expected_status_code=status.HTTP_200_OK,
+        )
+
+        asset.refresh_from_db()
+        self.assertEqual(asset.display_name, "new-name.png")
+        self.assertEqual(response.data["display_name"], "new-name.png")
+
+    def test_patch_asset_rejects_non_display_name_fields(self):
+        self.authenticate()
+
+        bookmark = self.setup_bookmark()
+        asset = self.setup_asset(
+            bookmark=bookmark,
+            asset_type=BookmarkAsset.TYPE_UPLOAD,
+            content_type="image/png",
+            status=BookmarkAsset.STATUS_COMPLETE,
+            display_name="original-name.png",
+        )
+
+        url = reverse(
+            "linkding:bookmark_asset-detail",
+            kwargs={"bookmark_id": asset.bookmark.id, "pk": asset.id},
+        )
+
+        response = self.patch(
+            url,
+            {
+                "display_name": "new-name.png",
+                "status": BookmarkAsset.STATUS_FAILURE,
+                "content_type": "text/plain",
+            },
+            expected_status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+        asset.refresh_from_db()
+        self.assertEqual(asset.display_name, "original-name.png")
+        self.assertEqual(asset.status, BookmarkAsset.STATUS_COMPLETE)
+        self.assertEqual(asset.content_type, "image/png")
+        self.assertIn("invalid_fields", response.data)
+        self.assertIn("status", response.data["invalid_fields"])
+        self.assertIn("content_type", response.data["invalid_fields"])

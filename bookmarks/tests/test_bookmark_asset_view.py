@@ -135,12 +135,6 @@ class BookmarkAssetViewTestCase(TestCase, BookmarkFactoryMixin):
     def test_view_access_guest_user(self):
         self.view_access_guest_user_test("linkding:assets.view")
 
-    def test_reader_view_access(self):
-        self.view_access_test("linkding:assets.read")
-
-    def test_reader_view_access_guest_user(self):
-        self.view_access_guest_user_test("linkding:assets.read")
-
     def test_rename_asset(self):
         bookmark = self.setup_bookmark()
         asset = self.setup_asset_with_file(bookmark)
@@ -234,3 +228,33 @@ class BookmarkAssetViewTestCase(TestCase, BookmarkFactoryMixin):
             response["Content-Security-Policy"],
             "default-src 'none'; media-src 'self';",
         )
+
+    def test_rejects_asset_path_traversal_attempts(self):
+        bookmark = self.setup_bookmark()
+        malicious_asset = self.setup_asset(
+            bookmark=bookmark,
+            file="../../../../etc/passwd",
+            asset_type=BookmarkAsset.TYPE_UPLOAD,
+            content_type="text/plain",
+            display_name="passwd",
+            status=BookmarkAsset.STATUS_COMPLETE,
+            gzip=False,
+        )
+
+        response = self.client.get(reverse("linkding:assets.view", args=[malicious_asset.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_rejects_asset_absolute_path_attempts(self):
+        bookmark = self.setup_bookmark()
+        malicious_asset = self.setup_asset(
+            bookmark=bookmark,
+            file="/etc/passwd",
+            asset_type=BookmarkAsset.TYPE_UPLOAD,
+            content_type="text/plain",
+            display_name="passwd",
+            status=BookmarkAsset.STATUS_COMPLETE,
+            gzip=False,
+        )
+
+        response = self.client.get(reverse("linkding:assets.view", args=[malicious_asset.id]))
+        self.assertEqual(response.status_code, 404)

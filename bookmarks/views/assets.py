@@ -1,21 +1,32 @@
 import gzip
-import os
+from pathlib import Path
 
 from django.conf import settings
 from django.http import (
     Http404,
     HttpResponse,
 )
-from django.shortcuts import render
 
 from bookmarks.views import access
 
 
-def _get_asset_content(asset):
-    filepath = os.path.join(settings.LD_ASSET_FOLDER, asset.file)
+def _resolve_asset_file_path(asset):
+    base_dir = Path(settings.LD_ASSET_FOLDER).resolve()
+    candidate_path = Path(asset.file)
 
-    if not os.path.exists(filepath):
+    # Prevent absolute-path reads and path traversal outside LD_ASSET_FOLDER.
+    if candidate_path.is_absolute():
         raise Http404("Asset file does not exist")
+
+    resolved_path = (base_dir / candidate_path).resolve()
+    if not resolved_path.is_file() or base_dir not in resolved_path.parents:
+        raise Http404("Asset file does not exist")
+
+    return resolved_path
+
+
+def _get_asset_content(asset):
+    filepath = _resolve_asset_file_path(asset)
 
     if asset.gzip:
         with gzip.open(filepath, "rb") as f:
@@ -44,17 +55,3 @@ def view(request, asset_id: int):
     else:
         response["Content-Security-Policy"] = "sandbox allow-scripts"
     return response
-
-
-def read(request, asset_id: int):
-    asset = access.asset_read(request, asset_id)
-    content = _get_asset_content(asset)
-    content = content.decode("utf-8")
-
-    return render(
-        request,
-        "bookmarks/read.html",
-        {
-            "content": content,
-        },
-    )

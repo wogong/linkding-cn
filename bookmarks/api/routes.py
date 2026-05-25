@@ -1,6 +1,6 @@
 import gzip
 import logging
-import os
+from pathlib import Path
 
 from django.conf import settings
 from django.http import Http404, StreamingHttpResponse
@@ -39,6 +39,21 @@ from bookmarks.services import (
 from bookmarks.type_defs import HttpRequest
 from bookmarks.utils import normalize_url
 from bookmarks.views import access
+
+
+def _resolve_asset_file_path(asset: BookmarkAsset) -> Path:
+    base_dir = Path(settings.LD_ASSET_FOLDER).resolve()
+    candidate_path = Path(asset.file)
+
+    # Prevent absolute-path reads and path traversal outside LD_ASSET_FOLDER.
+    if candidate_path.is_absolute():
+        raise Http404("Asset file does not exist")
+
+    resolved_path = (base_dir / candidate_path).resolve()
+    if not resolved_path.is_file() or base_dir not in resolved_path.parents:
+        raise Http404("Asset file does not exist")
+
+    return resolved_path
 
 logger = logging.getLogger(__name__)
 
@@ -218,15 +233,29 @@ class BookmarkViewSet(
             status=status.HTTP_201_CREATED,
         )
 
-
 class BookmarkAssetViewSet(
     viewsets.GenericViewSet,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
     mixins.DestroyModelMixin,
 ):
     request: HttpRequest
     serializer_class = BookmarkAssetSerializer
+
+    def update(self, request, *args, **kwargs):
+        allowed_fields = {"display_name"}
+        unknown_fields = set(request.data.keys()) - allowed_fields
+        if unknown_fields:
+            return Response(
+                {
+                    "detail": "Only display_name can be updated.",
+                    "invalid_fields": sorted(unknown_fields),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return super().update(request, *args, **kwargs)
 
     def get_queryset(self):
         user = self.request.user
@@ -243,19 +272,19 @@ class BookmarkAssetViewSet(
     def download(self, request: HttpRequest, bookmark_id, pk):
         asset = self.get_object()
         try:
-            file_path = os.path.join(settings.LD_ASSET_FOLDER, asset.file)
+            file_path = _resolve_asset_file_path(asset)
             content_type = asset.content_type
             file_stream = (
                 gzip.GzipFile(file_path, mode="rb")
                 if asset.gzip
-                else open(file_path, "rb")  # noqa: SIM115
+                else file_path.open("rb")
             )
             response = StreamingHttpResponse(file_stream, content_type=content_type)
             response["Content-Disposition"] = (
                 f'attachment; filename="{asset.download_name}"'
             )
             return response
-        except FileNotFoundError:
+        except (FileNotFoundError, Http404):
             raise Http404("Asset file does not exist") from None
         except Exception as e:
             logger.error(

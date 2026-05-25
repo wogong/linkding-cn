@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from unittest import mock
 
 import requests
@@ -11,6 +11,10 @@ from waybackpy.exceptions import WaybackError
 
 from bookmarks.models import BookmarkAsset, UserProfile
 from bookmarks.services import favicon_loader, tasks, website_loader
+from bookmarks.services.articles import (
+    create_article_asset_pending,
+    save_article_content,
+)
 from bookmarks.services.website_loader import WebsiteMetadata
 from bookmarks.tests.helpers import BookmarkFactoryMixin
 
@@ -1072,3 +1076,118 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
 
             with self.assertRaises(website_loader.RetryableMetadataError):
                 tasks._enrich_metadata_task.call_local(bookmark.id)
+
+
+class ArticleTasksTestCase(TestCase, BookmarkFactoryMixin):
+    def setUp(self):
+        self.setup_temp_assets_dir()
+        self.get_or_create_test_user()
+        self.snapshot_html = "<html><body><main>Snapshot article</main></body></html>"
+        self.parsed_article = {
+            "title": "Parsed page title",
+            "content": "<article>Parsed article</article>",
+            "description": "",
+            "author": "",
+            "site": "",
+            "wordCount": 2,
+        }
+
+    def _write_html_snapshot(self, _url, filepath):
+        with open(filepath, "w", encoding="utf-8") as snapshot_file:
+            snapshot_file.write(self.snapshot_html)
+
+    def test_create_article_task_retries_direct_parse_with_generated_snapshot(self):
+        bookmark = self.setup_bookmark(url="https://example.com/article")
+        article_asset = create_article_asset_pending(bookmark)
+        BookmarkAsset.objects.filter(id=article_asset.id).update(
+            date_created=datetime(2026, 5, 25, 1, 30, tzinfo=UTC)
+        )
+
+        with (
+            mock.patch(
+                "bookmarks.services.defuddle_processor.parse_url",
+                side_effect=RuntimeError("direct parse failed"),
+            ) as mock_parse_url,
+            mock.patch(
+                "bookmarks.services.defuddle_processor.parse_html",
+                return_value=self.parsed_article,
+            ) as mock_parse_html,
+            mock.patch(
+                "bookmarks.services.tasks._has_custom_snapshot_processor",
+                return_value=False,
+            ),
+            mock.patch(
+                "bookmarks.services.assets.detect_content_type",
+                return_value="text/html",
+            ),
+            mock.patch(
+                "bookmarks.services.snapshot_processor.create_snapshot",
+                side_effect=self._write_html_snapshot,
+            ),
+            timezone.override("UTC"),
+        ):
+            tasks._create_article_task.call_local(article_asset.id)
+
+        article_asset.refresh_from_db()
+        self.assertEqual(article_asset.status, BookmarkAsset.STATUS_COMPLETE)
+        self.assertEqual(article_asset.content_type, BookmarkAsset.CONTENT_TYPE_HTML)
+        self.assertTrue(article_asset.file)
+        self.assertEqual("HTML article from 2026/05/25", article_asset.display_name)
+
+        snapshot = BookmarkAsset.objects.get(asset_type=BookmarkAsset.TYPE_SNAPSHOT)
+        self.assertEqual(snapshot.status, BookmarkAsset.STATUS_COMPLETE)
+        self.assertTrue(self.has_asset_file(snapshot))
+        mock_parse_url.assert_called_once_with(bookmark.url)
+        mock_parse_html.assert_called_once_with(self.snapshot_html, url=bookmark.url)
+
+    def test_create_article_task_cleans_generated_snapshot_when_fallback_fails(self):
+        bookmark = self.setup_bookmark(url="https://example.com/article")
+        article_asset = create_article_asset_pending(bookmark)
+
+        with (
+            mock.patch(
+                "bookmarks.services.defuddle_processor.parse_url",
+                side_effect=RuntimeError("direct parse failed"),
+            ),
+            mock.patch(
+                "bookmarks.services.defuddle_processor.parse_html",
+                side_effect=RuntimeError("snapshot parse failed"),
+            ) as mock_parse_html,
+            mock.patch(
+                "bookmarks.services.tasks._has_custom_snapshot_processor",
+                return_value=False,
+            ),
+            mock.patch(
+                "bookmarks.services.assets.detect_content_type",
+                return_value="text/html",
+            ),
+            mock.patch(
+                "bookmarks.services.snapshot_processor.create_snapshot",
+                side_effect=self._write_html_snapshot,
+            ),
+        ):
+            tasks._create_article_task.call_local(article_asset.id)
+
+        self.assertFalse(BookmarkAsset.objects.filter(id=article_asset.id).exists())
+        self.assertFalse(
+            BookmarkAsset.objects.filter(asset_type=BookmarkAsset.TYPE_SNAPSHOT).exists()
+        )
+        bookmark.refresh_from_db()
+        self.assertIsNone(bookmark.latest_article)
+        self.assertIsNone(bookmark.latest_snapshot)
+        mock_parse_html.assert_called_once_with(self.snapshot_html, url=bookmark.url)
+
+    def test_save_article_content_uses_html_article_default_name_with_iso_date(self):
+        bookmark = self.setup_bookmark(url="https://example.com/article")
+        article_asset = create_article_asset_pending(bookmark)
+        article_asset.date_created = datetime(2026, 5, 25, 1, 30, tzinfo=UTC)
+
+        with timezone.override("UTC"):
+            save_article_content(
+                article_asset,
+                "<article>Content</article>",
+                title="Parsed page title",
+            )
+
+        article_asset.refresh_from_db()
+        self.assertEqual("HTML article from 2026/05/25", article_asset.display_name)

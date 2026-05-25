@@ -388,10 +388,10 @@ msgstr "标准配置"
 msgid "Processing article..."
 msgstr "正在处理文章..."
 
-#: bookmarks/services/articles.py:47
+#: bookmarks/services/articles.py:51
 #, python-format
-msgid "Article from %(timestamp)s"
-msgstr "%(timestamp)s 的文章"
+msgid "HTML article from %(timestamp)s"
+msgstr "%(timestamp)s 的 HTML 文章"
 
 #: bookmarks/services/articles.py:69
 msgid "Article"
@@ -861,8 +861,8 @@ msgid "Timed out waiting for article to be ready."
 msgstr "等待文章就绪超时。"
 
 #: bookmarks/templates/bookmarks/read_pending.html:93
-msgid "Failed to process article. Please try again."
-msgstr "文章处理失败，请重试。"
+msgid "Failed to process article. Please refresh to try again."
+msgstr "文章处理失败，请刷新页面重试。"
 
 #: bookmarks/templates/bookmarks/search.html:7
 msgid "Search for words or #tags"

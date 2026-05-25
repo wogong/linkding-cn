@@ -73,7 +73,8 @@ class AssetServiceTestCase(TestCase, BookmarkFactoryMixin):
             2023, 8, 11, 21, 45, 11, tzinfo=datetime.UTC
         )
 
-        assets.create_snapshot(asset)
+        with timezone.override("UTC"):
+            assets.create_snapshot(asset)
 
         expected_temp_filename = "snapshot_2023-08-11_214511_https___example.com.tmp"
         expected_temp_filepath = os.path.join(self.assets_dir, expected_temp_filename)
@@ -100,7 +101,7 @@ class AssetServiceTestCase(TestCase, BookmarkFactoryMixin):
         asset.refresh_from_db()
         self.assertEqual(asset.status, BookmarkAsset.STATUS_COMPLETE)
         self.assertEqual(asset.content_type, BookmarkAsset.CONTENT_TYPE_HTML)
-        self.assertIn("HTML snapshot from", asset.display_name)
+        self.assertEqual("HTML snapshot from 2023/08/11", asset.display_name)
         self.assertEqual(asset.file, expected_filename)
         self.assertTrue(asset.gzip)
 

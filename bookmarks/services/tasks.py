@@ -1,4 +1,5 @@
 import functools
+import gzip
 import logging
 import os
 import random
@@ -540,13 +541,15 @@ def create_article(bookmark: Bookmark) -> BookmarkAsset:
     return asset
 
 
-def _load_snapshot_html(bookmark: Bookmark) -> str | None:
-    """Load HTML content from the bookmark's latest snapshot, or None if unavailable."""
-    snapshot = bookmark.latest_snapshot
-    if not snapshot or snapshot.status != BookmarkAsset.STATUS_COMPLETE or not snapshot.file:
+def _load_snapshot_asset_html(snapshot: BookmarkAsset | None) -> str | None:
+    """Load HTML content from a snapshot asset, or None if unavailable."""
+    if (
+        not snapshot
+        or snapshot.status != BookmarkAsset.STATUS_COMPLETE
+        or snapshot.content_type != BookmarkAsset.CONTENT_TYPE_HTML
+        or not snapshot.file
+    ):
         return None
-
-    import gzip
 
     filepath = os.path.join(settings.LD_ASSET_FOLDER, snapshot.file)
     if not os.path.exists(filepath):
@@ -557,11 +560,19 @@ def _load_snapshot_html(bookmark: Bookmark) -> str | None:
             with gzip.open(filepath, "rb") as f:
                 return f.read().decode("utf-8")
         else:
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 return f.read()
     except Exception:
-        logger.warning(f"Failed to read snapshot for bookmark. url={bookmark.url}", exc_info=True)
+        logger.warning(
+            f"Failed to read snapshot for bookmark. url={snapshot.bookmark.url}",
+            exc_info=True,
+        )
         return None
+
+
+def _load_snapshot_html(bookmark: Bookmark) -> str | None:
+    """Load HTML content from the bookmark's latest snapshot, or None if unavailable."""
+    return _load_snapshot_asset_html(bookmark.latest_snapshot)
 
 
 def _has_custom_snapshot_processor(url: str) -> bool:
@@ -576,29 +587,31 @@ def _has_custom_snapshot_processor(url: str) -> bool:
     return config is not None
 
 
-def _create_snapshot_for_article(bookmark: Bookmark) -> str | None:
-    """Create a snapshot using custom processor and return its HTML content, or None on failure."""
+def _create_snapshot_for_article(
+    bookmark: Bookmark,
+) -> tuple[BookmarkAsset | None, str | None]:
+    """Create a snapshot for article parsing and return its asset plus HTML content."""
     asset = assets.create_snapshot_asset(bookmark)
     asset.save()
 
     try:
         assets.create_snapshot(asset)
+        asset.refresh_from_db()
         if asset.status == BookmarkAsset.STATUS_COMPLETE:
-            # Update bookmark's latest_snapshot
-            bookmark.latest_snapshot = asset
-            bookmark.date_modified = timezone.now()
-            bookmark.save(update_fields=["latest_snapshot", "date_modified"])
-            return _load_snapshot_html(bookmark)
+            return asset, _load_snapshot_asset_html(asset)
     except Exception:
-        logger.warning(f"Failed to create snapshot for article. url={bookmark.url}", exc_info=True)
+        logger.warning(
+            f"Failed to create snapshot for article. url={bookmark.url}",
+            exc_info=True,
+        )
 
-    return None
+    return asset, None
 
 
 @task(retries=2)
 def _create_article_task(asset_id: int):
     """Huey task: fetch page, run defuddle, save parsed article."""
-    from bookmarks.services.articles import save_article_content
+    from bookmarks.services.articles import remove_article, save_article_content
 
     try:
         asset = BookmarkAsset.objects.get(id=asset_id)
@@ -616,13 +629,13 @@ def _create_article_task(asset_id: int):
         logger.info(
             f"Skipping stale article task (newer pending exists). url={asset.bookmark.url}"
         )
-        asset.status = BookmarkAsset.STATUS_FAILURE
-        asset.save()
+        remove_article(asset)
         return
 
     bookmark = asset.bookmark
     logger.info(f"Create article for bookmark. url={bookmark.url}")
 
+    fallback_snapshot = None
     try:
         from bookmarks.services import defuddle_processor
 
@@ -634,22 +647,48 @@ def _create_article_task(asset_id: int):
         elif _has_custom_snapshot_processor(bookmark.url):
             # 2. Custom snapshot_processor → create snapshot first, then parse
             logger.info(f"Creating snapshot via custom processor. url={bookmark.url}")
-            raw_html = _create_snapshot_for_article(bookmark)
+            _snapshot, raw_html = _create_snapshot_for_article(bookmark)
             if not raw_html:
                 raise Exception("Failed to create snapshot via custom processor")
             result = defuddle_processor.parse_html(raw_html, url=bookmark.url)
         else:
-            # 3. No snapshot, no custom processor → let defuddle fetch URL directly
+            # 3. No snapshot, no custom processor → let defuddle fetch URL directly.
+            # If that fails, retry once from a freshly generated snapshot.
             logger.info(f"Parsing URL directly with defuddle. url={bookmark.url}")
-            result = defuddle_processor.parse_url(bookmark.url)
+            try:
+                result = defuddle_processor.parse_url(bookmark.url)
+            except Exception as direct_error:
+                logger.info(
+                    f"Direct article parsing failed; retrying via generated snapshot. url={bookmark.url}",
+                    exc_info=True,
+                )
+                fallback_snapshot, raw_html = _create_snapshot_for_article(bookmark)
+                if not raw_html:
+                    raise Exception(
+                        "Failed to create fallback snapshot for article"
+                    ) from direct_error
+                result = defuddle_processor.parse_html(raw_html, url=bookmark.url)
 
         # Save parsed content
         save_article_content(asset, result["content"], title=result["title"])
 
         logger.info(f"Successfully created article for bookmark. url={bookmark.url}")
     except Exception as error:
-        asset.status = BookmarkAsset.STATUS_FAILURE
-        asset.save()
+        if fallback_snapshot:
+            try:
+                assets.remove_asset(fallback_snapshot)
+            except Exception:
+                logger.warning(
+                    f"Failed to clean up generated snapshot after article failure. url={bookmark.url}",
+                    exc_info=True,
+                )
+        try:
+            remove_article(asset)
+        except Exception:
+            logger.warning(
+                f"Failed to clean up article asset after processing failure. url={bookmark.url}",
+                exc_info=True,
+            )
         logger.error(
             f"Failed to create article for bookmark. url={bookmark.url}",
             exc_info=error,

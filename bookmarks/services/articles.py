@@ -3,11 +3,15 @@ import logging
 import os
 
 from django.conf import settings
-from django.utils import formats, timezone
+from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from bookmarks.models import Bookmark, BookmarkAsset
-from bookmarks.services.assets import _generate_asset_filename, _save_bookmark_updates
+from bookmarks.services.assets import (
+    _format_asset_timestamp,
+    _generate_asset_filename,
+    _save_bookmark_updates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +44,11 @@ def save_article_content(asset: BookmarkAsset, html_content: str, title: str = "
     with gzip.open(filepath, "wb") as gz_file:
         gz_file.write(html_content.encode("utf-8"))
 
-    timestamp = formats.date_format(asset.date_created, "SHORT_DATE_FORMAT")
+    timestamp = _format_asset_timestamp(asset.date_created)
 
     asset.status = BookmarkAsset.STATUS_COMPLETE
     asset.content_type = BookmarkAsset.CONTENT_TYPE_HTML
-    asset.display_name = title or _("Article from %(timestamp)s") % {
+    asset.display_name = _("HTML article from %(timestamp)s") % {
         "timestamp": timestamp
     }
     asset.file = filename
@@ -106,5 +110,5 @@ def get_article_content(asset: BookmarkAsset) -> str:
         with gzip.open(filepath, "rb") as f:
             return f.read().decode("utf-8")
     else:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             return f.read()

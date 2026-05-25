@@ -783,7 +783,7 @@ def close(request: HttpRequest):
 
 @login_required
 def read(request: HttpRequest, bookmark_id: int):
-    from bookmarks.services.articles import get_article_content
+    from bookmarks.services.articles import get_article_content, remove_article
 
     bookmark = access.bookmark_read(request, bookmark_id)
 
@@ -851,6 +851,7 @@ def read(request: HttpRequest, bookmark_id: int):
             )
         elif asset.status == BookmarkAsset.STATUS_FAILURE:
             # Previous attempt failed — retry with a new asset
+            remove_article(asset)
             new_asset = tasks.create_article(bookmark)
             return render(
                 request,

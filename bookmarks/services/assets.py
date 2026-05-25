@@ -6,7 +6,7 @@ import shutil
 import requests
 from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
-from django.utils import formats, timezone
+from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from bookmarks.models import Bookmark, BookmarkAsset
@@ -30,6 +30,10 @@ class PdfTooLargeError(Exception):
 
 def _save_bookmark_updates(bookmark: Bookmark, update_fields: list[str]):
     bookmark.save(update_fields=update_fields)
+
+
+def _format_asset_timestamp(value) -> str:
+    return timezone.localtime(value).strftime("%Y/%m/%d")
 
 
 def create_snapshot_asset(bookmark: Bookmark) -> BookmarkAsset:
@@ -75,7 +79,7 @@ def _create_html_snapshot(asset: BookmarkAsset):
     # Remove temporary file
     os.remove(temp_filepath)
 
-    timestamp = formats.date_format(asset.date_created, "SHORT_DATE_FORMAT")
+    timestamp = _format_asset_timestamp(asset.date_created)
 
     asset.status = BookmarkAsset.STATUS_COMPLETE
     asset.content_type = BookmarkAsset.CONTENT_TYPE_HTML
@@ -140,7 +144,7 @@ def _create_pdf_snapshot(asset: BookmarkAsset, request_config: dict | None = Non
         ):
             shutil.copyfileobj(temp_file, gz_file)
 
-        timestamp = formats.date_format(asset.date_created, "SHORT_DATE_FORMAT")
+        timestamp = _format_asset_timestamp(asset.date_created)
 
         asset.status = BookmarkAsset.STATUS_COMPLETE
         asset.content_type = BookmarkAsset.CONTENT_TYPE_PDF
@@ -168,7 +172,7 @@ def upload_snapshot(bookmark: Bookmark, html: bytes):
         gz_file.write(html)
 
     # Only save the asset if the file was written successfully
-    timestamp = formats.date_format(asset.date_created, "SHORT_DATE_FORMAT")
+    timestamp = _format_asset_timestamp(asset.date_created)
 
     asset.status = BookmarkAsset.STATUS_COMPLETE
     asset.content_type = BookmarkAsset.CONTENT_TYPE_HTML

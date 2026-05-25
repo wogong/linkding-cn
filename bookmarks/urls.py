@@ -110,6 +110,11 @@ urlpatterns = [
         "api/bookmarks/<int:bookmark_id>/assets/",
         include(api_routes.bookmark_asset_router.urls),
     ),
+    path(
+        "api/bookmarks/<int:bookmark_id>/annotations/",
+        include(api_routes.bookmark_annotation_router.urls),
+    ),
+    path("api/annotations/", include(api_routes.annotation_router.urls)),
     path("api/tags/", include(api_routes.tag_router.urls)),
     path("api/bundles/", include(api_routes.bundle_router.urls)),
     path("api/user/", include(api_routes.user_router.urls)),

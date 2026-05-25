@@ -12,6 +12,7 @@ from rest_framework.routers import DefaultRouter, SimpleRouter
 
 from bookmarks import queries
 from bookmarks.api.serializers import (
+    AnnotationSerializer,
     BookmarkAssetSerializer,
     BookmarkBundleSerializer,
     BookmarkSerializer,
@@ -19,6 +20,7 @@ from bookmarks.api.serializers import (
     UserProfileSerializer,
 )
 from bookmarks.models import (
+    Annotation,
     Bookmark,
     BookmarkAsset,
     BookmarkBundle,
@@ -347,6 +349,54 @@ default_router = DefaultRouter()
 
 bookmark_router = SimpleRouter()
 bookmark_router.register("", BookmarkViewSet, basename="bookmark")
+
+
+class AnnotationViewSet(
+    viewsets.GenericViewSet,
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+):
+    request: HttpRequest
+    serializer_class = AnnotationSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        bookmark_id = self.kwargs.get("bookmark_id")
+        if bookmark_id:
+            bookmark = access.bookmark_read(self.request, bookmark_id)
+            return Annotation.objects.filter(
+                bookmark=bookmark, bookmark__owner=user
+            )
+        return Annotation.objects.filter(bookmark__owner=user)
+
+    def get_serializer_context(self):
+        context = {"request": self.request, "user": self.request.user}
+        if self.action == "create":
+            bookmark_id = self.kwargs.get("bookmark_id")
+            if bookmark_id:
+                context["bookmark"] = access.bookmark_write(self.request, bookmark_id)
+        return context
+
+    def perform_create(self, serializer):
+        bookmark = serializer.context.get("bookmark")
+        if bookmark is None:
+            bookmark_id = self.kwargs.get("bookmark_id")
+            bookmark = access.bookmark_write(self.request, bookmark_id)
+        serializer.save(bookmark=bookmark)
+
+    def perform_destroy(self, instance):
+        instance.delete()
+
+
+bookmark_annotation_router = SimpleRouter()
+bookmark_annotation_router.register(
+    "", AnnotationViewSet, basename="bookmark_annotation"
+)
+
+annotation_router = SimpleRouter()
+annotation_router.register("", AnnotationViewSet, basename="annotation")
 
 tag_router = SimpleRouter()
 tag_router.register("", TagViewSet, basename="tag")

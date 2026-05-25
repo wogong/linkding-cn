@@ -4,6 +4,7 @@ from rest_framework import serializers
 from rest_framework.serializers import ListSerializer
 
 from bookmarks.models import (
+    Annotation,
     Bookmark,
     BookmarkAsset,
     BookmarkBundle,
@@ -202,10 +203,21 @@ class BookmarkAssetSerializer(serializers.ModelSerializer):
             "id",
             "bookmark",
             "date_created",
+            "file",
             "file_size",
             "asset_type",
             "content_type",
             "display_name",
+            "status",
+        ]
+        read_only_fields = [
+            "id",
+            "bookmark",
+            "date_created",
+            "file",
+            "file_size",
+            "asset_type",
+            "content_type",
             "status",
         ]
 
@@ -239,3 +251,52 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
 
     version = serializers.ReadOnlyField(default=app_version)
+
+
+class AnnotationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Annotation
+        fields = [
+            "id",
+            "bookmark",
+            "article_asset",
+            "selector",
+            "selected_text",
+            "color",
+            "note_content",
+            "date_created",
+            "date_modified",
+        ]
+        read_only_fields = ["id", "bookmark", "date_created", "date_modified"]
+
+    def validate(self, attrs):
+        bookmark = attrs.get("bookmark")
+        if bookmark is None:
+            bookmark = self.context.get("bookmark")
+        if bookmark is None and self.instance is not None:
+            bookmark = self.instance.bookmark
+
+        article_asset = attrs.get("article_asset")
+        if article_asset is None and self.instance is not None:
+            article_asset = self.instance.article_asset
+
+        if not bookmark or not article_asset:
+            return attrs
+
+        if article_asset.bookmark_id != bookmark.id:
+            raise serializers.ValidationError(
+                {
+                    "article_asset": (
+                        "Article asset must belong to the same bookmark as the annotation."
+                    )
+                }
+            )
+
+        if article_asset.asset_type != BookmarkAsset.TYPE_ARTICLE:
+            raise serializers.ValidationError(
+                {
+                    "article_asset": "Article asset must have type 'article'.",
+                }
+            )
+
+        return attrs

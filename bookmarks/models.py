@@ -87,6 +87,13 @@ class Bookmark(models.Model):
         blank=True,
         related_name="latest_snapshot",
     )
+    latest_article = models.ForeignKey(
+        "BookmarkAsset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="latest_article",
+    )
 
     class Meta:
         constraints = [
@@ -146,6 +153,7 @@ def bookmark_deleted(sender, instance, **kwargs):
 class BookmarkAsset(models.Model):
     TYPE_SNAPSHOT = "snapshot"
     TYPE_UPLOAD = "upload"
+    TYPE_ARTICLE = "article"
 
     CONTENT_TYPE_HTML = "text/html"
     CONTENT_TYPE_PDF = "application/pdf"
@@ -195,6 +203,43 @@ def bookmark_asset_deleted(sender, instance, **kwargs):
                 os.remove(filepath)
             except Exception as error:
                 logger.error(f"Failed to delete asset file: {filepath}", exc_info=error)
+
+
+class Annotation(models.Model):
+    COLOR_YELLOW = "yellow"
+    COLOR_GREEN = "green"
+    COLOR_BLUE = "blue"
+    COLOR_PINK = "pink"
+    COLOR_PRIMARY = "primary"
+    COLOR_CHOICES = [
+        (COLOR_YELLOW, "Yellow"),
+        (COLOR_GREEN, "Green"),
+        (COLOR_BLUE, "Blue"),
+        (COLOR_PINK, "Pink"),
+        (COLOR_PRIMARY, "Theme"),
+    ]
+
+    bookmark = models.ForeignKey(
+        Bookmark, on_delete=models.CASCADE, related_name="annotations"
+    )
+    article_asset = models.ForeignKey(
+        BookmarkAsset, on_delete=models.CASCADE, related_name="annotations"
+    )
+    selector = models.JSONField()
+    selected_text = models.TextField()
+    color = models.CharField(
+        max_length=16, choices=COLOR_CHOICES, default=COLOR_YELLOW
+    )
+    note_content = models.TextField(blank=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_modified = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["date_created"]
+
+    def __str__(self):
+        preview = self.selected_text[:50]
+        return f"Annotation on '{self.bookmark.resolved_title}': {preview}..."
 
 
 class BookmarkBundle(models.Model):

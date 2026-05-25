@@ -276,6 +276,10 @@ def load_full_page(url: str, config: dict = None):
             url, timeout=timeout, headers=headers, cookies=cookies, proxies=proxies
         )
         response.raise_for_status()
+        # Fix encoding: let requests detect actual encoding instead of relying
+        # on potentially incorrect Content-Type header (common with Chinese sites)
+        if response.encoding and response.encoding.lower() == "iso-8859-1":
+            response.encoding = response.apparent_encoding
         return response.text
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to load page {url}: {e}")

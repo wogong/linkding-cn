@@ -529,3 +529,128 @@ def create_missing_html_snapshots(user: User) -> int:
     create_html_snapshots(list(bookmarks_without_snapshots))
 
     return bookmarks_without_snapshots.count()
+
+
+def create_article(bookmark: Bookmark) -> BookmarkAsset:
+    """Create a pending article asset and queue the defuddle task."""
+    from bookmarks.services.articles import create_article_asset_pending
+
+    asset = create_article_asset_pending(bookmark)
+    _create_article_task(asset.id)
+    return asset
+
+
+def _load_snapshot_html(bookmark: Bookmark) -> str | None:
+    """Load HTML content from the bookmark's latest snapshot, or None if unavailable."""
+    snapshot = bookmark.latest_snapshot
+    if not snapshot or snapshot.status != BookmarkAsset.STATUS_COMPLETE or not snapshot.file:
+        return None
+
+    import gzip
+
+    filepath = os.path.join(settings.LD_ASSET_FOLDER, snapshot.file)
+    if not os.path.exists(filepath):
+        return None
+
+    try:
+        if snapshot.gzip:
+            with gzip.open(filepath, "rb") as f:
+                return f.read().decode("utf-8")
+        else:
+            with open(filepath, "r", encoding="utf-8") as f:
+                return f.read()
+    except Exception:
+        logger.warning(f"Failed to read snapshot for bookmark. url={bookmark.url}", exc_info=True)
+        return None
+
+
+def _has_custom_snapshot_processor(url: str) -> bool:
+    """Check if the domain has a custom snapshot processor configured."""
+    from bookmarks.utils import search_config_for_domain
+
+    settings_path = settings.LD_CUSTOM_SNAPSHOT_PROCESSOR_SETTINGS
+    if not settings_path or not os.path.exists(settings_path):
+        return False
+
+    config = search_config_for_domain(url, settings_path)
+    return config is not None
+
+
+def _create_snapshot_for_article(bookmark: Bookmark) -> str | None:
+    """Create a snapshot using custom processor and return its HTML content, or None on failure."""
+    asset = assets.create_snapshot_asset(bookmark)
+    asset.save()
+
+    try:
+        assets.create_snapshot(asset)
+        if asset.status == BookmarkAsset.STATUS_COMPLETE:
+            # Update bookmark's latest_snapshot
+            bookmark.latest_snapshot = asset
+            bookmark.date_modified = timezone.now()
+            bookmark.save(update_fields=["latest_snapshot", "date_modified"])
+            return _load_snapshot_html(bookmark)
+    except Exception:
+        logger.warning(f"Failed to create snapshot for article. url={bookmark.url}", exc_info=True)
+
+    return None
+
+
+@task(retries=2)
+def _create_article_task(asset_id: int):
+    """Huey task: fetch page, run defuddle, save parsed article."""
+    from bookmarks.services.articles import save_article_content
+
+    try:
+        asset = BookmarkAsset.objects.get(id=asset_id)
+    except BookmarkAsset.DoesNotExist:
+        return
+
+    # LIFO dedup: if a newer pending article exists for the same bookmark, skip
+    newer_pending = BookmarkAsset.objects.filter(
+        bookmark=asset.bookmark,
+        asset_type=BookmarkAsset.TYPE_ARTICLE,
+        status=BookmarkAsset.STATUS_PENDING,
+        date_created__gt=asset.date_created,
+    ).exists()
+    if newer_pending:
+        logger.info(
+            f"Skipping stale article task (newer pending exists). url={asset.bookmark.url}"
+        )
+        asset.status = BookmarkAsset.STATUS_FAILURE
+        asset.save()
+        return
+
+    bookmark = asset.bookmark
+    logger.info(f"Create article for bookmark. url={bookmark.url}")
+
+    try:
+        from bookmarks.services import defuddle_processor
+
+        # 1. Try existing snapshot
+        raw_html = _load_snapshot_html(bookmark)
+        if raw_html:
+            logger.info(f"Using existing snapshot. url={bookmark.url}")
+            result = defuddle_processor.parse_html(raw_html, url=bookmark.url)
+        elif _has_custom_snapshot_processor(bookmark.url):
+            # 2. Custom snapshot_processor → create snapshot first, then parse
+            logger.info(f"Creating snapshot via custom processor. url={bookmark.url}")
+            raw_html = _create_snapshot_for_article(bookmark)
+            if not raw_html:
+                raise Exception("Failed to create snapshot via custom processor")
+            result = defuddle_processor.parse_html(raw_html, url=bookmark.url)
+        else:
+            # 3. No snapshot, no custom processor → let defuddle fetch URL directly
+            logger.info(f"Parsing URL directly with defuddle. url={bookmark.url}")
+            result = defuddle_processor.parse_url(bookmark.url)
+
+        # Save parsed content
+        save_article_content(asset, result["content"], title=result["title"])
+
+        logger.info(f"Successfully created article for bookmark. url={bookmark.url}")
+    except Exception as error:
+        asset.status = BookmarkAsset.STATUS_FAILURE
+        asset.save()
+        logger.error(
+            f"Failed to create article for bookmark. url={bookmark.url}",
+            exc_info=error,
+        )

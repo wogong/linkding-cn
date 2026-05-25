@@ -28,6 +28,7 @@
     "@rollup/plugin-terser": "^1.0.0",
     "@rollup/wasm-node": "^4.13.0",
     "cssnano": "^7.0.6",
+    "defuddle": "^0.18.1",
     "lit": "^3.3.1",
     "postcss": "^8.4.45",
     "postcss-cli": "^11.0.0",

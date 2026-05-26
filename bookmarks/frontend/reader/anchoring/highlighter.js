@@ -270,30 +270,7 @@ export class Highlighter {
    */
   _renderAnnotation(ann) {
     try {
-      const selector = ann.selector;
-      // Use start offset as hint for faster matching (stored alongside TextQuoteSelector)
-      const hint = typeof selector.start === "number" ? selector.start : undefined;
-
-      // Use TextQuoteAnchor for robust matching
-      const quoteSelector =
-        selector.type === "TextQuoteSelector"
-          ? selector
-          : { type: "TextQuoteSelector", exact: ann.selected_text };
-
-      const anchor = TextQuoteAnchor.fromSelector(this.root, {
-        ...quoteSelector,
-        prefix: selector.prefix,
-        suffix: selector.suffix,
-      });
-
-      let range;
-      try {
-        range = anchor.toRange({ hint });
-      } catch {
-        // Quote not found
-        console.warn(`Annotation ${ann.id}: quote not found`);
-        return false;
-      }
+      const range = this.resolveAnnotationRange(ann);
 
       if (this._useCSSHighlight) {
         this._addHighlightStyle(String(ann.id), ann.color);
@@ -311,6 +288,36 @@ export class Highlighter {
     } catch (err) {
       console.warn(`Failed to render annotation ${ann.id}:`, err);
       return false;
+    }
+  }
+
+  /**
+   * Resolve an annotation to a DOM Range in the current article content.
+   *
+   * @param {object} ann
+   * @returns {Range}
+   */
+  resolveAnnotationRange(ann) {
+    const selector = ann.selector || {};
+    try {
+      // Use start offset as hint for faster matching (stored alongside TextQuoteSelector)
+      const hint = typeof selector.start === "number" ? selector.start : undefined;
+
+      // Use TextQuoteAnchor for robust matching
+      const quoteSelector =
+        selector.type === "TextQuoteSelector"
+          ? selector
+          : { type: "TextQuoteSelector", exact: ann.selected_text };
+
+      const anchor = TextQuoteAnchor.fromSelector(this.root, {
+        ...quoteSelector,
+        prefix: selector.prefix,
+        suffix: selector.suffix,
+      });
+
+      return anchor.toRange({ hint });
+    } catch {
+      throw new Error("Quote not found");
     }
   }
 

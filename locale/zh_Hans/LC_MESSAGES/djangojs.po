@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-25 19:05+0800\n"
+"POT-Creation-Date: 2026-05-26 20:58+0800\n"
 "PO-Revision-Date: 2026-04-22 20:55+0800\n"
 "Last-Translator: Codex\n"
 "Language-Team: Simplified Chinese\n"
@@ -24,11 +24,11 @@ msgstr "名称不能为空。"
 #: bookmarks/frontend/components/asset-rename.js:122
 #: bookmarks/frontend/components/confirm-dropdown.js:77
 #: bookmarks/frontend/components/confirm-inline.js:42
-#: bookmarks/frontend/reader/reader-sidebar.js:207
-#: bookmarks/frontend/reader/reader-sidebar.js:285
-#: bookmarks/frontend/reader/reader-sidebar.js:296
-#: bookmarks/frontend/reader/reader-sidebar.js:345
-#: bookmarks/frontend/reader/reader.js:1409
+#: bookmarks/frontend/reader/reader-sidebar.js:208
+#: bookmarks/frontend/reader/reader-sidebar.js:294
+#: bookmarks/frontend/reader/reader-sidebar.js:305
+#: bookmarks/frontend/reader/reader-sidebar.js:354
+#: bookmarks/frontend/reader/reader.js:1530
 msgid "Cancel"
 msgstr "取消"
 
@@ -40,9 +40,9 @@ msgstr "确认"
 
 #: bookmarks/frontend/components/confirm-dropdown.js:65
 #: bookmarks/frontend/components/confirm-inline.js:35
-#: bookmarks/frontend/reader/reader-sidebar.js:205
-#: bookmarks/frontend/reader/reader-sidebar.js:343
-#: bookmarks/frontend/reader/reader.js:1407
+#: bookmarks/frontend/reader/reader-sidebar.js:206
+#: bookmarks/frontend/reader/reader-sidebar.js:352
+#: bookmarks/frontend/reader/reader.js:1528
 msgid "Are you sure?"
 msgstr "确认执行操作？"
 
@@ -61,8 +61,8 @@ msgstr "请检查高亮字段。"
 
 #: bookmarks/frontend/components/settings-page.js:578
 #: bookmarks/frontend/components/settings-page.js:580
-#: bookmarks/frontend/reader/reader.js:823
-#: bookmarks/frontend/reader/reader.js:856
+#: bookmarks/frontend/reader/reader.js:914
+#: bookmarks/frontend/reader/reader.js:947
 msgid "Saved"
 msgstr "已保存"
 
@@ -116,159 +116,163 @@ msgstr "粉色"
 msgid "Theme"
 msgstr "主题"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:181
-#: bookmarks/frontend/reader/reader.js:1435
+#: bookmarks/frontend/reader/reader-sidebar.js:182
+#: bookmarks/frontend/reader/reader.js:1556
 msgid "Click to add note"
 msgstr "点击添加笔记"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:185
+#: bookmarks/frontend/reader/reader-sidebar.js:186
 msgid "Change color"
 msgstr "更改颜色"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:196
+#: bookmarks/frontend/reader/reader-sidebar.js:197
 msgid "Copy"
 msgstr "复制"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:197
+#: bookmarks/frontend/reader/reader-sidebar.js:198
 msgid "Copied"
 msgstr "已复制"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:200
-#: bookmarks/frontend/reader/reader-sidebar.js:208
-#: bookmarks/frontend/reader/reader.js:1410
+#: bookmarks/frontend/reader/reader-sidebar.js:201
+#: bookmarks/frontend/reader/reader-sidebar.js:209
+#: bookmarks/frontend/reader/reader.js:1531
 msgid "Delete"
 msgstr "删除"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:219
+#: bookmarks/frontend/reader/reader-sidebar.js:220
 msgid "No highlights yet"
 msgstr "暂无高亮"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:219
+#: bookmarks/frontend/reader/reader-sidebar.js:220
 msgid "Select text in the article to add highlights"
 msgstr "选中文章文本即可添加高亮"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:222
+#: bookmarks/frontend/reader/reader-sidebar.js:225
 msgid "%(count)s highlight"
 msgid_plural "%(count)s highlights"
 msgstr[0] "%(count)s 条高亮"
 msgstr[1] "%(count)s 条高亮"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:226
+#: bookmarks/frontend/reader/reader-sidebar.js:229
 msgid "%(count)s note"
 msgid_plural "%(count)s notes"
 msgstr[0] "%(count)s 条笔记"
 msgstr[1] "%(count)s 条笔记"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:239
+#: bookmarks/frontend/reader/reader-sidebar.js:236
+msgid "The following highlights and notes could not be located"
+msgstr "以下高亮批注无法定位"
+
+#: bookmarks/frontend/reader/reader-sidebar.js:248
 msgid "Preview"
 msgstr "预览"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:243
+#: bookmarks/frontend/reader/reader-sidebar.js:252
 msgid "Click to edit title"
 msgstr "点击编辑标题"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:257
+#: bookmarks/frontend/reader/reader-sidebar.js:266
 msgid "Added %(time)s"
 msgstr "添加于 %(time)s"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:258
+#: bookmarks/frontend/reader/reader-sidebar.js:267
 msgid "Modified %(time)s"
 msgstr "修改于 %(time)s"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:266
+#: bookmarks/frontend/reader/reader-sidebar.js:275
 msgid "tag1 tag2 ..."
 msgstr "标签1 标签2 ..."
 
-#: bookmarks/frontend/reader/reader-sidebar.js:270
+#: bookmarks/frontend/reader/reader-sidebar.js:279
 msgid "Click to edit tags"
 msgstr "点击编辑标签"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:277
+#: bookmarks/frontend/reader/reader-sidebar.js:286
 msgid "Unread"
 msgstr "未读"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:278
+#: bookmarks/frontend/reader/reader-sidebar.js:287
 msgid "Shared"
 msgstr "已分享"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:283
+#: bookmarks/frontend/reader/reader-sidebar.js:292
 msgid "Archive bookmark?"
 msgstr "归档此书签？"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:286
+#: bookmarks/frontend/reader/reader-sidebar.js:295
 msgid "Archive"
 msgstr "归档"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:289
+#: bookmarks/frontend/reader/reader-sidebar.js:298
 msgid "Archive bookmark"
 msgstr "归档书签"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:294
+#: bookmarks/frontend/reader/reader-sidebar.js:303
 msgid "Move to trash?"
 msgstr "移到回收站？"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:297
+#: bookmarks/frontend/reader/reader-sidebar.js:306
 msgid "Trash"
 msgstr "回收站"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:300
+#: bookmarks/frontend/reader/reader-sidebar.js:309
 msgid "Delete bookmark"
 msgstr "删除书签"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:305
+#: bookmarks/frontend/reader/reader-sidebar.js:314
 msgid "Description"
 msgstr "描述"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:307
+#: bookmarks/frontend/reader/reader-sidebar.js:316
 msgid "Click to edit description"
 msgstr "点击编辑描述"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:313
+#: bookmarks/frontend/reader/reader-sidebar.js:322
 msgid "Notes"
 msgstr "笔记"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:315
+#: bookmarks/frontend/reader/reader-sidebar.js:324
 msgid "Click to edit notes"
 msgstr "点击编辑笔记"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:321
+#: bookmarks/frontend/reader/reader-sidebar.js:330
 msgid "Files"
 msgstr "文件"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:325
+#: bookmarks/frontend/reader/reader-sidebar.js:334
 msgid "File"
 msgstr "文件"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:330
+#: bookmarks/frontend/reader/reader-sidebar.js:339
 msgid "queued"
 msgstr "排队中"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:330
+#: bookmarks/frontend/reader/reader-sidebar.js:339
 msgid "failed"
 msgstr "失败"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:334
+#: bookmarks/frontend/reader/reader-sidebar.js:343
 msgid "Rename"
 msgstr "重命名"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:337
+#: bookmarks/frontend/reader/reader-sidebar.js:346
 msgid "Cannot delete article asset"
 msgstr "无法删除文章资产"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:337
 #: bookmarks/frontend/reader/reader-sidebar.js:346
+#: bookmarks/frontend/reader/reader-sidebar.js:355
 msgid "Remove"
 msgstr "移除"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:353
+#: bookmarks/frontend/reader/reader-sidebar.js:362
 msgid "No files"
 msgstr "暂无文件"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:363
+#: bookmarks/frontend/reader/reader-sidebar.js:372
 msgid "Highlights"
 msgstr "高亮"
 
-#: bookmarks/frontend/reader/reader-sidebar.js:366
+#: bookmarks/frontend/reader/reader-sidebar.js:375
 msgid "Details"
 msgstr "详情"
 
@@ -322,7 +326,7 @@ msgid "Line Height"
 msgstr "行高"
 
 #: bookmarks/frontend/reader/reader-toolbar.js:538
-#: bookmarks/frontend/reader/reader.js:95
+#: bookmarks/frontend/reader/reader.js:142
 msgid "Reader"
 msgstr "阅读模式"
 
@@ -342,38 +346,48 @@ msgstr "阅读设置"
 msgid "Toggle sidebar"
 msgstr "切换侧边栏"
 
-#: bookmarks/frontend/reader/reader.js:814
-#: bookmarks/frontend/reader/reader.js:839
+#: bookmarks/frontend/reader/reader.js:905
+#: bookmarks/frontend/reader/reader.js:930
 msgid "Saving..."
 msgstr "保存中..."
 
-#: bookmarks/frontend/reader/reader.js:825
-#: bookmarks/frontend/reader/reader.js:828
-#: bookmarks/frontend/reader/reader.js:861
-#: bookmarks/frontend/reader/reader.js:864
+#: bookmarks/frontend/reader/reader.js:916
+#: bookmarks/frontend/reader/reader.js:919
+#: bookmarks/frontend/reader/reader.js:952
+#: bookmarks/frontend/reader/reader.js:955
 msgid "Save failed"
 msgstr "保存失败"
 
-#: bookmarks/frontend/reader/reader.js:1354
+#: bookmarks/frontend/reader/reader.js:1475
 msgid "Highlight actions"
 msgstr "高亮操作"
 
-#: bookmarks/frontend/reader/reader.js:1372
+#: bookmarks/frontend/reader/reader.js:1493
 msgid "Highlight: %(color)s"
 msgstr "高亮：%(color)s"
 
-#: bookmarks/frontend/reader/reader.js:1373
+#: bookmarks/frontend/reader/reader.js:1494
 msgid "Highlight with %(color)s"
 msgstr "使用 %(color)s 高亮"
 
-#: bookmarks/frontend/reader/reader.js:1392
-#: bookmarks/frontend/reader/reader.js:1393
+#: bookmarks/frontend/reader/reader.js:1513
+#: bookmarks/frontend/reader/reader.js:1514
 msgid "Remove highlight"
 msgstr "移除高亮"
 
-#: bookmarks/frontend/reader/reader.js:1437
+#: bookmarks/frontend/reader/reader.js:1558
 msgid "Annotation note"
 msgstr "批注笔记"
+
+#, fuzzy
+#~| msgid "Saving..."
+#~ msgid "saving"
+#~ msgstr "保存中..."
+
+#, fuzzy
+#~| msgid "Saved"
+#~ msgid "saved"
+#~ msgstr "已保存"
 
 #~ msgid "No"
 #~ msgstr "否"

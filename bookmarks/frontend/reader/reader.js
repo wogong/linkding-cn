@@ -1,6 +1,6 @@
 import Defuddle from "defuddle";
 import { Highlighter, HIGHLIGHT_COLORS } from "./anchoring/highlighter";
-import { TextQuoteAnchor } from "./anchoring/index";
+import { describeRange, TextQuoteAnchor } from "./anchoring/index";
 import { READER_ICONS } from "./reader-icons";
 import { gettext, interpolate } from "../utils/i18n.js";
 import "./reader-toolbar.js";
@@ -32,6 +32,53 @@ function normalizeBaseUrl(baseUrl) {
 
 function joinPath(baseUrl, path) {
   return `${normalizeBaseUrl(baseUrl)}${String(path || "").replace(/^\/+/, "")}`;
+}
+
+async function patchAnnotation(apiBase, id, updates) {
+  const response = await fetch(joinPath(apiBase, `annotations/${id}/`), {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCSRFToken(),
+    },
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) throw new Error(`API error: ${response.status}`);
+  return response.json();
+}
+
+async function deleteAnnotation(apiBase, id) {
+  const response = await fetch(joinPath(apiBase, `annotations/${id}/`), {
+    method: "DELETE",
+    headers: { "X-CSRFToken": getCSRFToken() },
+  });
+  if (!response.ok) throw new Error(`API error: ${response.status}`);
+}
+
+function normalizeAnnotationText(text) {
+  return String(text || "").replace(/\s+/g, " ").trim();
+}
+
+function isConfidentAnnotationRange(ann, range) {
+  const rangeText = normalizeAnnotationText(range.toString());
+  const selector = ann.selector || {};
+  const exactText = normalizeAnnotationText(selector.exact);
+  const selectedText = normalizeAnnotationText(ann.selected_text);
+  return rangeText && (rangeText === exactText || rangeText === selectedText);
+}
+
+async function restoreAnnotationToAsset(highlighter, apiBase, assetId, ann) {
+  const range = highlighter.resolveAnnotationRange(ann);
+  if (!isConfidentAnnotationRange(ann, range)) {
+    throw new Error("Resolved range did not match stored annotation text");
+  }
+
+  const { position, quote } = describeRange(highlighter.root, range);
+  return patchAnnotation(apiBase, ann.id, {
+    article_asset: assetId,
+    selector: { ...quote, start: position.start, end: position.end },
+    selected_text: range.toString(),
+  });
 }
 
 /**
@@ -308,7 +355,8 @@ function initHighlighter(contentEl, bookmarkId, assetId, sidebar, apiBase) {
 
   // Sync annotations to sidebar
   highlighter.onChange((annotations) => {
-    sidebar.annotations = Array.from(annotations.values());
+    const unresolved = (sidebar.annotations || []).filter((ann) => ann._unresolved);
+    sidebar.annotations = [...Array.from(annotations.values()), ...unresolved];
   });
 
   function getReaderScrollContainer() {
@@ -377,22 +425,16 @@ function initHighlighter(contentEl, bookmarkId, assetId, sidebar, apiBase) {
       const ann = highlighter.annotations.get(String(id));
       if (!ann) return;
       try {
-        const selector = ann.selector;
-        const anchor = TextQuoteAnchor.fromSelector(contentEl, {
-          exact: selector.exact || ann.selected_text,
-          prefix: selector.prefix,
-          suffix: selector.suffix,
-        });
-        const hint =
-          typeof selector.start === "number" ? selector.start : undefined;
-        const range = anchor.toRange({ hint });
+        const range = highlighter.resolveAnnotationRange(ann);
         // Scroll to exact range position instead of parent element center.
         scrollRangeIntoReaderView(range);
       } catch {
         console.warn(`Could not locate annotation ${id}`);
       }
     } else if (action === "copy") {
-      const ann = highlighter.annotations.get(String(id));
+      const ann =
+        highlighter.annotations.get(String(id)) ||
+        (sidebar.annotations || []).find((item) => String(item.id) === String(id));
       if (ann) {
         let text = ann.selected_text;
         if (ann.note_content) {
@@ -412,11 +454,60 @@ function initHighlighter(contentEl, bookmarkId, assetId, sidebar, apiBase) {
         }
       }
     } else if (action === "edit-note") {
-      await highlighter.updateAnnotation(String(id), { note_content: note });
+      const unresolvedAnn = (sidebar.annotations || []).find(
+        (item) => String(item.id) === String(id) && item._unresolved
+      );
+      if (unresolvedAnn) {
+        try {
+          const updated = await patchAnnotation(apiBase, id, { note_content: note });
+          sidebar.annotations = (sidebar.annotations || []).map((item) =>
+            String(item.id) === String(id)
+              ? { ...updated, _unresolved: true }
+              : item
+          );
+        } catch (err) {
+          console.error("Failed to update annotation:", err);
+        }
+      } else {
+        await highlighter.updateAnnotation(String(id), { note_content: note });
+      }
     } else if (action === "delete") {
-      await highlighter.deleteAnnotation(String(id));
+      const unresolvedAnn = (sidebar.annotations || []).find(
+        (item) => String(item.id) === String(id) && item._unresolved
+      );
+      if (unresolvedAnn) {
+        try {
+          await deleteAnnotation(apiBase, id);
+          sidebar.annotations = (sidebar.annotations || []).filter(
+            (item) => String(item.id) !== String(id)
+          );
+          highlighter.annotations.delete(String(id));
+        } catch (err) {
+          console.error("Failed to delete annotation:", err);
+        }
+      } else {
+        await highlighter.deleteAnnotation(String(id));
+      }
     } else if (action === "change-color") {
-      await highlighter.updateAnnotation(String(id), { color: e.detail.color });
+      const unresolvedAnn = (sidebar.annotations || []).find(
+        (item) => String(item.id) === String(id) && item._unresolved
+      );
+      if (unresolvedAnn) {
+        try {
+          const updated = await patchAnnotation(apiBase, id, {
+            color: e.detail.color,
+          });
+          sidebar.annotations = (sidebar.annotations || []).map((item) =>
+            String(item.id) === String(id)
+              ? { ...updated, _unresolved: true }
+              : item
+          );
+        } catch (err) {
+          console.error("Failed to update annotation:", err);
+        }
+      } else {
+        await highlighter.updateAnnotation(String(id), { color: e.detail.color });
+      }
     }
   });
 
@@ -984,7 +1075,7 @@ async function resizeNoteInput() {
     positionPopup(popup, state.anchorRect, state.anchorClientX);
   }
 
-  loadAnnotations(highlighter, apiBase, bookmarkId, assetId);
+  loadAnnotations(highlighter, apiBase, bookmarkId, assetId, sidebar);
 
   // --- Text selection ---
   document.addEventListener("selectionchange", () => {
@@ -1308,9 +1399,10 @@ async function resizeNoteInput() {
 /**
  * Load annotations from the API.
  */
-async function loadAnnotations(highlighter, apiBase, bookmarkId, assetId) {
+async function loadAnnotations(highlighter, apiBase, bookmarkId, assetId, sidebar) {
   if (!bookmarkId || Number(assetId) <= 0) {
     highlighter.load([]);
+    if (sidebar) sidebar.annotations = [];
     return;
   }
 
@@ -1322,10 +1414,39 @@ async function loadAnnotations(highlighter, apiBase, bookmarkId, assetId) {
 
     const data = await response.json();
     const annotations = Array.isArray(data) ? data : data.results || [];
-    const assetAnnotations = annotations.filter(
-      (a) => a.article_asset == assetId
-    );
-    highlighter.load(assetAnnotations);
+    const currentAssetId = Number(assetId);
+    const currentAnnotations = [];
+    const unresolvedAnnotations = [];
+
+    for (const ann of annotations) {
+      if (Number(ann.article_asset) === currentAssetId) {
+        currentAnnotations.push(ann);
+        continue;
+      }
+      if (ann.article_asset !== null && ann.article_asset !== undefined) {
+        continue;
+      }
+
+      try {
+        const restored = await restoreAnnotationToAsset(
+          highlighter,
+          apiBase,
+          currentAssetId,
+          ann
+        );
+        currentAnnotations.push(restored);
+      } catch {
+        unresolvedAnnotations.push({ ...ann, _unresolved: true });
+      }
+    }
+
+    highlighter.load(currentAnnotations);
+    if (sidebar) {
+      sidebar.annotations = [
+        ...Array.from(highlighter.annotations.values()),
+        ...unresolvedAnnotations,
+      ];
+    }
   } catch (err) {
     console.error("Failed to load annotations:", err);
   }

@@ -861,6 +861,21 @@ html.reader-mode {
     background: var(--body-color-contrast);
   }
 
+  .annotation-item--unresolved {
+    opacity: 0.72;
+  }
+
+  .annotation-item--unresolved .annotation-text {
+    cursor: default;
+  }
+
+  .annotation-unresolved-divider {
+    padding: var(--unit-3) var(--unit-3) var(--unit-2);
+    border-top: 1px solid var(--secondary-border-color);
+    color: var(--secondary-text-color);
+    font-size: 0.72rem;
+  }
+
   .annotation-text-row {
     display: flex;
     gap: var(--unit-2);

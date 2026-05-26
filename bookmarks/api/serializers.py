@@ -1,5 +1,6 @@
 from django.db.models import prefetch_related_objects
 from django.templatetags.static import static
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework.serializers import ListSerializer
 
@@ -280,13 +281,22 @@ class AnnotationSerializer(serializers.ModelSerializer):
         if article_asset is None and self.instance is not None:
             article_asset = self.instance.article_asset
 
-        if not bookmark or not article_asset:
+        if not bookmark:
+            return attrs
+
+        if article_asset is None:
+            if self.instance is None:
+                raise serializers.ValidationError(
+                    {
+                        "article_asset": _("Article asset is required."),
+                    }
+                )
             return attrs
 
         if article_asset.bookmark_id != bookmark.id:
             raise serializers.ValidationError(
                 {
-                    "article_asset": (
+                    "article_asset": _(
                         "Article asset must belong to the same bookmark as the annotation."
                     )
                 }
@@ -295,7 +305,7 @@ class AnnotationSerializer(serializers.ModelSerializer):
         if article_asset.asset_type != BookmarkAsset.TYPE_ARTICLE:
             raise serializers.ValidationError(
                 {
-                    "article_asset": "Article asset must have type 'article'.",
+                    "article_asset": _("Article asset must have type 'article'."),
                 }
             )
 

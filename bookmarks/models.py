@@ -223,7 +223,11 @@ class Annotation(models.Model):
         Bookmark, on_delete=models.CASCADE, related_name="annotations"
     )
     article_asset = models.ForeignKey(
-        BookmarkAsset, on_delete=models.CASCADE, related_name="annotations"
+        BookmarkAsset,
+        on_delete=models.SET_NULL,
+        related_name="annotations",
+        null=True,
+        blank=True,
     )
     selector = models.JSONField()
     selected_text = models.TextField()

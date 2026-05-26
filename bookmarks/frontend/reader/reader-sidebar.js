@@ -167,15 +167,16 @@ export class ReaderSidebar extends LitElement {
   // ---- Render ----
 
   _renderAnnotationItem(ann) {
+    const unresolved = !!ann._unresolved;
     const colorBg = HIGHLIGHT_COLORS[ann.color]?.bg || HIGHLIGHT_COLORS.yellow.bg;
     const colorSolid = colorBg.includes("color-mix(")
       ? colorBg
       : colorBg.replace(/[\d.]+\)$/, "0.8)");
     return html`
-      <div class="annotation-item" data-id="${ann.id}">
+      <div class="annotation-item ${unresolved ? "annotation-item--unresolved" : ""}" data-id="${ann.id}">
         <div class="annotation-text-row">
           <div class="annotation-color-bar" style="background-color: ${colorBg}"></div>
-          <div class="annotation-text" @click=${() => this._emitAnn(ann.id, "jump")}>${ann.selected_text}</div>
+          <div class="annotation-text" @click=${() => { if (!unresolved) this._emitAnn(ann.id, "jump"); }}>${ann.selected_text}</div>
         </div>
         <textarea class="annotation-textarea" .value=${ann.note_content || ""}
           placeholder=${gettext("Click to add note")} rows="1"
@@ -217,6 +218,8 @@ export class ReaderSidebar extends LitElement {
 
   _renderAnnotationsTab() {
     if (!this.annotations?.length) return html`<div class="sidebar-empty"><span class="sidebar-empty-icon" .innerHTML=${READER_ICONS["empty"]}></span><p>${gettext("No highlights yet")}</p><p class="sidebar-empty-hint">${gettext("Select text in the article to add highlights")}</p></div>`;
+    const located = this.annotations.filter(a => !a._unresolved);
+    const unresolved = this.annotations.filter(a => a._unresolved);
     const nc = this.annotations.filter(a => a.note_content).length;
     const highlightsText = interpolate(
       ngettext("%(count)s highlight", "%(count)s highlights", this.annotations.length),
@@ -227,7 +230,13 @@ export class ReaderSidebar extends LitElement {
       : "";
     return html`
       <div class="sidebar-section-header"><span>${highlightsText}${notesText}</span></div>
-      <div class="annotation-list">${repeat(this.annotations, a => a.id, a => this._renderAnnotationItem(a))}</div>
+      <div class="annotation-list">
+        ${repeat(located, a => a.id, a => this._renderAnnotationItem(a))}
+        ${unresolved.length ? html`
+          <div class="annotation-unresolved-divider">${gettext("The following highlights and notes could not be located")}</div>
+          ${repeat(unresolved, a => a.id, a => this._renderAnnotationItem(a))}
+        ` : html``}
+      </div>
     `;
   }
 

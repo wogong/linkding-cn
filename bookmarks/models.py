@@ -246,6 +246,52 @@ class Annotation(models.Model):
         return f"Annotation on '{self.bookmark.resolved_title}': {preview}..."
 
 
+class ReadingProgress(models.Model):
+    """每用户每书签的阅读进度，用于恢复阅读位置。"""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    bookmark = models.ForeignKey(
+        Bookmark, on_delete=models.CASCADE, related_name="reading_progress"
+    )
+    article_asset = models.ForeignKey(
+        BookmarkAsset, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    # 文字锚点：视口顶部文字在正文 textContent 中的字符偏移
+    text_position_start = models.IntegerField(null=True, blank=True)
+    # 文字锚点：用于跨布局精确恢复的 TextQuoteSelector 字段
+    text_quote_exact = models.CharField(max_length=1024, blank=True, default="")
+    text_quote_prefix = models.CharField(max_length=512, blank=True, default="")
+    text_quote_suffix = models.CharField(max_length=512, blank=True, default="")
+    # 元素锚点：视口顶部为非文字元素（如 IMG）时，记录元素特征用于跨布局恢复
+    element_selector = models.JSONField(null=True, blank=True)
+    # 滚动比值（scrollTop / scrollableHeight），设备无关的阅读百分比
+    progress = models.FloatField(
+        default=0,
+        validators=[MinValueValidator(0)],
+    )
+    # 滚动位置快照，同布局恢复时像素级精确
+    scroll_top = models.IntegerField(default=0)
+    scroll_height = models.IntegerField(default=0)
+    client_width = models.IntegerField(default=0)
+    client_height = models.IntegerField(default=0)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_modified = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "bookmark"],
+                name="unique_reading_progress_per_user_bookmark",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"Reading progress for {self.user.username} on "
+            f"{self.bookmark.resolved_title}: {self.progress:.2%}"
+        )
+
+
 class BookmarkBundle(models.Model):
     name = models.CharField(max_length=256, blank=False)
     search = models.CharField(max_length=256, blank=True)

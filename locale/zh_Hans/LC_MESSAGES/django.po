@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-26 20:57+0800\n"
+"POT-Creation-Date: 2026-05-27 11:03+0800\n"
 "PO-Revision-Date: 2026-04-22 20:55+0800\n"
 "Last-Translator: Codex\n"
 "Language-Team: Simplified Chinese\n"
@@ -83,17 +83,21 @@ msgid ""
 "Invalid token header. Token string should not contain invalid characters."
 msgstr "无效的令牌请求头。令牌字符串不应包含无效字符。"
 
-#: bookmarks/api/serializers.py:291
+#: bookmarks/api/routes.py:505
+msgid "Reading progress has been updated elsewhere."
+msgstr "阅读进度已在其他位置更新。"
+
+#: bookmarks/api/serializers.py:292
 msgid "Article asset is required."
 msgstr "必须提供文章资产。"
 
-#: bookmarks/api/serializers.py:300
+#: bookmarks/api/serializers.py:301
 msgid "Article asset must belong to the same bookmark as the annotation."
 msgstr "文章资产必须与该批注属于同一个书签。"
 
-#: bookmarks/api/serializers.py:308
-msgid "Article asset must have type 'article'."
-msgstr "文章资产的类型必须是“article”。"
+#: bookmarks/api/serializers.py:309 bookmarks/api/serializers.py:359
+msgid “Article asset must have type 'article'.”
+msgstr “文章资产的类型必须是”article”。”
 
 #: bookmarks/forms.py:117
 msgid "A bookmark with this URL already exists."
@@ -179,165 +183,165 @@ msgstr "请至少输入一个要合并的标签。"
 msgid "The target tag cannot be selected for merging."
 msgstr "目标标签不能包含在待合并标签中。"
 
-#: bookmarks/models.py:260 bookmarks/templates/bundles/form.html:75
+#: bookmarks/models.py:294 bookmarks/templates/bundles/form.html:75
 msgid "Show bookmark count"
 msgstr "显示书签数"
 
-#: bookmarks/models.py:264
+#: bookmarks/models.py:298
 msgid "Search parameters"
 msgstr "搜索参数"
 
-#: bookmarks/models.py:628
+#: bookmarks/models.py:662
 msgid "Added ↑"
 msgstr "添加时间 ↑"
 
-#: bookmarks/models.py:629
+#: bookmarks/models.py:663
 msgid "Added ↓"
 msgstr "添加时间 ↓"
 
-#: bookmarks/models.py:630
+#: bookmarks/models.py:664
 msgid "Title ↑"
 msgstr "标题 ↑"
 
-#: bookmarks/models.py:631
+#: bookmarks/models.py:665
 msgid "Title ↓"
 msgstr "标题 ↓"
 
-#: bookmarks/models.py:632
+#: bookmarks/models.py:666
 msgid "Random"
 msgstr "随机"
 
-#: bookmarks/models.py:635 bookmarks/models.py:640 bookmarks/models.py:645
-#: bookmarks/models.py:650 bookmarks/models.py:655
+#: bookmarks/models.py:669 bookmarks/models.py:674 bookmarks/models.py:679
+#: bookmarks/models.py:684 bookmarks/models.py:689
 msgid "Off"
 msgstr "关闭"
 
-#: bookmarks/models.py:636 bookmarks/templates/bookmarks/details/form.html:62
+#: bookmarks/models.py:670 bookmarks/templates/bookmarks/details/form.html:62
 msgid "Shared"
 msgstr "已分享"
 
-#: bookmarks/models.py:637
+#: bookmarks/models.py:671
 msgid "Unshared"
 msgstr "未分享"
 
-#: bookmarks/models.py:641 bookmarks/templates/bookmarks/details/form.html:54
+#: bookmarks/models.py:675 bookmarks/templates/bookmarks/details/form.html:54
 msgid "Unread"
 msgstr "未读"
 
-#: bookmarks/models.py:642
+#: bookmarks/models.py:676
 msgid "Read"
 msgstr "已读"
 
-#: bookmarks/models.py:646
+#: bookmarks/models.py:680
 msgid "Tagged"
 msgstr "已打标签"
 
-#: bookmarks/models.py:647
+#: bookmarks/models.py:681
 msgid "Untagged"
 msgstr "未打标签"
 
-#: bookmarks/models.py:651
+#: bookmarks/models.py:685
 msgid "Has"
 msgstr "有"
 
-#: bookmarks/models.py:652
+#: bookmarks/models.py:686
 msgid "Missing"
 msgstr "无"
 
-#: bookmarks/models.py:656
+#: bookmarks/models.py:690
 msgid "Added"
 msgstr "添加时间"
 
-#: bookmarks/models.py:657
+#: bookmarks/models.py:691
 msgid "Modified"
 msgstr "修改时间"
 
-#: bookmarks/models.py:660 bookmarks/models.py:761
+#: bookmarks/models.py:694 bookmarks/models.py:795
 msgid "Absolute"
 msgstr "绝对"
 
-#: bookmarks/models.py:661 bookmarks/models.py:760
+#: bookmarks/models.py:695 bookmarks/models.py:794
 msgid "Relative"
 msgstr "相对"
 
-#: bookmarks/models.py:716
+#: bookmarks/models.py:750
 msgid "Everyone"
 msgstr "所有人"
 
-#: bookmarks/models.py:744
+#: bookmarks/models.py:778
 msgid "English"
 msgstr "英语"
 
-#: bookmarks/models.py:745
+#: bookmarks/models.py:779
 msgid "Simplified Chinese"
 msgstr "简体中文"
 
-#: bookmarks/models.py:751
+#: bookmarks/models.py:785
 msgid "Auto"
 msgstr "自动"
 
-#: bookmarks/models.py:752
+#: bookmarks/models.py:786
 msgid "Light"
 msgstr "浅色"
 
-#: bookmarks/models.py:753
+#: bookmarks/models.py:787
 msgid "Dark"
 msgstr "深色"
 
-#: bookmarks/models.py:759
+#: bookmarks/models.py:793
 msgid "Hidden"
 msgstr "隐藏"
 
-#: bookmarks/models.py:766
+#: bookmarks/models.py:800
 msgid "Inline"
 msgstr "同行"
 
-#: bookmarks/models.py:767
+#: bookmarks/models.py:801
 msgid "Separate"
 msgstr "分行"
 
-#: bookmarks/models.py:772
+#: bookmarks/models.py:806
 msgid "New page"
 msgstr "新页面"
 
-#: bookmarks/models.py:773
+#: bookmarks/models.py:807
 msgid "Same page"
 msgstr "当前页面"
 
-#: bookmarks/models.py:778 bookmarks/models.py:791 bookmarks/models.py:1020
+#: bookmarks/models.py:812 bookmarks/models.py:825 bookmarks/models.py:1054
 msgid "Disabled"
 msgstr "禁用"
 
-#: bookmarks/models.py:779
+#: bookmarks/models.py:813
 msgid "Enabled"
 msgstr "启用"
 
-#: bookmarks/models.py:784
+#: bookmarks/models.py:818
 msgid "Strict"
 msgstr "严格"
 
-#: bookmarks/models.py:785
+#: bookmarks/models.py:819
 msgid "Lax"
 msgstr "宽松"
 
-#: bookmarks/models.py:790
+#: bookmarks/models.py:824
 msgid "Alphabetical"
 msgstr "首字母"
 
-#: bookmarks/models.py:798
+#: bookmarks/models.py:832
 msgid "User summary"
 msgstr "用户数据"
 
-#: bookmarks/models.py:799 bookmarks/templates/bundles/index.html:15
+#: bookmarks/models.py:833 bookmarks/templates/bundles/index.html:15
 msgid "Filters"
 msgstr "过滤器"
 
-#: bookmarks/models.py:800
+#: bookmarks/models.py:834
 #: bookmarks/templates/bookmarks/sidebar/modules/domains/index.html:7
 msgid "Domains"
 msgstr "域名"
 
-#: bookmarks/models.py:801 bookmarks/templates/bookmarks/details/form.html:77
+#: bookmarks/models.py:835 bookmarks/templates/bookmarks/details/form.html:77
 #: bookmarks/templates/bookmarks/form.html:26
 #: bookmarks/templates/bookmarks/sidebar/modules/tags/index.html:7
 #: bookmarks/templates/bundles/form.html:27
@@ -345,35 +349,35 @@ msgstr "域名"
 msgid "Tags"
 msgstr "标签"
 
-#: bookmarks/models.py:882 bookmarks/views/contexts.py:402
+#: bookmarks/models.py:916 bookmarks/views/contexts.py:402
 msgid "Calendar"
 msgstr "日历图"
 
-#: bookmarks/models.py:883 bookmarks/views/contexts.py:395
+#: bookmarks/models.py:917 bookmarks/views/contexts.py:395
 msgid "Heatmap"
 msgstr "热力图"
 
-#: bookmarks/models.py:898
+#: bookmarks/models.py:932
 msgid "Full"
 msgstr "完整"
 
-#: bookmarks/models.py:899
+#: bookmarks/models.py:933
 msgid "Icon"
 msgstr "图标"
 
-#: bookmarks/models.py:1021
+#: bookmarks/models.py:1055
 msgid "Private sharing"
 msgstr "私密分享"
 
-#: bookmarks/models.py:1022
+#: bookmarks/models.py:1056
 msgid "Public sharing"
 msgstr "公开分享"
 
-#: bookmarks/models.py:1104
+#: bookmarks/models.py:1138
 msgid "Invalid sidebar configuration."
 msgstr "无效的侧边栏配置。"
 
-#: bookmarks/models.py:1172
+#: bookmarks/models.py:1206
 msgid ""
 "This version replaces the search engine with a new implementation that "
 "supports logical operators (and, or, not). If you run into any issues with "
@@ -383,15 +387,15 @@ msgstr ""
 "此版本将搜索引擎替换为支持逻辑运算符（and、or、not）的新实现。如果你在新搜索"
 "中遇到问题，可在设置中启用搜索的 兼容模式 切回旧版。"
 
-#: bookmarks/models.py:1234
+#: bookmarks/models.py:1268
 msgid "Login page"
 msgstr "登录页"
 
-#: bookmarks/models.py:1235
+#: bookmarks/models.py:1269
 msgid "Shared page"
 msgstr "分享页"
 
-#: bookmarks/models.py:1270
+#: bookmarks/models.py:1304
 msgid "Standard profile"
 msgstr "标准配置"
 

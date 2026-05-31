@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-26 20:58+0800\n"
+"POT-Creation-Date: 2026-05-27 00:15+0800\n"
 "PO-Revision-Date: 2026-04-22 20:55+0800\n"
 "Last-Translator: Codex\n"
 "Language-Team: Simplified Chinese\n"
@@ -28,7 +28,8 @@ msgstr "名称不能为空。"
 #: bookmarks/frontend/reader/reader-sidebar.js:294
 #: bookmarks/frontend/reader/reader-sidebar.js:305
 #: bookmarks/frontend/reader/reader-sidebar.js:354
-#: bookmarks/frontend/reader/reader.js:1530
+#: bookmarks/frontend/reader/reader.js:228
+#: bookmarks/frontend/reader/reader.js:1834
 msgid "Cancel"
 msgstr "取消"
 
@@ -42,7 +43,7 @@ msgstr "确认"
 #: bookmarks/frontend/components/confirm-inline.js:35
 #: bookmarks/frontend/reader/reader-sidebar.js:206
 #: bookmarks/frontend/reader/reader-sidebar.js:352
-#: bookmarks/frontend/reader/reader.js:1528
+#: bookmarks/frontend/reader/reader.js:1832
 msgid "Are you sure?"
 msgstr "确认执行操作？"
 
@@ -61,8 +62,8 @@ msgstr "请检查高亮字段。"
 
 #: bookmarks/frontend/components/settings-page.js:578
 #: bookmarks/frontend/components/settings-page.js:580
-#: bookmarks/frontend/reader/reader.js:914
-#: bookmarks/frontend/reader/reader.js:947
+#: bookmarks/frontend/reader/reader.js:1218
+#: bookmarks/frontend/reader/reader.js:1251
 msgid "Saved"
 msgstr "已保存"
 
@@ -92,32 +93,32 @@ msgid "Expand"
 msgstr "展开"
 
 #: bookmarks/frontend/reader/anchoring/highlighter.js:49
-#: bookmarks/frontend/reader/reader.js:10
+#: bookmarks/frontend/reader/reader.js:14
 msgid "Yellow"
 msgstr "黄色"
 
 #: bookmarks/frontend/reader/anchoring/highlighter.js:50
-#: bookmarks/frontend/reader/reader.js:11
+#: bookmarks/frontend/reader/reader.js:15
 msgid "Green"
 msgstr "绿色"
 
 #: bookmarks/frontend/reader/anchoring/highlighter.js:51
-#: bookmarks/frontend/reader/reader.js:12
+#: bookmarks/frontend/reader/reader.js:16
 msgid "Blue"
 msgstr "蓝色"
 
 #: bookmarks/frontend/reader/anchoring/highlighter.js:52
-#: bookmarks/frontend/reader/reader.js:13
+#: bookmarks/frontend/reader/reader.js:17
 msgid "Pink"
 msgstr "粉色"
 
 #: bookmarks/frontend/reader/anchoring/highlighter.js:55
-#: bookmarks/frontend/reader/reader.js:14
+#: bookmarks/frontend/reader/reader.js:18
 msgid "Theme"
 msgstr "主题"
 
 #: bookmarks/frontend/reader/reader-sidebar.js:182
-#: bookmarks/frontend/reader/reader.js:1556
+#: bookmarks/frontend/reader/reader.js:1860
 msgid "Click to add note"
 msgstr "点击添加笔记"
 
@@ -135,7 +136,7 @@ msgstr "已复制"
 
 #: bookmarks/frontend/reader/reader-sidebar.js:201
 #: bookmarks/frontend/reader/reader-sidebar.js:209
-#: bookmarks/frontend/reader/reader.js:1531
+#: bookmarks/frontend/reader/reader.js:1835
 msgid "Delete"
 msgstr "删除"
 
@@ -326,7 +327,7 @@ msgid "Line Height"
 msgstr "行高"
 
 #: bookmarks/frontend/reader/reader-toolbar.js:538
-#: bookmarks/frontend/reader/reader.js:142
+#: bookmarks/frontend/reader/reader.js:290
 msgid "Reader"
 msgstr "阅读模式"
 
@@ -346,36 +347,68 @@ msgstr "阅读设置"
 msgid "Toggle sidebar"
 msgstr "切换侧边栏"
 
-#: bookmarks/frontend/reader/reader.js:905
-#: bookmarks/frontend/reader/reader.js:930
+#: bookmarks/frontend/reader/reader.js:224
+msgid "Continue reading (%(progress)s%)"
+msgstr "继续阅读（%(progress)s%）"
+
+#: bookmarks/frontend/reader/reader.js:227
+msgid "Continue"
+msgstr "继续"
+
+msgid "Detected latest progress %(progress)s%"
+msgstr "检测到最新进度 %(progress)s%"
+
+msgid "Go to"
+msgstr "前往"
+
+msgid "Override"
+msgstr "覆盖"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Help"
+msgstr "帮助"
+
+msgid "jump to server progress, discard local."
+msgstr "跳转到服务器端最新阅读进度，放弃当前设备进度。"
+
+msgid "push local progress to server."
+msgstr "使用当前设备进度覆盖服务器端阅读进度。"
+
+msgid "local progress won't sync this time."
+msgstr "关闭提示，当前设备进度将不会被同步到服务器。"
+
+#: bookmarks/frontend/reader/reader.js:1209
+#: bookmarks/frontend/reader/reader.js:1234
 msgid "Saving..."
 msgstr "保存中..."
 
-#: bookmarks/frontend/reader/reader.js:916
-#: bookmarks/frontend/reader/reader.js:919
-#: bookmarks/frontend/reader/reader.js:952
-#: bookmarks/frontend/reader/reader.js:955
+#: bookmarks/frontend/reader/reader.js:1220
+#: bookmarks/frontend/reader/reader.js:1223
+#: bookmarks/frontend/reader/reader.js:1256
+#: bookmarks/frontend/reader/reader.js:1259
 msgid "Save failed"
 msgstr "保存失败"
 
-#: bookmarks/frontend/reader/reader.js:1475
+#: bookmarks/frontend/reader/reader.js:1779
 msgid "Highlight actions"
 msgstr "高亮操作"
 
-#: bookmarks/frontend/reader/reader.js:1493
+#: bookmarks/frontend/reader/reader.js:1797
 msgid "Highlight: %(color)s"
 msgstr "高亮：%(color)s"
 
-#: bookmarks/frontend/reader/reader.js:1494
+#: bookmarks/frontend/reader/reader.js:1798
 msgid "Highlight with %(color)s"
 msgstr "使用 %(color)s 高亮"
 
-#: bookmarks/frontend/reader/reader.js:1513
-#: bookmarks/frontend/reader/reader.js:1514
+#: bookmarks/frontend/reader/reader.js:1817
+#: bookmarks/frontend/reader/reader.js:1818
 msgid "Remove highlight"
 msgstr "移除高亮"
 
-#: bookmarks/frontend/reader/reader.js:1558
+#: bookmarks/frontend/reader/reader.js:1862
 msgid "Annotation note"
 msgstr "批注笔记"
 

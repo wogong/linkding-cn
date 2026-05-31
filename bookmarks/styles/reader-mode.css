@@ -203,6 +203,108 @@ html.reader-mode {
     transition: width 0.1s linear;
   }
 
+  /* 阅读进度恢复提示条：页面顶部居中浮层，窄屏自动换行堆叠 */
+  .reader-resume-toast {
+    position: fixed;
+    top: calc(var(--reader-toolbar-height) + var(--unit-3));
+    left: 50%;
+    z-index: calc(var(--zindex-4) + 4);
+    translate: -50% 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--unit-2) var(--unit-2);
+    max-width: calc(100vw - var(--unit-6));
+    padding: var(--unit-2) var(--unit-3);
+    transition: opacity 0.3s ease;
+    color: var(--text-color);
+    background: var(--body-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--box-shadow-lg);
+    animation: slide-down 0.15s ease 1;
+  }
+
+  .reader-resume-toast.dimmed {
+    opacity: 0.88;
+    pointer-events: auto;
+  }
+
+  .reader-resume-toast-text-group {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--unit-1);
+    min-width: 0;
+  }
+
+  .reader-resume-toast-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--unit-2);
+    flex-shrink: 0;
+  }
+
+  .reader-resume-toast-text {
+    font-size: var(--font-size);
+    white-space: nowrap;
+  }
+
+  .reader-resume-help-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.2s ease;
+  }
+  .reader-resume-help-btn:hover {
+    color: var(--text-color);
+  }
+
+  /* 弹窗用 fixed 定位，不被 toast 裁剪，通过 JS 计算位置 */
+  .reader-resume-help-popover {
+    position: fixed;
+    z-index: calc(var(--zindex-4) + 5);
+    max-width: 320px;
+    padding: var(--unit-3) var(--unit-4);
+    font-size: var(--font-size);
+    white-space: pre-line;
+    color: var(--text-color);
+    background: var(--body-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--box-shadow-lg);
+    line-height: 1.6;
+    animation: fade-in 0.15s ease 1;
+  }
+
+  .reader-resume-toast .btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+  }
+
+  .reader-resume-toast .reader-resume-continue {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+  }
+
+  .reader-resume-toast .reader-resume-cancel,
+  .reader-resume-toast .reader-resume-close-btn {
+    color: var(--primary-color);
+  }
+
   /* ---- Settings Panel ---- */
 
   #reader-settings-panel {
@@ -1548,11 +1650,29 @@ html.reader-mode {
       flex: 0 0 auto;
     }
 
+    .reader-resume-toast {
+      max-width: calc(100vw - var(--unit-8));
+    }
+
     .ld-annotation-toolbar {
       max-width: none;
       width: auto;
       left: var(--reader-anno-safe-inset-side);
       right: var(--reader-anno-safe-inset-side);
+    }
+  }
+
+  /* 继续阅读 toast：屏幕 < 280px 时强制两行 */
+  @media (max-width: 280px) {
+    .reader-resume-toast--resume {
+      flex-direction: column;
+    }
+  }
+
+  /* 冲突 toast：屏幕 < 328px 时强制两行 */
+  @media (max-width: 342px) {
+    .reader-resume-toast--remote {
+      flex-direction: column;
     }
   }
 }

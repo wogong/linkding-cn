@@ -114,6 +114,12 @@ urlpatterns = [
         "api/bookmarks/<int:bookmark_id>/annotations/",
         include(api_routes.bookmark_annotation_router.urls),
     ),
+    # 阅读进度 API（GET 获取 / PATCH 保存，支持 sendBeacon POST）
+    path(
+        "api/bookmarks/<int:bookmark_id>/reading-progress/",
+        api_routes.ReadingProgressView.as_view(),
+        name="bookmark_reading_progress",
+    ),
     path("api/annotations/", include(api_routes.annotation_router.urls)),
     path("api/tags/", include(api_routes.tag_router.urls)),
     path("api/bundles/", include(api_routes.bundle_router.urls)),

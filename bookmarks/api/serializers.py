@@ -1,3 +1,5 @@
+import json
+
 from django.db.models import prefetch_related_objects
 from django.templatetags.static import static
 from django.utils.translation import gettext_lazy as _
@@ -9,6 +11,7 @@ from bookmarks.models import (
     Bookmark,
     BookmarkAsset,
     BookmarkBundle,
+    ReadingProgress,
     Tag,
     UserProfile,
     build_tag_string,
@@ -310,3 +313,84 @@ class AnnotationSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+
+class ReadingProgressSerializer(serializers.ModelSerializer):
+    # 冲突检测：客户端提交上次保存的 date_modified，服务端校验是否过期
+    base_date_modified = serializers.DateTimeField(
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+
+    class Meta:
+        model = ReadingProgress
+        fields = [
+            "id",
+            "bookmark",
+            "article_asset",
+            "text_position_start",
+            "text_quote_exact",
+            "text_quote_prefix",
+            "text_quote_suffix",
+            "element_selector",
+            "progress",
+            "scroll_top",
+            "scroll_height",
+            "client_width",
+            "client_height",
+            "date_created",
+            "date_modified",
+            "base_date_modified",
+        ]
+        read_only_fields = ["id", "bookmark", "date_created", "date_modified"]
+
+    def to_internal_value(self, data):
+        # sendBeacon posts form data where empty nullable fields arrive as
+        # empty strings instead of None / omitted.
+        if "text_position_start" in data and data["text_position_start"] == "":
+            data = {**data, "text_position_start": None}
+        if "element_selector" in data:
+            val = data["element_selector"]
+            if val == "":
+                data = {**data, "element_selector": None}
+            elif isinstance(val, str):
+                try:
+                    data = {**data, "element_selector": json.loads(val)}
+                except (ValueError, TypeError):
+                    pass
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        bookmark = self.context.get("bookmark")
+        article_asset = attrs.get("article_asset")
+        if article_asset is None and self.instance is not None:
+            article_asset = self.instance.article_asset
+
+        if bookmark and article_asset and article_asset.bookmark_id != bookmark.id:
+            raise serializers.ValidationError(
+                {
+                    "article_asset": _(
+                        "Article asset must belong to the same bookmark."
+                    )
+                }
+            )
+
+        if article_asset and article_asset.asset_type != BookmarkAsset.TYPE_ARTICLE:
+            raise serializers.ValidationError(
+                {"article_asset": _("Article asset must have type 'article'.")}
+            )
+
+        progress = attrs.get("progress")
+        if progress is not None:
+            attrs["progress"] = min(1, max(0, progress))
+
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop("base_date_modified", None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop("base_date_modified", None)
+        return super().update(instance, validated_data)

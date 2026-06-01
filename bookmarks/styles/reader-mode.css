@@ -211,9 +211,11 @@ html.reader-mode {
     z-index: calc(var(--zindex-4) + 2);
     translate: -50% 0;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: var(--unit-2) var(--unit-2);
+    width: max-content;
     max-width: calc(100vw - var(--unit-6));
     padding: var(--unit-2) var(--unit-3);
     transition: opacity 0.3s ease;
@@ -235,11 +237,11 @@ html.reader-mode {
     align-items: center;
     justify-content: center;
     gap: var(--unit-1);
-    min-width: 0;
   }
 
   .reader-resume-toast-buttons {
     display: flex;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
     gap: var(--unit-2);
@@ -1783,17 +1785,4 @@ html.reader-mode {
     }
   }
 
-  /* 继续阅读 toast：屏幕 < 280px 时强制两行 */
-  @media (max-width: 280px) {
-    .reader-resume-toast--resume {
-      flex-direction: column;
-    }
-  }
-
-  /* 冲突 toast：屏幕 < 328px 时强制两行 */
-  @media (max-width: 342px) {
-    .reader-resume-toast--remote {
-      flex-direction: column;
-    }
-  }
 }

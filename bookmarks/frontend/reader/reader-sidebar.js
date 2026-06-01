@@ -50,7 +50,7 @@ export class ReaderSidebar extends LitElement {
     this.bookmarksIndexUrl = "/bookmarks";
     this._editingTags = false;
     this._tagInputValue = ""; this._tagSuggestions = []; this._tagSelectedIdx = -1;
-    this._allTags = []; this._colorPickerId = null; this._confirmDelAnnId = null;
+    this._allTags = []; this._colorPickerId = null; this._colorPickerLeaveTimer = null; this._confirmDelAnnId = null;
     this._confirmDelFileId = null; this._renameAssetId = null; this._renameValue = "";
     this._copyToastId = null; this._confirmDelBookmark = false;
     this._confirmArchive = false; this._confirmShared = false; this._confirmUnread = false;
@@ -68,7 +68,7 @@ export class ReaderSidebar extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._out = (e) => {
-      if (this._colorPickerId && !e.target.closest(".annotation-color-dot")) this._colorPickerId = null;
+      if (this._colorPickerId && !e.target.closest(".annotation-color-wrap")) this._colorPickerId = null;
       if (this._confirmDelAnnId && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".annotation-action-delete")) this._confirmDelAnnId = null;
       if (this._confirmDelFileId && !e.target.closest(".ld-confirm-popup-inline")) this._confirmDelFileId = null;
       if (this._confirmArchive && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-action-wrap")) this._confirmArchive = false;
@@ -218,17 +218,20 @@ export class ReaderSidebar extends LitElement {
             ` : html``}
           </span>
           <span class="annotation-spacer"></span>
-          <span class="annotation-color-dot" style="background-color: ${colorSolid}" title=${gettext("Change color")}
-            @click=${(e) => { e.stopPropagation(); this._colorPickerId = this._colorPickerId === String(ann.id) ? null : String(ann.id); }}></span>
-          ${this._colorPickerId === String(ann.id) ? html`
-            <span class="color-picker-popup" @mousedown=${(e) => e.stopPropagation()}>
-              ${Object.entries(HIGHLIGHT_COLORS).map(([name, cfg]) => html`
-                <span class="color-picker-option ${name === ann.color ? "selected" : ""}"
-                  style="background-color: ${cfg.bg.includes("color-mix(") ? cfg.bg : cfg.bg.replace(/[\d.]+\)$/, "0.8)")}"
-                  @click=${() => this._handleAnnColor(ann.id, name)}></span>
-              `)}
-            </span>
-          ` : html``}
+          <span class="annotation-color-wrap"
+            @mouseenter=${() => { clearTimeout(this._colorPickerLeaveTimer); this._colorPickerId = String(ann.id); }}
+            @mouseleave=${() => { this._colorPickerLeaveTimer = setTimeout(() => { this._colorPickerId = null; }, 150); }}>
+            <span class="annotation-color-dot" style="background-color: ${colorSolid}" title=${gettext("Change color")}></span>
+            ${this._colorPickerId === String(ann.id) ? html`
+              <span class="color-picker-popup" @mousedown=${(e) => e.stopPropagation()}>
+                ${Object.entries(HIGHLIGHT_COLORS).map(([name, cfg]) => html`
+                  <span class="color-picker-option ${name === ann.color ? "selected" : ""}"
+                    style="background-color: ${cfg.bg.includes("color-mix(") ? cfg.bg : cfg.bg.replace(/[\d.]+\)$/, "0.8)")}"
+                    @click=${(e) => { e.stopPropagation(); this._handleAnnColor(ann.id, name); }}></span>
+                `)}
+              </span>
+            ` : html``}
+          </span>
           <button class="annotation-action-btn" title=${gettext("Copy")} @click=${() => this._handleAnnCopy(ann.id)} .innerHTML=${READER_ICONS["copy"]}></button>
           ${this._copyToastId === String(ann.id) ? html`<span class="copy-toast">${gettext("Copied")}</span>` : html``}
         </div>

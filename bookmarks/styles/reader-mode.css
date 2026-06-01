@@ -1167,6 +1167,12 @@ html.reader-mode {
     display: flex;
   }
 
+  .annotation-color-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
   .annotation-color-dot {
     display: inline-block;
     width: 16px;
@@ -1174,13 +1180,13 @@ html.reader-mode {
     border-radius: 50%;
     cursor: pointer;
     flex-shrink: 0;
-    position: relative;
   }
 
   .color-picker-popup {
     position: absolute;
     bottom: calc(100% + 4px);
-    left: 0;
+    right: 0;
+    left: auto;
     background: var(--body-color);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
@@ -1193,18 +1199,32 @@ html.reader-mode {
   }
 
   .color-picker-option {
+    position: relative;
     width: 1.1rem;
     height: 1.1rem;
     border-radius: 50%;
-    border: 2px solid transparent;
+    border: none;
     cursor: pointer;
     padding: 0;
-    transition: border-color 0.15s;
+    transition: opacity 0.15s;
   }
 
-  .color-picker-option:hover,
-  .color-picker-option.selected {
-    border-color: var(--text-color);
+  .color-picker-option:hover {
+    opacity: 0.86;
+  }
+
+  .color-picker-option.selected::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc(1.1rem * 0.45);
+    height: calc(1.1rem * 0.25);
+    border: 2px solid #fff;
+    border-top: none;
+    border-right: none;
+    transform: translate(-50%, -65%) rotate(-45deg);
+    box-sizing: border-box;
   }
 
   .annotation-action-btn {

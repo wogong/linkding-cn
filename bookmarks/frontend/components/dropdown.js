@@ -31,6 +31,7 @@ class Dropdown extends HeadlessElement {
     this.opened = true;
     this.classList.add("active");
     this.toggle?.setAttribute("aria-expanded", "true");
+    this._positionMenu();
     document.addEventListener("click", this.onOutsideClick);
   }
 
@@ -38,7 +39,30 @@ class Dropdown extends HeadlessElement {
     this.opened = false;
     this.classList.remove("active");
     this.toggle?.setAttribute("aria-expanded", "false");
+    this._resetMenuPosition();
     document.removeEventListener("click", this.onOutsideClick);
+  }
+
+  _positionMenu() {
+    const menu = this.querySelector(".menu");
+    if (!menu) return;
+    const menuWidth = menu.offsetWidth;
+    const viewportWidth = document.documentElement.clientWidth;
+    const thisRect = this.getBoundingClientRect();
+
+    const overflow = thisRect.left + menuWidth - viewportWidth;
+    if (overflow > 0) {
+      menu.style.left = -overflow + "px";
+      menu.style.right = "auto";
+    }
+  }
+
+  _resetMenuPosition() {
+    const menu = this.querySelector(".menu");
+    if (menu) {
+      menu.style.left = "";
+      menu.style.right = "";
+    }
   }
 
   onClick() {

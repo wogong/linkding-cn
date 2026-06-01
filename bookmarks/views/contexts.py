@@ -1168,6 +1168,7 @@ class BookmarkListContext:
         self.show_edit_action = user_profile.display_edit_bookmark_action
         self.show_archive_action = user_profile.display_archive_bookmark_action
         self.show_remove_action = user_profile.display_remove_bookmark_action
+        self.show_read_action = user_profile.display_read_bookmark_action
         self.show_favicons = user_profile.enable_favicons
         self.show_preview_images = user_profile.enable_preview_images
         self.show_notes = user_profile.permanent_notes

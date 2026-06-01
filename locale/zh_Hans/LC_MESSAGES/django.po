@@ -96,8 +96,8 @@ msgid "Article asset must belong to the same bookmark as the annotation."
 msgstr "文章资产必须与该批注属于同一个书签。"
 
 #: bookmarks/api/serializers.py:309 bookmarks/api/serializers.py:359
-msgid “Article asset must have type 'article'.”
-msgstr “文章资产的类型必须是”article”。”
+msgid "Article asset must have type 'article'."
+msgstr "文章资产的类型必须是”article”。"
 
 #: bookmarks/forms.py:117
 msgid "A bookmark with this URL already exists."
@@ -231,6 +231,12 @@ msgstr "未读"
 #: bookmarks/models.py:676
 msgid "Read"
 msgstr "已读"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+#: bookmarks/templates/settings/general.html
+msgctxt "bookmark action"
+msgid "Read"
+msgstr "阅读"
 
 #: bookmarks/models.py:680
 msgid "Tagged"
@@ -2452,9 +2458,21 @@ msgid ""
 msgid_plural ""
 "Successfully merged %(count)s tags (%(tag_names)s) into \"%(target_tag)s\"."
 msgstr[0] ""
-"已成功将 %(count)s 个标签（%(tag_names)s）合并到“%(target_tag)s”中。"
+"已成功将 %(count)s 个标签（%(tag_names)s）合并到'%(target_tag)s'中。"
 msgstr[1] ""
-"已成功将 %(count)s 个标签（%(tag_names)s）合并到“%(target_tag)s”中。"
+"已成功将 %(count)s 个标签（%(tag_names)s）合并到'%(target_tag)s'中。"
+
+#: bookmarks/templates/bookmarks/read_unavailable.html
+msgid "The bookmark owner has not generated a reader view yet. You can:"
+msgstr "该书签所有者尚未生成阅读视图，您可进行如下访问："
+
+#: bookmarks/templates/bookmarks/read_unavailable.html
+msgid "Latest snapshot"
+msgstr "最新快照"
+
+#: bookmarks/templates/bookmarks/read_unavailable.html
+msgid "Add to my bookmarks"
+msgstr "添加到我的书签列表"
 
 #~ msgid "Tag aggregation mode"
 #~ msgstr "标签聚合模式"

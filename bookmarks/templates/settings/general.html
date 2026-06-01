@@ -543,7 +543,7 @@ reddit.com/r/Music music reddit</pre>
           <form action="{% url 'linkding:settings.save' %}" method="post" class="settings-card" data-settings-save-mode="instant">
             {% csrf_token %}
             <input type="hidden" name="form_id" value="profile_quick">
-            <input type="hidden" name="form_fields" value="bookmark_date_display,display_url,bookmark_description_display,bookmark_description_max_lines,enable_favicons,enable_preview_images,permanent_notes,display_view_bookmark_action,display_edit_bookmark_action,display_archive_bookmark_action,display_remove_bookmark_action">
+            <input type="hidden" name="form_fields" value="bookmark_date_display,display_url,bookmark_description_display,bookmark_description_max_lines,enable_favicons,enable_preview_images,permanent_notes,display_view_bookmark_action,display_edit_bookmark_action,display_archive_bookmark_action,display_remove_bookmark_action,display_read_bookmark_action">
             <div class="settings-row">
               <div class="settings-copy">
                 <label id="settings-bookmark-date-label" class="settings-label">{% translate "Date format" %}</label>
@@ -675,7 +675,7 @@ reddit.com/r/Music music reddit</pre>
               </label>
             </div>
 
-            <div class="settings-row">
+            <div class="settings-row has-stacked-inline-group">
               <div class="settings-copy">
                 <label class="settings-label">{% translate "Display actions" %}</label>
                 <div class="form-input-hint">
@@ -683,6 +683,11 @@ reddit.com/r/Music music reddit</pre>
                 </div>
               </div>
               <div class="settings-control settings-inline-checkbox-group">
+                <label class="form-checkbox settings-inline-checkbox">
+                  <span>{% translate "Read" context "bookmark action" %}</span>
+                  {{ profile_quick_form.display_read_bookmark_action }}
+                  <i class="form-icon"></i>
+                </label>
                 <label class="form-checkbox settings-inline-checkbox">
                   <span>{% translate "View" %}</span>
                   {{ profile_quick_form.display_view_bookmark_action }}

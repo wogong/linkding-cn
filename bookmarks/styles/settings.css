@@ -484,15 +484,8 @@
     justify-content: flex-end;
     align-items: center;
     gap: var(--unit-4);
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     max-width: 100%;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
   }
 
   .settings-inline-checkbox {
@@ -1025,8 +1018,6 @@
       max-width: none;
       flex: 0 0 100%;
       justify-content: flex-start;
-      flex-wrap: wrap;
-      overflow: visible;
       margin-top: var(--unit-2);
     }
   }

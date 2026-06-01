@@ -784,8 +784,53 @@ def close(request: HttpRequest):
 @login_required
 def read(request: HttpRequest, bookmark_id: int):
     from bookmarks.services.articles import get_article_content, remove_article
+    from bookmarks.services.wayback import generate_fallback_webarchive_url
 
     bookmark = access.bookmark_read(request, bookmark_id)
+    is_owner = bookmark.owner == request.user
+
+    # Non-owners cannot trigger article generation
+    if not is_owner:
+        has_article = (
+            bookmark.latest_article
+            and bookmark.latest_article.status == BookmarkAsset.STATUS_COMPLETE
+        )
+        if not has_article:
+            # Build snapshot URL (same logic as BookmarkItem)
+            if bookmark.latest_snapshot_id:
+                snapshot_url = reverse(
+                    "linkding:assets.view", args=[bookmark.latest_snapshot_id]
+                )
+            else:
+                snapshot_url = bookmark.web_archive_snapshot_url
+                if not snapshot_url:
+                    snapshot_url = generate_fallback_webarchive_url(
+                        bookmark.url, bookmark.date_added
+                    )
+
+            web_archive_url = generate_fallback_webarchive_url(
+                bookmark.url, bookmark.date_added
+            )
+
+            from urllib.parse import urlencode
+
+            add_bookmark_url = (
+                reverse("linkding:bookmarks.new")
+                + "?"
+                + urlencode({"url": bookmark.url})
+            )
+
+            return render(
+                request,
+                "bookmarks/read_unavailable.html",
+                {
+                    "bookmark": bookmark,
+                    "snapshot_url": snapshot_url,
+                    "web_archive_url": web_archive_url,
+                    "add_bookmark_url": add_bookmark_url,
+                    "is_authenticated": request.user.is_authenticated,
+                },
+            )
 
     bookmark_data = {
         "id": bookmark.id,

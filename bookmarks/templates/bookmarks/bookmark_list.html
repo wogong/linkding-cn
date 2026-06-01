@@ -88,6 +88,11 @@
                 {% endif %}
               {% endif %}
               {% if not bookmark_list.is_preview %}
+                {# Read link opens the reader view for the bookmark #}
+                {% if bookmark_list.show_read_action %}
+                  <a href="{% url 'linkding:bookmarks.read' bookmark_item.id %}" class="read-action"
+                    target="{{ bookmark_list.link_target }}">{% translate "Read" context "bookmark action" %}</a>
+                {% endif %}
                 {# View link is visible for both owned and shared bookmarks #}
                 {% if bookmark_list.show_view_action %}
                   <a href="{{ bookmark_item.details_url }}" class="view-action"

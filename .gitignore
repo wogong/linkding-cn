@@ -97,7 +97,7 @@ celerybeat-schedule
 
 # Environments
 .env
-.venv
+.venv*
 env/
 venv/
 ENV/
@@ -204,3 +204,7 @@ PROJECT.md
 **/.DS_Store
 .vscode
 docs/plans
+
+.claude
+.worktrees
+.ruff_cache

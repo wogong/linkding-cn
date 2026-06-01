@@ -114,13 +114,50 @@
         </a>
       {% endif %}
       {% if is_authenticated %}
-        <a class="weblink" href="{{ add_bookmark_url }}">
+        <a class="weblink" href="#" id="add-bookmark-link" data-url="{{ bookmark.url }}">
           <img class="favicon" src="{% static 'logo.svg' %}" alt="" width="16" height="16">
-          <span>{% translate "Add to my bookmarks" %}</span>
+          <span id="add-bookmark-text">{% translate "Add to my bookmarks" %}</span>
         </a>
       {% endif %}
     </div>
   </div>
 </div>
+{% if is_authenticated %}
+<script>
+(function() {
+  var link = document.getElementById('add-bookmark-link');
+  var text = document.getElementById('add-bookmark-text');
+  var bookmarkUrl = link.dataset.url;
+  var csrfToken = '{{ csrf_token }}';
+
+  link.addEventListener('click', function(e) {
+    e.preventDefault();
+    if (link.dataset.loading) return;
+    link.dataset.loading = '1';
+    text.textContent = '{% translate "Adding..." %}';
+
+    fetch('/api/bookmarks/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({ url: bookmarkUrl })
+    })
+    .then(function(r) {
+      if (!r.ok) throw new Error('API error');
+      return r.json();
+    })
+    .then(function(data) {
+      window.location.href = '/bookmarks/' + data.id + '/read';
+    })
+    .catch(function() {
+      text.textContent = '{% translate "Failed, please try again." %}';
+      delete link.dataset.loading;
+    });
+  });
+})();
+</script>
+{% endif %}
 </body>
 </html>

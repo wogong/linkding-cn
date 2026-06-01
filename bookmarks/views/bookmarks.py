@@ -812,14 +812,6 @@ def read(request: HttpRequest, bookmark_id: int):
                 bookmark.url, bookmark.date_added
             )
 
-            from urllib.parse import urlencode
-
-            add_bookmark_url = (
-                reverse("linkding:bookmarks.new")
-                + "?"
-                + urlencode({"url": bookmark.url})
-            )
-
             return render(
                 request,
                 "bookmarks/read_unavailable.html",
@@ -827,10 +819,16 @@ def read(request: HttpRequest, bookmark_id: int):
                     "bookmark": bookmark,
                     "snapshot_url": snapshot_url,
                     "web_archive_url": web_archive_url,
-                    "add_bookmark_url": add_bookmark_url,
                     "is_authenticated": request.user.is_authenticated,
                 },
             )
+
+    # Check if current user already has a bookmark with the same URL
+    existing_bookmark_id = None
+    if not is_owner and request.user.is_authenticated:
+        existing = Bookmark.query_existing(request.user, bookmark.url).first()
+        if existing:
+            existing_bookmark_id = existing.id
 
     bookmark_data = {
         "id": bookmark.id,
@@ -842,6 +840,8 @@ def read(request: HttpRequest, bookmark_id: int):
         "is_archived": bookmark.is_archived,
         "unread": bookmark.unread,
         "shared": bookmark.shared,
+        "is_editable": is_owner,
+        "existing_bookmark_id": existing_bookmark_id,
         "date_added": bookmark.date_added.isoformat() if bookmark.date_added else None,
         "date_modified": bookmark.date_modified.isoformat() if bookmark.date_modified else None,
         "snapshot_exists": bookmark.latest_snapshot is not None,

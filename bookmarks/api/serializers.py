@@ -143,6 +143,11 @@ class BookmarkSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         tag_names = validated_data.pop("tag_names", [])
         tag_string = build_tag_string(tag_names)
+        # Apply user's default_mark_unread if unread not explicitly set
+        if "unread" not in self.initial_data:
+            user = self.context["user"]
+            if hasattr(user, "profile"):
+                validated_data.setdefault("unread", user.profile.default_mark_unread)
         bookmark = Bookmark(**validated_data)
 
         disable_scraping = self.context.get("disable_scraping", False)

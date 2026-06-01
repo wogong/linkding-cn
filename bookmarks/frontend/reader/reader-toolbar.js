@@ -211,6 +211,7 @@ export class ReaderToolbar extends LitElement {
     sidebarOpen: { type: Boolean },
     bookmarkUrl: { type: String },
     snapshotUrl: { type: String },
+    isEditable: { type: Boolean },
     _settingsOpen: { type: Boolean, state: true },
     _settings: { type: Object, state: true },
     _fontMenuOpen: { type: Boolean, state: true },
@@ -224,6 +225,7 @@ export class ReaderToolbar extends LitElement {
     this.sidebarOpen = false;
     this.bookmarkUrl = "";
     this.snapshotUrl = "";
+    this.isEditable = true;
     this._settingsOpen = false;
     this._fontMenuOpen = false;
     this._themeNeedsReload = false;
@@ -299,6 +301,7 @@ export class ReaderToolbar extends LitElement {
       if (!this._settingsOpen) this._fontMenuOpen = false;
     }
     else if (action === "toggle-sidebar") this.dispatchEvent(new CustomEvent("toggle-sidebar", { bubbles: true }));
+    else if (action === "add-bookmark") this.dispatchEvent(new CustomEvent("add-bookmark", { bubbles: true }));
   }
 
   _handleNumberInput(key) {
@@ -571,6 +574,7 @@ export class ReaderToolbar extends LitElement {
           <div class="toolbar-actions">
             <button class="toolbar-btn" title=${gettext("Open original")} @click=${() => this._handleAction("open-original")} .innerHTML=${READER_ICONS["open-original"]}></button>
             ${this.snapshotUrl ? html`<button class="toolbar-btn" title=${gettext("View snapshot")} @click=${() => this._handleAction("open-snapshot")} .innerHTML=${READER_ICONS["open-snapshot"]}></button>` : html``}
+            ${!this.isEditable ? html`<button class="toolbar-btn" title=${gettext("Add to my bookmarks")} @click=${() => this._handleAction("add-bookmark")} .innerHTML=${READER_ICONS["add-bookmark"] || READER_ICONS["tab-details"]}></button>` : html``}
             <button class="toolbar-btn" data-active=${this._settingsOpen ? "true" : "false"} title=${gettext("Reading settings")} @click=${() => this._handleAction("toggle-settings")} .innerHTML=${READER_ICONS["font-size"]}></button>
             <button class="toolbar-btn" data-active=${this.sidebarOpen ? "true" : "false"} title=${gettext("Toggle sidebar")} @click=${() => this._handleAction("toggle-sidebar")} .innerHTML=${READER_ICONS["toggle-sidebar"]}></button>
           </div>

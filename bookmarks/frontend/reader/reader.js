@@ -1187,26 +1187,100 @@ function renderReader(options = {}) {
     }
   });
 
+  // --- Editable mode ---
+  const isEditable = bookmarkData.is_editable !== false;
+  sidebar.isEditable = isEditable;
+  toolbar.isEditable = isEditable;
+
+  // --- Toolbar "add-bookmark" action ---
+  toolbar.addEventListener("add-bookmark", () => {
+    sidebar._addToMyBookmarks();
+  });
+
+  // --- Non-owner: toast on text selection ---
+  if (!isEditable) {
+    let selectionToast = null;
+
+    function removeSelectionToast() {
+      if (selectionToast) { selectionToast.remove(); selectionToast = null; }
+    }
+
+    document.addEventListener("selectionchange", () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+        return;
+      }
+      const range = selection.getRangeAt(0);
+      if (!articleContent.contains(range.commonAncestorContainer)) return;
+      if (selectionToast) return;
+
+      selectionToast = document.createElement("div");
+      selectionToast.className = "reader-resume-toast reader-resume-toast--resume";
+      selectionToast.setAttribute("role", "status");
+      selectionToast.innerHTML = `
+        <span class="reader-resume-toast-text">${gettext("Add bookmark to highlight")}</span>
+        <span class="reader-resume-toast-buttons">
+          <button type="button" class="btn btn-sm btn-link selection-toast-cancel">${gettext("Cancel")}</button>
+          <button type="button" class="btn btn-sm btn-primary selection-toast-add">${gettext("Add")}</button>
+        </span>
+      `;
+      selectionToast.querySelector(".selection-toast-cancel").addEventListener("click", () => {
+        removeSelectionToast();
+        selection.removeAllRanges();
+      });
+      selectionToast.querySelector(".selection-toast-add").addEventListener("click", () => {
+        removeSelectionToast();
+        sidebar._addToMyBookmarks();
+      });
+      document.body.appendChild(selectionToast);
+
+      // Dismiss on scroll or page click (outside toast)
+      const dismissOnInteraction = (e) => {
+        if (selectionToast && !selectionToast.contains(e.target)) {
+          removeSelectionToast();
+          document.removeEventListener("scroll", dismissOnInteraction, true);
+          document.removeEventListener("pointerdown", dismissOnInteraction, true);
+        }
+      };
+      document.addEventListener("scroll", dismissOnInteraction, true);
+      document.addEventListener("pointerdown", dismissOnInteraction, true);
+    });
+  }
+
   // --- Fetch full bookmark data and assets ---
   if (bookmarkData.id) {
     fetchBookmarkData(bookmarkData.id, sidebar, apiBase);
-    fetchAssetList(bookmarkData.id, sidebar, apiBase);
+    if (isEditable) {
+      fetchAssetList(bookmarkData.id, sidebar, apiBase);
+    }
   }
 
-  // --- Highlighter ---
-  if (bookmarkId && Number(assetId) > 0) {
+  // --- Highlighter (owner only) ---
+  if (isEditable && bookmarkId && Number(assetId) > 0) {
     initHighlighter(articleContent, bookmarkId, assetId, sidebar, apiBase);
   }
 
-  // --- Scroll progress ---
+  // --- Scroll progress (owner only) ---
   setupScrollProgress(contentArea, toolbar);
-  new ReadingProgressController(
-    contentArea,
-    articleContent,
-    bookmarkId,
-    assetId,
-    apiBase,
-  );
+  if (isEditable) {
+    // Check for pending scroll from "Add to my bookmarks" flow
+    try {
+      const pending = JSON.parse(localStorage.getItem("reader_pending_scroll") || "null");
+      if (pending && pending.bookmarkId === bookmarkId && pending.scrollTop > 0) {
+        localStorage.removeItem("reader_pending_scroll");
+        requestAnimationFrame(() => {
+          contentArea.scrollTop = pending.scrollTop;
+        });
+      }
+    } catch {}
+    new ReadingProgressController(
+      contentArea,
+      articleContent,
+      bookmarkId,
+      assetId,
+      apiBase,
+    );
+  }
 }
 
 function postProcess(articleContent) {

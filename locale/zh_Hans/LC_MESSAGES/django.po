@@ -2474,6 +2474,14 @@ msgstr "最新快照"
 msgid "Add to my bookmarks"
 msgstr "添加到我的书签列表"
 
+#: bookmarks/templates/bookmarks/read_unavailable.html
+msgid "Adding..."
+msgstr "添加中..."
+
+#: bookmarks/templates/bookmarks/read_unavailable.html
+msgid "Failed, please try again."
+msgstr "失败，请重试。"
+
 #~ msgid "Tag aggregation mode"
 #~ msgstr "标签聚合模式"
 

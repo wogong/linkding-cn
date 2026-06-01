@@ -29,6 +29,7 @@ export class ReaderSidebar extends LitElement {
     open: { type: Boolean }, annotations: { type: Array }, bookmarkData: { type: Object },
     assetList: { type: Array }, activeTab: { type: String }, apiBase: { type: String },
     assetsBase: { type: String }, bookmarksIndexUrl: { type: String },
+    isEditable: { type: Boolean },
     _editingTags: { type: Boolean, state: true }, _tagInputValue: { type: String, state: true },
     _tagSuggestions: { type: Array, state: true }, _tagSelectedIdx: { type: Number, state: true },
     _allTags: { type: Array, state: true }, _colorPickerId: { type: String, state: true },
@@ -42,7 +43,7 @@ export class ReaderSidebar extends LitElement {
 
   constructor() {
     super();
-    this.open = false; this.annotations = []; this.bookmarkData = {}; this.assetList = [];
+    this.open = false; this.annotations = []; this.bookmarkData = {}; this.assetList = []; this.isEditable = true;
     const savedTab = loadReaderSettings().sidebarTab || "annotations";
     this.activeTab = savedTab === "info" ? "details" : savedTab;
     this.apiBase = "/api/";
@@ -272,6 +273,11 @@ export class ReaderSidebar extends LitElement {
   _renderInfoTab() {
     const bm = this.bookmarkData || {};
     const files = this.assetList || [];
+    const editable = this.isEditable !== false;
+
+    if (!editable) {
+      return this._renderReadOnlyInfoTab(bm);
+    }
 
     return html`<div class="sidebar-bookmark-info">
       ${bm.preview_image_url ? html`<div class="info-section"><img class="info-preview-image" src="${bm.preview_image_url}" alt=${gettext("Preview")} /></div>` : html``}
@@ -420,6 +426,82 @@ export class ReaderSidebar extends LitElement {
         </span>
       </div>
     </div>`;
+  }
+
+  _renderReadOnlyInfoTab(bm) {
+    return html`<div class="sidebar-bookmark-info">
+      ${bm.preview_image_url ? html`<div class="info-section"><img class="info-preview-image" src="${bm.preview_image_url}" alt=${gettext("Preview")} /></div>` : html``}
+
+      <div class="info-section">
+        <div class="info-title-display">${bm.title || ""}</div>
+      </div>
+
+      <div class="info-section">
+        <a class="info-url" href="${bm.url || "#"}" target="_blank" rel="noopener">
+          ${bm.favicon_url ? html`<img class="info-favicon" src="${bm.favicon_url}" width="16" height="16" />` : html``}
+          <span class="info-url-text">${bm.url || "—"}</span>
+          <span class="info-external-icon" .innerHTML=${READER_ICONS["external-link"]}></span>
+        </a>
+      </div>
+
+      <div class="info-section info-dates">
+        ${bm.date_added ? html`<span class="info-date" title=${interpolate(gettext("Added %(time)s"), { time: this._fmtDT(bm.date_added) })}><span class="info-date-icon" .innerHTML=${READER_ICONS["clock-added"]}></span>${this._fmtDate(bm.date_added)}</span>` : html``}
+        ${bm.date_modified ? html`<span class="info-date" title=${interpolate(gettext("Modified %(time)s"), { time: this._fmtDT(bm.date_modified) })}><span class="info-date-icon" .innerHTML=${READER_ICONS["clock-modified"]}></span>${this._fmtDate(bm.date_modified)}</span>` : html``}
+      </div>
+
+      <div class="info-section">
+        ${bm.tag_names?.length ? html`<span class="info-tags">${bm.tag_names.map(t => html`<span class="info-tag">#${t}</span>`)}</span>` : html`<span class="info-placeholder">${gettext("No tags")}</span>`}
+      </div>
+
+      ${bm.description ? html`
+      <div class="info-section">
+        <div class="info-label">${gettext("Description")}</div>
+        <div class="info-value-readonly">${bm.description}</div>
+      </div>` : html``}
+
+      ${bm.notes ? html`
+      <div class="info-section">
+        <div class="info-label">${gettext("Notes")}</div>
+        <div class="info-value-readonly">${bm.notes}</div>
+      </div>` : html``}
+    </div>`;
+  }
+
+  async _addToMyBookmarks() {
+    const bm = this.bookmarkData || {};
+    if (!bm.url) return;
+
+    // If user already has this bookmark, just navigate to it
+    if (bm.existing_bookmark_id) {
+      window.location.href = `/bookmarks/${bm.existing_bookmark_id}/read`;
+      return;
+    }
+
+    // Save scroll position before navigating
+    const contentArea = document.getElementById("reader-content");
+    const scrollTop = contentArea ? contentArea.scrollTop : 0;
+
+    try {
+      const r = await fetch(joinPath(this.apiBase, "bookmarks/"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": getCSRFToken() },
+        body: JSON.stringify({ url: bm.url }),
+      });
+      if (!r.ok) throw new Error("API error");
+      const data = await r.json();
+
+      // Store scroll position for restoration on the new page
+      try {
+        localStorage.setItem("reader_pending_scroll", JSON.stringify({
+          bookmarkId: data.id,
+          scrollTop: scrollTop,
+        }));
+      } catch {}
+
+      window.location.href = `/bookmarks/${data.id}/read`;
+    } catch {
+      if (btn) { btn.disabled = false; btn.textContent = gettext("Failed, please try again"); }
+    }
   }
 
   render() {

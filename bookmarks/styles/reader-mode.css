@@ -1468,6 +1468,18 @@ html.reader-mode {
     font-style: italic;
   }
 
+  .info-title-display {
+    font-size: 16px;
+    font-weight: 600;
+    word-break: break-word;
+  }
+
+  .info-value-readonly {
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-color);
+  }
+
 
   /* Preview image */
   .info-preview-image {

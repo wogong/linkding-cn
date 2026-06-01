@@ -5,6 +5,7 @@ import { READER_ICONS } from "./reader-icons";
 import { gettext, interpolate } from "../utils/i18n.js";
 import "./reader-toolbar.js";
 import "./reader-sidebar.js";
+import { loadReaderSettings } from "./reader-settings.js";
 
 // 无内容元素 + 媒体元素：对其使用 element_selector（tag+index+offset）定位。
 // 容器元素（P、DIV、FIGURE 等）不在此列，会继续遍历子节点找文字锚点。
@@ -1273,21 +1274,13 @@ function setupScrollProgress(contentEl, toolbar) {
   });
 }
 
-const ANNOTATION_TOOLBAR_MODE_KEY = "reader_annotation_toolbar_mode";
 const ANNOTATION_TOOLBAR_MODE_HYBRID = "hybrid";
 const ANNOTATION_TOOLBAR_MODE_TAKEOVER = "takeover";
 const DEFAULT_HIGHLIGHT_COLOR = "yellow";
 
 function getAnnotationToolbarMode() {
-  try {
-    const raw = localStorage.getItem(ANNOTATION_TOOLBAR_MODE_KEY);
-    if (raw === ANNOTATION_TOOLBAR_MODE_TAKEOVER) {
-      return ANNOTATION_TOOLBAR_MODE_TAKEOVER;
-    }
-  } catch {
-    // Ignore localStorage access errors and use hybrid mode.
-  }
-  return ANNOTATION_TOOLBAR_MODE_HYBRID;
+  const mode = loadReaderSettings().annotationToolbarMode;
+  return mode === ANNOTATION_TOOLBAR_MODE_TAKEOVER ? mode : ANNOTATION_TOOLBAR_MODE_HYBRID;
 }
 
 function setAnnotationToolbarModeDataset(mode) {

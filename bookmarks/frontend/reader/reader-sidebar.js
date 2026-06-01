@@ -3,6 +3,7 @@ import { repeat } from "lit/directives/repeat.js";
 import { HIGHLIGHT_COLORS } from "./anchoring/highlighter";
 import { READER_ICONS } from "./reader-icons";
 import { gettext, ngettext, interpolate } from "../utils/i18n.js";
+import { loadReaderSettings, saveReaderSettings } from "./reader-settings.js";
 
 function getCSRFToken() {
   const m = document.cookie.match(/csrftoken=([^;]+)/);
@@ -39,8 +40,8 @@ export class ReaderSidebar extends LitElement {
 
   constructor() {
     super();
-    this.open = true; this.annotations = []; this.bookmarkData = {}; this.assetList = [];
-    const savedTab = localStorage.getItem("reader_sidebar_tab") || "annotations";
+    this.open = false; this.annotations = []; this.bookmarkData = {}; this.assetList = [];
+    const savedTab = loadReaderSettings().sidebarTab || "annotations";
     this.activeTab = savedTab === "info" ? "details" : savedTab;
     this.apiBase = "/api/";
     this.assetsBase = "/assets";
@@ -54,7 +55,7 @@ export class ReaderSidebar extends LitElement {
   }
 
   updated(changed) {
-    if (changed.has("activeTab")) localStorage.setItem("reader_sidebar_tab", this.activeTab);
+    if (changed.has("activeTab")) saveReaderSettings({ sidebarTab: this.activeTab });
     if (changed.has("_editingTags") && this._editingTags) {
       this.updateComplete.then(() => { const el = this.querySelector(".info-tag-input"); if (el) el.focus(); });
     }

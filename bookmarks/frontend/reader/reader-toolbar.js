@@ -1,6 +1,7 @@
 import { LitElement, html } from "lit";
 import { READER_ICONS } from "./reader-icons";
 import { gettext } from "../utils/i18n.js";
+import { loadReaderSettings, saveReaderSettings, setReaderTheme } from "./reader-settings.js";
 
 const SETTINGS_KEY = "reader_settings";
 const MOBILE_BREAKPOINT = 768;
@@ -148,15 +149,7 @@ function loadSettings(options = {}) {
 }
 
 function saveSettings(settings) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-}
-
-function getSavedSidebarOpen() {
-  try {
-    return localStorage.getItem("reader_sidebar_open") === "true";
-  } catch {
-    return false;
-  }
+  saveReaderSettings(settings);
 }
 
 function getSettingBounds(key) {
@@ -218,21 +211,22 @@ export class ReaderToolbar extends LitElement {
     _settingsOpen: { type: Boolean, state: true },
     _settings: { type: Object, state: true },
     _fontMenuOpen: { type: Boolean, state: true },
+    _themeNeedsReload: { type: Boolean, state: true },
   };
 
   constructor() {
     super();
-    const initialSidebarOpen = getSavedSidebarOpen();
     this.title = "";
     this.progress = 0;
-    this.sidebarOpen = initialSidebarOpen;
+    this.sidebarOpen = false;
     this.bookmarkUrl = "";
     this.snapshotUrl = "";
     this._settingsOpen = false;
     this._fontMenuOpen = false;
-    this._settings = loadSettings({ sidebarOpen: initialSidebarOpen });
+    this._themeNeedsReload = false;
+    this._settings = loadSettings();
     saveSettings(this._settings);
-    applySettings(this._settings, { sidebarOpen: initialSidebarOpen });
+    applySettings(this._settings);
   }
 
   connectedCallback() {
@@ -471,12 +465,31 @@ export class ReaderToolbar extends LitElement {
     const currentFont = this._getFontOption(this._settings.font);
     const currentFontLabel = currentFont?.label || gettext("System Default");
 
+    const currentTheme = loadReaderSettings().theme || "auto";
+
     return html`
       <div
         id="reader-settings-panel"
         data-open="true"
         @pointerdown=${this._handleSettingsPanelPointerDown}
       >
+        <div class="settings-section">
+          <div class="settings-label">${gettext("Theme")}</div>
+          <div class="settings-select-wrap">
+            <select class="settings-select" .value=${currentTheme}
+              @change=${(e) => { setReaderTheme(e.target.value); this._themeNeedsReload = e.target.value === "auto"; }}>
+              <option value="auto">${gettext("Follow Global")}</option>
+              <option value="light">${gettext("Light")}</option>
+              <option value="dark">${gettext("Dark")}</option>
+            </select>
+          </div>
+          ${this._themeNeedsReload ? html`
+            <div class="settings-hint">
+              ${gettext("Reload to apply")}
+              <button class="btn btn-sm btn-primary" @click=${() => window.location.reload()}>${gettext("Reload")}</button>
+            </div>
+          ` : ""}
+        </div>
         <div class="settings-section">
           <div class="settings-label">${gettext("Font")}</div>
           <div class="settings-select-wrap settings-font-select">

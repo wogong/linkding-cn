@@ -25,6 +25,21 @@
   {% if request.user_profile.custom_css %}
     <link href="{% url 'linkding:custom_css' %}?hash={{ request.user_profile.custom_css_hash }}" rel="stylesheet" type="text/css"/>
   {% endif %}
+  <script>
+  (function(){
+    try {
+      var s = JSON.parse(localStorage.getItem('reader_settings')||'{}');
+      var t = s.theme;
+      if (!t || t === 'auto') return;
+      var urls = {light: '{% static "theme-light.css" %}?v={{ app_version }}', dark: '{% static "theme-dark.css" %}?v={{ app_version }}'};
+      document.querySelectorAll('link[href*="theme-"]').forEach(function(el){ el.remove(); });
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = urls[t];
+      document.head.appendChild(l);
+    } catch(e){}
+  })();
+  </script>
 </head>
 <body class="reader-mode">
 <template id="content">{{ content|safe }}</template>

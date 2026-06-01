@@ -37,6 +37,7 @@ export class ReaderSidebar extends LitElement {
     _copyToastId: { type: String, state: true }, _confirmDelBookmark: { type: Boolean, state: true },
     _confirmArchive: { type: Boolean, state: true }, _confirmShared: { type: Boolean, state: true },
     _confirmUnread: { type: Boolean, state: true },
+    _buttonMode: { type: String, state: true }, _activeAnnId: { type: String, state: true },
   };
 
   constructor() {
@@ -53,6 +54,8 @@ export class ReaderSidebar extends LitElement {
     this._confirmDelFileId = null; this._renameAssetId = null; this._renameValue = "";
     this._copyToastId = null; this._confirmDelBookmark = false;
     this._confirmArchive = false; this._confirmShared = false; this._confirmUnread = false;
+    this._buttonMode = loadReaderSettings().buttonMode || "float";
+    this._activeAnnId = null;
   }
 
   updated(changed) {
@@ -72,6 +75,7 @@ export class ReaderSidebar extends LitElement {
       if (this._confirmDelBookmark && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-action-wrap")) this._confirmDelBookmark = false;
       if (this._confirmShared && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-action-wrap")) this._confirmShared = false;
       if (this._confirmUnread && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-action-wrap")) this._confirmUnread = false;
+      if (this._activeAnnId && !e.target.closest(".annotation-item")) this._activeAnnId = null;
     };
     document.addEventListener("mousedown", this._out);
   }
@@ -137,6 +141,7 @@ export class ReaderSidebar extends LitElement {
     this._confirmShared = type === "shared";
     this._confirmUnread = type === "unread";
   }
+  _setButtonMode(mode) { this._buttonMode = mode; saveReaderSettings({ buttonMode: mode }); }
   _handleAnnColor(annId, color) { this._colorPickerId = null; this._emitAnn(annId, "change-color", { color }); }
 
   // ---- Edit helpers ----
@@ -186,13 +191,15 @@ export class ReaderSidebar extends LitElement {
       ? colorBg
       : colorBg.replace(/[\d.]+\)$/, "0.8)");
     return html`
-      <div class="annotation-item ${unresolved ? "annotation-item--unresolved" : ""}" data-id="${ann.id}">
+      <div class="annotation-item ${unresolved ? "annotation-item--unresolved" : ""}" data-id="${ann.id}"
+        data-button-mode="${this._buttonMode}" data-active="${this._activeAnnId === String(ann.id) ? "true" : "false"}">
         <div class="annotation-text-row">
           <div class="annotation-color-bar" style="background-color: ${colorBg}"></div>
           <div class="annotation-text" @click=${() => { if (!unresolved) this._emitAnn(ann.id, "jump"); }}>${ann.selected_text}</div>
         </div>
         <textarea class="annotation-textarea" .value=${ann.note_content || ""}
           placeholder=${gettext("Click to add note")} rows="1"
+          @focus=${() => { this._activeAnnId = String(ann.id); }}
           @blur=${(e) => this._saveAnnotationNote(ann.id, e.target.value)}
           @keydown=${this._escapeBlur}></textarea>
         <div class="annotation-actions">
@@ -242,7 +249,13 @@ export class ReaderSidebar extends LitElement {
       ? ` · ${interpolate(ngettext("%(count)s note", "%(count)s notes", nc), { count: nc })}`
       : "";
     return html`
-      <div class="sidebar-section-header"><span>${highlightsText}${notesText}</span></div>
+      <div class="sidebar-section-header">
+        <span>${highlightsText}${notesText}</span>
+        <button class="button-mode-toggle ${this._buttonMode === "always" ? "active" : ""}"
+          title=${this._buttonMode === "always" ? gettext("Click to hide action buttons") : gettext("Click to show action buttons")}
+          @click=${() => this._setButtonMode(this._buttonMode === "always" ? "float" : "always")}
+          .innerHTML=${this._buttonMode === "always" ? READER_ICONS["eye"] : READER_ICONS["eye-off"]}></button>
+      </div>
       <div class="annotation-list">
         ${repeat(located, a => a.id, a => this._renderAnnotationItem(a))}
         ${unresolved.length ? html`

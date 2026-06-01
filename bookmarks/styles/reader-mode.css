@@ -961,6 +961,32 @@ html.reader-mode {
   }
 
 
+  .button-mode-toggle {
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--border-radius);
+    color: var(--icon-color);
+    cursor: pointer;
+    margin-left: auto;
+    width: 1.3rem;
+    height: 1.3rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .button-mode-toggle:hover {
+    background: var(--body-color-contrast);
+    color: var(--text-color);
+  }
+
+  .button-mode-toggle.active {
+    color: var(--primary-color);
+  }
+
   .annotation-list {
     padding-bottom: var(--unit-4);
   }
@@ -1049,6 +1075,15 @@ html.reader-mode {
     padding-left: calc(3px + var(--unit-2));
     margin-top: var(--unit-1);
     position: relative;
+  }
+
+  /* Float mode: hide buttons, show on hover (PC) or active (click textarea) */
+  .annotation-item[data-button-mode="float"] .annotation-actions {
+    display: none;
+  }
+  .annotation-item[data-button-mode="float"]:hover .annotation-actions,
+  .annotation-item[data-button-mode="float"][data-active="true"] .annotation-actions {
+    display: flex;
   }
 
   .annotation-color-dot {

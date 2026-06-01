@@ -200,6 +200,10 @@ msgstr "已分享"
 msgid "Archive bookmark?"
 msgstr "归档此书签？"
 
+#: bookmarks/frontend/reader/reader-sidebar.js:293
+msgid "Unarchive bookmark?"
+msgstr "取消归档此书签？"
+
 #: bookmarks/frontend/reader/reader-sidebar.js:295
 msgid "Archive"
 msgstr "归档"
@@ -305,6 +309,50 @@ msgstr "增大"
 #: bookmarks/frontend/reader/reader-toolbar.js:465
 msgid "Reset"
 msgstr "重置"
+
+#: bookmarks/frontend/reader/reader-toolbar.js:473
+msgid "Follow Global"
+msgstr "跟随全局"
+
+#: bookmarks/frontend/reader/reader-toolbar.js:478
+msgid "Light"
+msgstr "浅色"
+
+#: bookmarks/frontend/reader/reader-toolbar.js:479
+msgid "Dark"
+msgstr "深色"
+
+#: bookmarks/frontend/reader/reader-toolbar.js:487
+msgid "Reload to apply"
+msgstr "刷新页面生效"
+
+#: bookmarks/frontend/reader/reader-toolbar.js:488
+msgid "Reload"
+msgstr "刷新"
+
+#: bookmarks/frontend/reader/reader-sidebar.js:240
+msgid "Always visible"
+msgstr "始终显示"
+
+#: bookmarks/frontend/reader/reader-sidebar.js:240
+msgid "Click to hide action buttons"
+msgstr "点击隐藏功能按钮"
+
+#: bookmarks/frontend/reader/reader-sidebar.js:240
+msgid "Click to show action buttons"
+msgstr "点击显示功能按钮"
+
+msgid "Share bookmark?"
+msgstr "开启书签分享？"
+
+msgid "Unshare bookmark?"
+msgstr "取消书签分享？"
+
+msgid "Mark as read?"
+msgstr "标记书签为已读？"
+
+msgid "Mark as unread?"
+msgstr "标记书签为未读？"
 
 #: bookmarks/frontend/reader/reader-toolbar.js:481
 msgid "Font"

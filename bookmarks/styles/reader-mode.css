@@ -186,8 +186,8 @@ html.reader-mode {
   }
 
   .toolbar-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
 
   .toolbar-progress {
@@ -208,7 +208,7 @@ html.reader-mode {
     position: fixed;
     top: calc(var(--reader-toolbar-height) + var(--unit-3));
     left: 50%;
-    z-index: calc(var(--zindex-4) + 4);
+    z-index: calc(var(--zindex-4) + 2);
     translate: -50% 0;
     display: flex;
     align-items: center;
@@ -316,7 +316,7 @@ html.reader-mode {
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-lg);
     box-shadow: var(--box-shadow-lg);
-    z-index: calc(var(--zindex-4) + 2);
+    z-index: calc(var(--zindex-4) + 5);
     padding: var(--unit-3);
   }
 
@@ -333,6 +333,16 @@ html.reader-mode {
     color: var(--secondary-text-color);
     margin-bottom: var(--unit-1);
     font-weight: 500;
+  }
+
+  .settings-hint {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--unit-2);
+    margin-top: var(--unit-2);
+    font-size: var(--font-size-sm);
+    color: var(--secondary-text-color);
   }
 
   /* Settings number inputs */
@@ -919,38 +929,45 @@ html.reader-mode {
   }
 
   .tab-icon svg {
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
   }
 
   .sidebar-tab-content {
-    overflow-y: auto;
-    flex: 1;
     display: none;
   }
 
   .sidebar-tab-content[data-active="true"] {
-    display: flex;
-    flex-direction: column;
+    display: block;
+    height: 0;
+    flex: 1;
+    overflow-y: auto;
   }
 
   /* ---- Sidebar: Annotation List ---- */
 
   .sidebar-section-header {
+    display: flex;
+    align-items: center;
+    gap: var(--unit-2);
     padding: var(--unit-2) var(--unit-3);
     font-size: var(--font-size-sm);
     color: var(--secondary-text-color);
     border-bottom: 1px solid var(--secondary-border-color);
-    flex-shrink: 0;
+    background: var(--body-color);
+    position: sticky;
+    top: 0;
+    z-index: 1;
   }
 
+
   .annotation-list {
-    overflow-y: auto;
-    flex: 1;
+    padding-bottom: var(--unit-4);
   }
 
   .annotation-item {
-    padding: var(--unit-2) var(--unit-3);
+    position: relative;
+    padding: var(--unit-2) var(--unit-3) var(--unit-1);
     border-bottom: 1px solid var(--secondary-border-color);
     transition: background 0.15s;
   }
@@ -1028,16 +1045,16 @@ html.reader-mode {
   .annotation-actions {
     display: flex;
     align-items: center;
-    gap: var(--unit-1);
-    margin-top: var(--unit-2);
+    gap: var(--unit-2);
     padding-left: calc(3px + var(--unit-2));
+    margin-top: var(--unit-1);
     position: relative;
   }
 
   .annotation-color-dot {
     display: inline-block;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     cursor: pointer;
     flex-shrink: 0;
@@ -1109,8 +1126,8 @@ html.reader-mode {
   }
 
   .annotation-action-btn svg {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
   }
 
   .annotation-spacer {
@@ -1120,6 +1137,11 @@ html.reader-mode {
   .annotation-delete-wrap {
     position: relative;
     display: inline-flex;
+  }
+
+  #reader-sidebar .ld-confirm-popup-inline {
+    left: 0;
+    right: auto;
   }
 
   /* Confirm popup (matches ld-confirm-popup) */
@@ -1220,8 +1242,7 @@ html.reader-mode {
 
   .sidebar-bookmark-info {
     padding: var(--unit-3);
-    overflow-y: auto;
-    flex: 1;
+    padding-bottom: var(--unit-6);
   }
 
   .info-section {
@@ -1479,11 +1500,13 @@ html.reader-mode {
   }
 
   .info-archive-row {
-    margin-top: var(--unit-2);
+    display: flex;
+    gap: var(--unit-2);
+    flex: 1;
   }
 
   .info-delete-row {
-    margin-top: var(--unit-2);
+    margin-top: 0;
   }
 
   .info-tags-display {
@@ -1614,7 +1637,7 @@ html.reader-mode {
 
   @media (max-width: 768px) {
     #reader-toolbar {
-      z-index: calc(var(--zindex-4) + 2);
+      z-index: calc(var(--zindex-4) + 4);
     }
 
     .toolbar-main {
@@ -1629,8 +1652,9 @@ html.reader-mode {
       position: fixed;
       top: var(--reader-toolbar-height);
       right: 0;
-      bottom: 0;
-      z-index: calc(var(--zindex-4) + 1);
+      height: calc(100dvh - var(--reader-toolbar-height));
+      bottom: auto;
+      z-index: calc(var(--zindex-4) + 3);
       box-shadow: var(--box-shadow-lg);
     }
 

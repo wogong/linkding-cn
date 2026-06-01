@@ -57,7 +57,7 @@ export class ReaderSidebar extends LitElement {
   updated(changed) {
     if (changed.has("activeTab")) saveReaderSettings({ sidebarTab: this.activeTab });
     if (changed.has("_editingTags") && this._editingTags) {
-      this.updateComplete.then(() => { const el = this.querySelector(".info-tag-input"); if (el) el.focus(); });
+      this.updateComplete.then(() => { const el = this.renderRoot.querySelector(".info-tag-input"); if (el) el.focus(); });
     }
   }
 
@@ -73,7 +73,10 @@ export class ReaderSidebar extends LitElement {
     document.addEventListener("mousedown", this._out);
   }
 
-  disconnectedCallback() { super.disconnectedCallback(); document.removeEventListener("mousedown", this._out); }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener("mousedown", this._out);
+  }
 
   async _patchBookmark(f, v) {
     const bm = this.bookmarkData || {}; if (!bm.id) return;
@@ -184,20 +187,6 @@ export class ReaderSidebar extends LitElement {
           @blur=${(e) => this._saveAnnotationNote(ann.id, e.target.value)}
           @keydown=${this._escapeBlur}></textarea>
         <div class="annotation-actions">
-          <span class="annotation-color-dot" style="background-color: ${colorSolid}" title=${gettext("Change color")}
-            @click=${(e) => { e.stopPropagation(); this._colorPickerId = this._colorPickerId === String(ann.id) ? null : String(ann.id); }}></span>
-          ${this._colorPickerId === String(ann.id) ? html`
-            <span class="color-picker-popup" @mousedown=${(e) => e.stopPropagation()}>
-              ${Object.entries(HIGHLIGHT_COLORS).map(([name, cfg]) => html`
-                <span class="color-picker-option ${name === ann.color ? "selected" : ""}"
-                  style="background-color: ${cfg.bg.includes("color-mix(") ? cfg.bg : cfg.bg.replace(/[\d.]+\)$/, "0.8)")}"
-                  @click=${() => this._handleAnnColor(ann.id, name)}></span>
-              `)}
-            </span>
-          ` : html``}
-          <button class="annotation-action-btn" title=${gettext("Copy")} @click=${() => this._handleAnnCopy(ann.id)} .innerHTML=${READER_ICONS["copy"]}></button>
-          ${this._copyToastId === String(ann.id) ? html`<span class="copy-toast">${gettext("Copied")}</span>` : html``}
-          <span class="annotation-spacer"></span>
           <span class="annotation-delete-wrap">
             <button class="annotation-action-btn annotation-action-delete" title=${gettext("Delete")}
               @click=${(e) => { e.stopPropagation(); this._confirmDelAnnId = String(ann.id); }}
@@ -212,6 +201,20 @@ export class ReaderSidebar extends LitElement {
               </span>
             ` : html``}
           </span>
+          <span class="annotation-spacer"></span>
+          <span class="annotation-color-dot" style="background-color: ${colorSolid}" title=${gettext("Change color")}
+            @click=${(e) => { e.stopPropagation(); this._colorPickerId = this._colorPickerId === String(ann.id) ? null : String(ann.id); }}></span>
+          ${this._colorPickerId === String(ann.id) ? html`
+            <span class="color-picker-popup" @mousedown=${(e) => e.stopPropagation()}>
+              ${Object.entries(HIGHLIGHT_COLORS).map(([name, cfg]) => html`
+                <span class="color-picker-option ${name === ann.color ? "selected" : ""}"
+                  style="background-color: ${cfg.bg.includes("color-mix(") ? cfg.bg : cfg.bg.replace(/[\d.]+\)$/, "0.8)")}"
+                  @click=${() => this._handleAnnColor(ann.id, name)}></span>
+              `)}
+            </span>
+          ` : html``}
+          <button class="annotation-action-btn" title=${gettext("Copy")} @click=${() => this._handleAnnCopy(ann.id)} .innerHTML=${READER_ICONS["copy"]}></button>
+          ${this._copyToastId === String(ann.id) ? html`<span class="copy-toast">${gettext("Copied")}</span>` : html``}
         </div>
       </div>
     `;
@@ -281,36 +284,6 @@ export class ReaderSidebar extends LitElement {
         </div>`}
       </div>
 
-      <!-- Status + Delete (between tags and description) -->
-      <div class="info-section">
-        <div class="info-switches">
-          <label class="form-switch"><input type="checkbox" .checked=${bm.unread || false} @change=${e => this._patchBookmark("unread", e.target.checked)} /><i class="form-icon"></i> ${gettext("Unread")}</label>
-          <label class="form-switch"><input type="checkbox" .checked=${bm.shared || false} @change=${e => this._patchBookmark("shared", e.target.checked)} /><i class="form-icon"></i> ${gettext("Shared")}</label>
-        </div>
-        <div class="info-archive-row">
-          ${this._confirmArchive ? html`
-            <span class="ld-confirm-popup-inline ld-confirm-popup-inline--static">
-              <span class="confirm-popup-question">${gettext("Archive bookmark?")}</span>
-              <span class="confirm-popup-actions">
-                <button class="btn btn-sm" @click=${() => this._confirmArchive = false}>${gettext("Cancel")}</button>
-                <button class="btn btn-sm btn-error" @click=${() => { this._confirmArchive = false; this._patchBookmark("is_archived", true); }}>${gettext("Archive")}</button>
-              </span>
-            </span>
-          ` : html`<button class="btn btn-sm" @click=${() => this._confirmArchive = true}>${gettext("Archive bookmark")}</button>`}
-        </div>
-        <div class="info-delete-row">
-          ${this._confirmDelBookmark ? html`
-            <span class="ld-confirm-popup-inline ld-confirm-popup-inline--static">
-              <span class="confirm-popup-question">${gettext("Move to trash?")}</span>
-              <span class="confirm-popup-actions">
-                <button class="btn btn-sm" @click=${() => this._confirmDelBookmark = false}>${gettext("Cancel")}</button>
-                <button class="btn btn-sm btn-error" @click=${() => { this._confirmDelBookmark = false; this._trashBookmark(); }}>${gettext("Trash")}</button>
-              </span>
-            </span>
-          ` : html`<button class="btn btn-error btn-sm" @click=${() => this._confirmDelBookmark = true}>${gettext("Delete bookmark")}</button>`}
-        </div>
-      </div>
-
       <div class="info-section">
         <div class="info-label">${gettext("Description")}</div>
         <textarea class="info-textarea" .value=${bm.description || ""}
@@ -362,6 +335,36 @@ export class ReaderSidebar extends LitElement {
           </div>`;
         })}</div>` : html`<div class="info-placeholder">${gettext("No files")}</div>`}
       </div>
+
+      <!-- Status + Delete -->
+      <div class="info-section">
+        <div class="info-switches">
+          <label class="form-switch"><input type="checkbox" .checked=${bm.unread || false} @change=${e => this._patchBookmark("unread", e.target.checked)} /><i class="form-icon"></i> ${gettext("Unread")}</label>
+          <label class="form-switch"><input type="checkbox" .checked=${bm.shared || false} @change=${e => this._patchBookmark("shared", e.target.checked)} /><i class="form-icon"></i> ${gettext("Shared")}</label>
+        </div>
+        <div class="info-archive-row">
+          ${this._confirmArchive ? html`
+            <span class="ld-confirm-popup-inline ld-confirm-popup-inline--static">
+              <span class="confirm-popup-question">${gettext("Archive bookmark?")}</span>
+              <span class="confirm-popup-actions">
+                <button class="btn btn-sm" @click=${() => this._confirmArchive = false}>${gettext("Cancel")}</button>
+                <button class="btn btn-sm btn-error" @click=${() => { this._confirmArchive = false; this._patchBookmark("is_archived", true); }}>${gettext("Archive")}</button>
+              </span>
+            </span>
+          ` : html`<button class="btn btn-sm" @click=${() => this._confirmArchive = true}>${gettext("Archive bookmark")}</button>`}
+        </div>
+        <div class="info-delete-row">
+          ${this._confirmDelBookmark ? html`
+            <span class="ld-confirm-popup-inline ld-confirm-popup-inline--static">
+              <span class="confirm-popup-question">${gettext("Move to trash?")}</span>
+              <span class="confirm-popup-actions">
+                <button class="btn btn-sm" @click=${() => this._confirmDelBookmark = false}>${gettext("Cancel")}</button>
+                <button class="btn btn-sm btn-error" @click=${() => { this._confirmDelBookmark = false; this._trashBookmark(); }}>${gettext("Trash")}</button>
+              </span>
+            </span>
+          ` : html`<button class="btn btn-error btn-sm" @click=${() => this._confirmDelBookmark = true}>${gettext("Delete bookmark")}</button>`}
+        </div>
+      </div>
     </div>`;
   }
 
@@ -376,8 +379,8 @@ export class ReaderSidebar extends LitElement {
             <span class="tab-icon" .innerHTML=${READER_ICONS["tab-details"]}></span>${gettext("Details")}
           </button>
         </div>
-        <div id="sidebar-annotations" class="sidebar-tab-content scrollbar" data-active=${this.activeTab === "annotations" ? "true" : "false"}>${this._renderAnnotationsTab()}</div>
-        <div id="sidebar-bookmark-info" class="sidebar-tab-content scrollbar" data-active=${this.activeTab === "details" ? "true" : "false"}>${this._renderInfoTab()}</div>
+        <div id="sidebar-annotations" class="sidebar-tab-content" data-active=${this.activeTab === "annotations" ? "true" : "false"}>${this._renderAnnotationsTab()}</div>
+        <div id="sidebar-bookmark-info" class="sidebar-tab-content" data-active=${this.activeTab === "details" ? "true" : "false"}>${this._renderInfoTab()}</div>
       </div>
     `;
   }

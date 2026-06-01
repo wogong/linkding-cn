@@ -1789,7 +1789,7 @@ function initHighlighter(contentEl, bookmarkId, assetId, sidebar, apiBase) {
 
   function updateAnchorRectFromAnnotation(ann) {
     let rect = null;
-    const annEl = document.querySelector(`[data-annotation-id="${ann.id}"]`);
+    const annEl = document.querySelector(`.ld-highlight[data-annotation-id="${ann.id}"]`);
     if (annEl) {
       rect = annEl.getBoundingClientRect();
     } else {

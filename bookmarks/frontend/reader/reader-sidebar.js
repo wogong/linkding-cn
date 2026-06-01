@@ -35,7 +35,8 @@ export class ReaderSidebar extends LitElement {
     _confirmDelAnnId: { type: String, state: true }, _confirmDelFileId: { type: String, state: true },
     _renameAssetId: { type: String, state: true }, _renameValue: { type: String, state: true },
     _copyToastId: { type: String, state: true }, _confirmDelBookmark: { type: Boolean, state: true },
-    _confirmArchive: { type: Boolean, state: true },
+    _confirmArchive: { type: Boolean, state: true }, _confirmShared: { type: Boolean, state: true },
+    _confirmUnread: { type: Boolean, state: true },
   };
 
   constructor() {
@@ -51,7 +52,7 @@ export class ReaderSidebar extends LitElement {
     this._allTags = []; this._colorPickerId = null; this._confirmDelAnnId = null;
     this._confirmDelFileId = null; this._renameAssetId = null; this._renameValue = "";
     this._copyToastId = null; this._confirmDelBookmark = false;
-    this._confirmArchive = false;
+    this._confirmArchive = false; this._confirmShared = false; this._confirmUnread = false;
   }
 
   updated(changed) {
@@ -67,8 +68,10 @@ export class ReaderSidebar extends LitElement {
       if (this._colorPickerId && !e.target.closest(".annotation-color-dot")) this._colorPickerId = null;
       if (this._confirmDelAnnId && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".annotation-action-delete")) this._confirmDelAnnId = null;
       if (this._confirmDelFileId && !e.target.closest(".ld-confirm-popup-inline")) this._confirmDelFileId = null;
-      if (this._confirmArchive && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-archive-row")) this._confirmArchive = false;
-      if (this._confirmDelBookmark && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-delete-row")) this._confirmDelBookmark = false;
+      if (this._confirmArchive && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-action-wrap")) this._confirmArchive = false;
+      if (this._confirmDelBookmark && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-action-wrap")) this._confirmDelBookmark = false;
+      if (this._confirmShared && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-action-wrap")) this._confirmShared = false;
+      if (this._confirmUnread && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-action-wrap")) this._confirmUnread = false;
     };
     document.addEventListener("mousedown", this._out);
   }
@@ -128,6 +131,12 @@ export class ReaderSidebar extends LitElement {
   _reloadAssets() { this.dispatchEvent(new CustomEvent("reload-assets", { bubbles: true, composed: true, detail: { bookmarkId: this.bookmarkData?.id } })); }
   _emitAnn(id, action, extra = {}) { this.dispatchEvent(new CustomEvent("annotation-action", { bubbles: true, composed: true, detail: { id, action, ...extra } })); }
   _handleAnnCopy(annId) { this._emitAnn(annId, "copy"); this._copyToastId = String(annId); setTimeout(() => this._copyToastId = null, 1500); }
+  _showConfirm(type) {
+    this._confirmDelBookmark = type === "delete";
+    this._confirmArchive = type === "archive";
+    this._confirmShared = type === "shared";
+    this._confirmUnread = type === "unread";
+  }
   _handleAnnColor(annId, color) { this._colorPickerId = null; this._emitAnn(annId, "change-color", { color }); }
 
   // ---- Edit helpers ----
@@ -336,34 +345,63 @@ export class ReaderSidebar extends LitElement {
         })}</div>` : html`<div class="info-placeholder">${gettext("No files")}</div>`}
       </div>
 
-      <!-- Status + Delete -->
-      <div class="info-section">
-        <div class="info-switches">
-          <label class="form-switch"><input type="checkbox" .checked=${bm.unread || false} @change=${e => this._patchBookmark("unread", e.target.checked)} /><i class="form-icon"></i> ${gettext("Unread")}</label>
-          <label class="form-switch"><input type="checkbox" .checked=${bm.shared || false} @change=${e => this._patchBookmark("shared", e.target.checked)} /><i class="form-icon"></i> ${gettext("Shared")}</label>
-        </div>
-        <div class="info-archive-row">
-          ${this._confirmArchive ? html`
-            <span class="ld-confirm-popup-inline ld-confirm-popup-inline--static">
-              <span class="confirm-popup-question">${gettext("Archive bookmark?")}</span>
-              <span class="confirm-popup-actions">
-                <button class="btn btn-sm" @click=${() => this._confirmArchive = false}>${gettext("Cancel")}</button>
-                <button class="btn btn-sm btn-error" @click=${() => { this._confirmArchive = false; this._patchBookmark("is_archived", true); }}>${gettext("Archive")}</button>
-              </span>
-            </span>
-          ` : html`<button class="btn btn-sm" @click=${() => this._confirmArchive = true}>${gettext("Archive bookmark")}</button>`}
-        </div>
-        <div class="info-delete-row">
+      <div class="info-bottom-actions">
+        <span class="info-action-wrap">
+          <button class="info-action-btn info-action-delete" title=${gettext("Delete")}
+            @click=${(e) => { e.stopPropagation(); this._showConfirm(this._confirmDelBookmark ? null : "delete"); }}
+            .innerHTML=${READER_ICONS["delete"]}></button>
           ${this._confirmDelBookmark ? html`
-            <span class="ld-confirm-popup-inline ld-confirm-popup-inline--static">
+            <span class="ld-confirm-popup-inline">
               <span class="confirm-popup-question">${gettext("Move to trash?")}</span>
               <span class="confirm-popup-actions">
                 <button class="btn btn-sm" @click=${() => this._confirmDelBookmark = false}>${gettext("Cancel")}</button>
                 <button class="btn btn-sm btn-error" @click=${() => { this._confirmDelBookmark = false; this._trashBookmark(); }}>${gettext("Trash")}</button>
               </span>
             </span>
-          ` : html`<button class="btn btn-error btn-sm" @click=${() => this._confirmDelBookmark = true}>${gettext("Delete bookmark")}</button>`}
-        </div>
+          ` : ""}
+        </span>
+        <span class="info-action-wrap">
+          <button class="info-action-btn ${bm.is_archived ? "active" : ""}" title=${gettext("Archive")}
+            @click=${(e) => { e.stopPropagation(); this._showConfirm(this._confirmArchive ? null : "archive"); }}
+            .innerHTML=${READER_ICONS["archive"]}></button>
+          ${this._confirmArchive ? html`
+            <span class="ld-confirm-popup-inline">
+              <span class="confirm-popup-question">${bm.is_archived ? gettext("Unarchive bookmark?") : gettext("Archive bookmark?")}</span>
+              <span class="confirm-popup-actions">
+                <button class="btn btn-sm" @click=${() => this._confirmArchive = false}>${gettext("Cancel")}</button>
+                <button class="btn btn-sm btn-primary" @click=${() => { this._confirmArchive = false; this._patchBookmark("is_archived", !bm.is_archived); }}>${gettext("Confirm")}</button>
+              </span>
+            </span>
+          ` : ""}
+        </span>
+        <span class="info-action-wrap">
+          <button class="info-action-btn ${bm.shared ? "active" : ""}" title=${gettext("Shared")}
+            @click=${(e) => { e.stopPropagation(); this._showConfirm(this._confirmShared ? null : "shared"); }}
+            .innerHTML=${READER_ICONS["share"]}></button>
+          ${this._confirmShared ? html`
+            <span class="ld-confirm-popup-inline">
+              <span class="confirm-popup-question">${bm.shared ? gettext("Unshare bookmark?") : gettext("Share bookmark?")}</span>
+              <span class="confirm-popup-actions">
+                <button class="btn btn-sm" @click=${() => this._confirmShared = false}>${gettext("Cancel")}</button>
+                <button class="btn btn-sm btn-primary" @click=${() => { this._confirmShared = false; this._patchBookmark("shared", !bm.shared); }}>${gettext("Confirm")}</button>
+              </span>
+            </span>
+          ` : ""}
+        </span>
+        <span class="info-action-wrap">
+          <button class="info-action-btn ${!bm.unread ? "active" : ""}" title=${gettext("Unread")}
+            @click=${(e) => { e.stopPropagation(); this._showConfirm(this._confirmUnread ? null : "unread"); }}
+            .innerHTML=${READER_ICONS["unread"]}></button>
+          ${this._confirmUnread ? html`
+            <span class="ld-confirm-popup-inline">
+              <span class="confirm-popup-question">${bm.unread ? gettext("Mark as read?") : gettext("Mark as unread?")}</span>
+              <span class="confirm-popup-actions">
+                <button class="btn btn-sm" @click=${() => this._confirmUnread = false}>${gettext("Cancel")}</button>
+                <button class="btn btn-sm btn-primary" @click=${() => { this._confirmUnread = false; this._patchBookmark("unread", !bm.unread); }}>${gettext("Confirm")}</button>
+              </span>
+            </span>
+          ` : ""}
+        </span>
       </div>
     </div>`;
   }

@@ -44,7 +44,8 @@ function settingsEqual(a, b) {
     a?.fontSize === b?.fontSize &&
     a?.font === b?.font &&
     a?.width === b?.width &&
-    a?.lineHeight === b?.lineHeight
+    a?.lineHeight === b?.lineHeight &&
+    a?.widthMode === b?.widthMode
   );
 }
 
@@ -96,6 +97,7 @@ function getDefaultSettings(options = {}) {
   return {
     ...DEFAULT_SETTINGS,
     width: getDefaultWidthValue(),
+    widthMode: "auto",
   };
 }
 
@@ -132,6 +134,7 @@ function normalizeSettings(partial = {}, options = {}) {
         : defaults.font,
     width: String(Math.round(width)),
     lineHeight: lineHeight.toFixed(1),
+    widthMode: merged.widthMode === "manual" ? "manual" : "auto",
   };
 }
 
@@ -235,9 +238,10 @@ export class ReaderToolbar extends LitElement {
       if (e.detail.title != null) this.title = e.detail.title || "";
     };
     this._onViewportResize = () => {
-      const normalized = normalizeSettings(this._settings, {
-        sidebarOpen: this.sidebarOpen,
-      });
+      const base = this._settings.widthMode === "auto"
+        ? { ...this._settings, width: getDefaultWidthValue() }
+        : this._settings;
+      const normalized = normalizeSettings(base, { sidebarOpen: this.sidebarOpen });
       if (!settingsEqual(normalized, this._settings)) {
         this._settings = normalized;
         saveSettings(normalized);
@@ -305,8 +309,9 @@ export class ReaderToolbar extends LitElement {
     const { min, max } = getSettingBounds(key);
     const clamped = Math.max(min, Math.min(max, num));
     const formatted = key === "lineHeight" ? clamped.toFixed(1) : String(Math.round(clamped));
+    const extra = key === "width" ? { widthMode: "manual" } : {};
     const updated = normalizeSettings(
-      { ...this._settings, [key]: formatted },
+      { ...this._settings, [key]: formatted, ...extra },
       { sidebarOpen: this.sidebarOpen }
     );
     this._settings = updated;
@@ -319,8 +324,25 @@ export class ReaderToolbar extends LitElement {
     const { min, max, step } = getSettingBounds(key);
     const newVal = Math.max(min, Math.min(max, current + delta * step));
     const formatted = key === "lineHeight" ? newVal.toFixed(1) : String(Math.round(newVal));
+    const extra = key === "width" ? { widthMode: "manual" } : {};
     const updated = normalizeSettings(
-      { ...this._settings, [key]: formatted },
+      { ...this._settings, [key]: formatted, ...extra },
+      { sidebarOpen: this.sidebarOpen }
+    );
+    this._settings = updated;
+    saveSettings(updated);
+    applySettings(updated, { sidebarOpen: this.sidebarOpen });
+  }
+
+  _handleSliderInput(key, value) {
+    const num = parseFloat(value);
+    if (isNaN(num)) return;
+    const { min, max } = getSettingBounds(key);
+    const clamped = Math.max(min, Math.min(max, num));
+    const formatted = key === "lineHeight" ? clamped.toFixed(1) : String(Math.round(clamped));
+    const extra = key === "width" ? { widthMode: "manual" } : {};
+    const updated = normalizeSettings(
+      { ...this._settings, [key]: formatted, ...extra },
       { sidebarOpen: this.sidebarOpen }
     );
     this._settings = updated;
@@ -333,10 +355,12 @@ export class ReaderToolbar extends LitElement {
       key === "width"
         ? getDefaultWidthValue()
         : DEFAULT_SETTINGS[key];
+    const extra = key === "width" ? { widthMode: "auto" } : {};
     const updated = normalizeSettings(
       {
         ...this._settings,
         [key]: resetValue,
+        ...extra,
       },
       { sidebarOpen: this.sidebarOpen }
     );
@@ -437,26 +461,21 @@ export class ReaderToolbar extends LitElement {
   _renderSettingsPanel() {
     if (!this._settingsOpen) return html``;
 
-    const inputRow = (key, label, unit) => {
+    const sliderRow = (key, label, unit) => {
       const bounds = getSettingBounds(key);
       return html`
       <div class="settings-section">
-        <div class="settings-label">${label}</div>
-        <div class="settings-input-row">
-          <input class="settings-number-input" type="number"
-            data-setting=${key} .value=${this._settings[key]}
-            min=${String(bounds.min)}
-            max=${String(bounds.max)}
-            step=${String(bounds.step)}
-            @change=${() => this._handleNumberInput(key)} />
-          ${unit ? html`<span class="settings-unit">${unit}</span>` : html``}
-          <button class="settings-stepper-btn" title=${gettext("Decrease")} @click=${() => this._setSettingNum(key, -1)}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10"/></svg>
-          </button>
-          <button class="settings-stepper-btn" title=${gettext("Increase")} @click=${() => this._setSettingNum(key, 1)}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
-          </button>
-          <button class="settings-stepper-btn" title=${gettext("Reset")} @click=${() => this._resetSetting(key)} .innerHTML=${READER_ICONS["reset"]}></button>
+        <div class="settings-slider-header">
+          <span class="settings-label">${label}</span>
+          <span class="settings-slider-value">${this._settings[key]}${unit}</span>
+        </div>
+        <div class="settings-slider-row">
+          <input class="settings-slider" type="range"
+            min=${String(bounds.min)} max=${String(bounds.max)} step=${String(bounds.step)}
+            .value=${this._settings[key]}
+            @input=${(e) => this._handleSliderInput(key, e.target.value)} />
+          <button class="settings-reset-btn" title=${gettext("Reset")}
+            @click=${() => this._resetSetting(key)} .innerHTML=${READER_ICONS["reset"]}></button>
         </div>
       </div>
     `;
@@ -535,9 +554,9 @@ export class ReaderToolbar extends LitElement {
               : html``}
           </div>
         </div>
-        ${inputRow("fontSize", gettext("Font Size"), "px")}
-        ${inputRow("width", gettext("Page Width"), "px")}
-        ${inputRow("lineHeight", gettext("Line Height"), "")}
+        ${sliderRow("fontSize", gettext("Font Size"), "px")}
+        ${sliderRow("width", gettext("Page Width"), "px")}
+        ${sliderRow("lineHeight", gettext("Line Height"), "")}
       </div>
     `;
   }

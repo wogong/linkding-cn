@@ -347,6 +347,85 @@ html.reader-mode {
     color: var(--secondary-text-color);
   }
 
+  .settings-slider-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: var(--unit-1);
+  }
+
+  .settings-slider-header .settings-label {
+    margin-bottom: 0;
+  }
+
+  .settings-slider-value {
+    font-size: var(--font-size-sm);
+    color: var(--text-color);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .settings-slider-row {
+    display: flex;
+    align-items: center;
+    gap: var(--unit-2);
+  }
+
+  .settings-slider {
+    flex: 1;
+    height: 4px;
+    appearance: none;
+    background: var(--secondary-border-color);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .settings-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+    border: none;
+  }
+
+  .settings-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+    border: none;
+  }
+
+  .settings-reset-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--border-radius);
+    color: var(--icon-color);
+    cursor: pointer;
+    width: 1.3rem;
+    height: 1.3rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .settings-reset-btn:hover {
+    background: var(--body-color-contrast);
+    color: var(--text-color);
+  }
+
+  .settings-reset-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
   /* Settings number inputs */
 
   .settings-input-row {

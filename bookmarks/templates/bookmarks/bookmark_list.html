@@ -105,23 +105,23 @@
                   {% endif %}
                   {% if bookmark_list.show_archive_action and not bookmark_list.is_trash_page %}
                     {% if bookmark_item.is_archived %}
-                      <button ld-confirm-button type="submit" name="unarchive" value="{{ bookmark_item.id }}"
+                      <button ld-confirm-button ld-confirm-question="{% translate 'Unarchive bookmark?' %}" type="submit" name="unarchive" value="{{ bookmark_item.id }}"
                               class="btn btn-link btn-sm">{% translate "Unarchive" %}
                       </button>
                     {% else %}
-                      <button ld-confirm-button type="submit" name="archive" value="{{ bookmark_item.id }}"
+                      <button ld-confirm-button ld-confirm-question="{% translate 'Archive bookmark?' %}" type="submit" name="archive" value="{{ bookmark_item.id }}"
                       class="btn btn-link btn-sm">{% translate "Archive" %}
                       </button>
                     {% endif %}
                   {% endif %}
                   {% if bookmark_list.is_trash_page %}
-                    <button ld-confirm-button type="submit" name="restore" value="{{ bookmark_item.id }}"
+                    <button ld-confirm-button ld-confirm-question="{% translate 'Restore bookmark?' %}" type="submit" name="restore" value="{{ bookmark_item.id }}"
                             class="btn btn-link btn-sm">{% translate "Restore" %}</button>
-                    <button ld-confirm-button type="submit" name="remove" value="{{ bookmark_item.id }}"
+                    <button ld-confirm-button ld-confirm-question="{% translate 'Permanently delete?' %}" type="submit" name="remove" value="{{ bookmark_item.id }}"
                     class="btn btn-link btn-sm">{% translate "Permanently delete" %}</button>
                   {% else %}
                     {% if bookmark_list.show_remove_action %}
-                      <button ld-confirm-button type="submit" name="trash" value="{{ bookmark_item.id }}"
+                      <button ld-confirm-button ld-confirm-question="{% translate 'Move to trash?' %}" type="submit" name="trash" value="{{ bookmark_item.id }}"
                       class="btn btn-link btn-sm">{% translate "Remove" %}</button>
                     {% endif %}
                   {% endif %}

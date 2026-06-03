@@ -2482,6 +2482,26 @@ msgstr "添加中..."
 msgid "Failed, please try again."
 msgstr "失败，请重试。"
 
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgid "Unarchive bookmark?"
+msgstr "取消归档书签？"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgid "Archive bookmark?"
+msgstr "归档书签？"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgid "Restore bookmark?"
+msgstr "恢复书签？"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgid "Permanently delete?"
+msgstr "彻底删除？"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgid "Move to trash?"
+msgstr "移到回收站？"
+
 #~ msgid "Tag aggregation mode"
 #~ msgstr "标签聚合模式"
 

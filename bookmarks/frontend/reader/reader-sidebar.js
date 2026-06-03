@@ -125,11 +125,26 @@ export class ReaderSidebar extends LitElement {
   async _trashBookmark() {
     const bm = this.bookmarkData || {}; if (!bm.id) return;
     try {
-      await fetch(joinPath(this.apiBase, `bookmarks/${bm.id}/trash/`), {
+      const r = await fetch(joinPath(this.apiBase, `bookmarks/${bm.id}/trash/`), {
         method: "POST",
         headers: { "X-CSRFToken": getCSRFToken() },
       });
-      window.location.href = this.bookmarksIndexUrl;
+      if (r.ok) {
+        this.bookmarkData = { ...this.bookmarkData, is_deleted: true };
+      }
+    } catch {}
+  }
+
+  async _restoreBookmark() {
+    const bm = this.bookmarkData || {}; if (!bm.id) return;
+    try {
+      const r = await fetch(joinPath(this.apiBase, `bookmarks/${bm.id}/restore/`), {
+        method: "POST",
+        headers: { "X-CSRFToken": getCSRFToken() },
+      });
+      if (r.ok) {
+        this.bookmarkData = { ...this.bookmarkData, is_deleted: false };
+      }
     } catch {}
   }
 
@@ -369,15 +384,18 @@ export class ReaderSidebar extends LitElement {
 
       <div class="info-bottom-actions">
         <span class="info-action-wrap">
-          <button class="info-action-btn info-action-delete" title=${gettext("Delete")}
+          <button class="info-action-btn info-action-delete ${bm.is_deleted ? "info-action-deleted" : ""}" title=${bm.is_deleted ? gettext("Restore") : gettext("Delete")}
             @click=${(e) => { e.stopPropagation(); this._showConfirm(this._confirmDelBookmark ? null : "delete"); }}
             .innerHTML=${READER_ICONS["delete"]}></button>
           ${this._confirmDelBookmark ? html`
             <span class="ld-confirm-popup-inline">
-              <span class="confirm-popup-question">${gettext("Move to trash?")}</span>
+              <span class="confirm-popup-question">${bm.is_deleted ? gettext("Restore bookmark?") : gettext("Move to trash?")}</span>
               <span class="confirm-popup-actions">
                 <button class="btn btn-sm" @click=${() => this._confirmDelBookmark = false}>${gettext("Cancel")}</button>
-                <button class="btn btn-sm btn-error" @click=${() => { this._confirmDelBookmark = false; this._trashBookmark(); }}>${gettext("Trash")}</button>
+                ${bm.is_deleted
+                  ? html`<button class="btn btn-sm btn-primary" @click=${() => { this._confirmDelBookmark = false; this._restoreBookmark(); }}>${gettext("Restore")}</button>`
+                  : html`<button class="btn btn-sm btn-error" @click=${() => { this._confirmDelBookmark = false; this._trashBookmark(); }}>${gettext("Trash")}</button>`
+                }
               </span>
             </span>
           ` : ""}

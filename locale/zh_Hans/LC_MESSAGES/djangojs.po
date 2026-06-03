@@ -484,6 +484,14 @@ msgstr "添加到我的书签列表"
 msgid "No tags"
 msgstr "无标签"
 
+#: bookmarks/frontend/reader/reader-sidebar.js
+msgid "Restore"
+msgstr "恢复"
+
+#: bookmarks/frontend/reader/reader-sidebar.js
+msgid "Restore bookmark?"
+msgstr "恢复书签？"
+
 #, fuzzy
 #~| msgid "Saving..."
 #~ msgid "saving"

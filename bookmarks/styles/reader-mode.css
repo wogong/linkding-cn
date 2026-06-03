@@ -1714,6 +1714,10 @@ html.reader-mode {
     color: var(--error-color);
   }
 
+  .info-action-deleted {
+    color: var(--error-color);
+  }
+
   .info-action-btn svg {
     width: 16px;
     height: 16px;

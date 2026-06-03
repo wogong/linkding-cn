@@ -846,6 +846,56 @@ class UserProfile(models.Model):
         SIDEBAR_MODULE_DOMAINS: _("Domains"),
         SIDEBAR_MODULE_TAGS: _("Tags"),
     }
+
+    ACTION_READ = "read"
+    ACTION_VIEW = "view"
+    ACTION_EDIT = "edit"
+    ACTION_ARCHIVE = "archive"
+    ACTION_REMOVE = "remove"
+    ACTION_KEYS = [ACTION_READ, ACTION_VIEW, ACTION_EDIT, ACTION_ARCHIVE, ACTION_REMOVE]
+    ACTION_LABELS = {
+        ACTION_READ: _("Read"),
+        ACTION_VIEW: _("View"),
+        ACTION_EDIT: _("Edit"),
+        ACTION_ARCHIVE: _("Archive"),
+        ACTION_REMOVE: _("Remove"),
+    }
+    ACTION_ICONS = {
+        ACTION_READ: "ld-icon-unread",
+        ACTION_VIEW: "ld-icon-view",
+        ACTION_EDIT: "ld-icon-edit",
+        ACTION_ARCHIVE: "ld-icon-archive",
+        ACTION_REMOVE: "ld-icon-remove",
+    }
+    ACTION_FIELD_MAP = {
+        ACTION_READ: "display_read_bookmark_action",
+        ACTION_VIEW: "display_view_bookmark_action",
+        ACTION_EDIT: "display_edit_bookmark_action",
+        ACTION_ARCHIVE: "display_archive_bookmark_action",
+        ACTION_REMOVE: "display_remove_bookmark_action",
+    }
+
+    STATUS_NOTES = "notes"
+    STATUS_SHARE = "share"
+    STATUS_UNREAD = "unread"
+    STATUS_KEYS = [STATUS_NOTES, STATUS_SHARE, STATUS_UNREAD]
+    STATUS_LABELS = {
+        STATUS_NOTES: _("Notes"),
+        STATUS_SHARE: _("Share"),
+        STATUS_UNREAD: _("Unread"),
+    }
+    STATUS_ICONS = {
+        STATUS_NOTES: "ld-icon-note",
+        STATUS_SHARE: "ld-icon-share",
+        STATUS_UNREAD: "ld-icon-unread",
+    }
+
+    ACTION_DISPLAY_MODE_TEXT = "text"
+    ACTION_DISPLAY_MODE_ICON = "icon"
+    ACTION_DISPLAY_MODE_CHOICES = [
+        (ACTION_DISPLAY_MODE_TEXT, _("Text")),
+        (ACTION_DISPLAY_MODE_ICON, _("Icon")),
+    ]
     user = models.OneToOneField(User, related_name="profile", on_delete=models.CASCADE)
     language = models.CharField(max_length=20, blank=False, default=LANGUAGE_EN)
     theme = models.CharField(
@@ -902,6 +952,14 @@ class UserProfile(models.Model):
     display_archive_bookmark_action = models.BooleanField(default=True, null=False)
     display_remove_bookmark_action = models.BooleanField(default=True, null=False)
     display_read_bookmark_action = models.BooleanField(default=True, null=False)
+    bookmark_actions = models.JSONField(default=list, blank=True, null=False)
+    bookmark_statuses = models.JSONField(default=list, blank=True, null=False)
+    bookmark_action_display_mode = models.CharField(
+        max_length=10,
+        choices=ACTION_DISPLAY_MODE_CHOICES,
+        blank=False,
+        default=ACTION_DISPLAY_MODE_TEXT,
+    )
     permanent_notes = models.BooleanField(default=False, null=False)
     custom_css = models.TextField(blank=True, null=False)
     custom_css_hash = models.CharField(blank=True, null=False, max_length=32)
@@ -1020,6 +1078,102 @@ class UserProfile(models.Model):
             for item in self.get_sidebar_modules()
         ]
 
+    @classmethod
+    def default_bookmark_actions(cls) -> list[dict]:
+        return [{"key": key, "enabled": True} for key in cls.ACTION_KEYS]
+
+    @classmethod
+    def normalize_bookmark_actions(cls, bookmark_actions: list | None) -> list[dict]:
+        if not isinstance(bookmark_actions, list) or len(bookmark_actions) == 0:
+            return cls.default_bookmark_actions()
+
+        defaults = {key: True for key in cls.ACTION_KEYS}
+        normalized = []
+        seen = set()
+
+        for item in bookmark_actions:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("key")
+            if key not in defaults or key in seen:
+                continue
+            normalized.append(
+                {
+                    "key": key,
+                    "enabled": bool(item.get("enabled", defaults[key])),
+                }
+            )
+            seen.add(key)
+
+        for key, enabled in defaults.items():
+            if key not in seen:
+                normalized.append({"key": key, "enabled": enabled})
+
+        return normalized
+
+    def get_bookmark_actions(self) -> list[dict]:
+        if self.bookmark_actions:
+            return self.normalize_bookmark_actions(self.bookmark_actions)
+        # Fall back to legacy boolean fields
+        return [
+            {"key": key, "enabled": getattr(self, self.ACTION_FIELD_MAP[key], True)}
+            for key in self.ACTION_FIELD_MAP
+        ]
+
+    def get_bookmark_action_items(self) -> list[dict]:
+        return [
+            {
+                **item,
+                "label": self.ACTION_LABELS[item["key"]],
+            }
+            for item in self.get_bookmark_actions()
+        ]
+
+    @classmethod
+    def default_bookmark_statuses(cls) -> list[dict]:
+        return [{"key": key, "enabled": True} for key in cls.STATUS_KEYS]
+
+    @classmethod
+    def normalize_bookmark_statuses(cls, bookmark_statuses: list | None) -> list[dict]:
+        if not isinstance(bookmark_statuses, list) or len(bookmark_statuses) == 0:
+            return cls.default_bookmark_statuses()
+
+        defaults = {key: True for key in cls.STATUS_KEYS}
+        normalized = []
+        seen = set()
+
+        for item in bookmark_statuses:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("key")
+            if key not in defaults or key in seen:
+                continue
+            normalized.append(
+                {
+                    "key": key,
+                    "enabled": bool(item.get("enabled", defaults[key])),
+                }
+            )
+            seen.add(key)
+
+        for key, enabled in defaults.items():
+            if key not in seen:
+                normalized.append({"key": key, "enabled": enabled})
+
+        return normalized
+
+    def get_bookmark_statuses(self) -> list[dict]:
+        return self.normalize_bookmark_statuses(self.bookmark_statuses)
+
+    def get_bookmark_status_items(self) -> list[dict]:
+        return [
+            {
+                **item,
+                "label": self.STATUS_LABELS[item["key"]],
+            }
+            for item in self.get_bookmark_statuses()
+        ]
+
 
 class UserProfileForm(forms.ModelForm):
     class Meta:
@@ -1045,6 +1199,9 @@ class UserProfileForm(forms.ModelForm):
             "display_archive_bookmark_action",
             "display_remove_bookmark_action",
             "display_read_bookmark_action",
+            "bookmark_actions",
+            "bookmark_statuses",
+            "bookmark_action_display_mode",
             "permanent_notes",
             "default_mark_unread",
             "default_mark_shared",
@@ -1074,6 +1231,8 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
     enable_web_archive = forms.BooleanField(required=False)
     sharing_mode = forms.ChoiceField(choices=SHARING_MODE_CHOICES)
     sidebar_modules = forms.CharField()
+    bookmark_actions = forms.CharField()
+    bookmark_statuses = forms.CharField()
 
     class Meta:
         model = UserProfile
@@ -1088,11 +1247,7 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             "tag_grouping",
             "legacy_search",
             "display_url",
-            "display_view_bookmark_action",
-            "display_edit_bookmark_action",
-            "display_archive_bookmark_action",
-            "display_remove_bookmark_action",
-            "display_read_bookmark_action",
+            "bookmark_action_display_mode",
             "permanent_notes",
             "default_mark_unread",
             "default_mark_shared",
@@ -1121,6 +1276,12 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
                 self.fields["sharing_mode"].initial = self.SHARING_MODE_DISABLED
             self.fields["sidebar_modules"].initial = json.dumps(
                 self.instance.get_sidebar_modules()
+            )
+            self.fields["bookmark_actions"].initial = json.dumps(
+                self.instance.get_bookmark_actions()
+            )
+            self.fields["bookmark_statuses"].initial = json.dumps(
+                self.instance.get_bookmark_statuses()
             )
 
     @property
@@ -1157,6 +1318,62 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             bundles_enabled=not self.instance.hide_bundles,
         )
 
+    @property
+    def bookmark_action_items(self) -> list[dict]:
+        if self.is_bound:
+            actions = self.data.get("bookmark_actions")
+            try:
+                parsed_actions = json.loads(actions) if actions else []
+            except (TypeError, ValueError):
+                parsed_actions = []
+            normalized = UserProfile.normalize_bookmark_actions(parsed_actions)
+            return [
+                {
+                    **item,
+                    "label": UserProfile.ACTION_LABELS[item["key"]],
+                }
+                for item in normalized
+            ]
+
+        return self.instance.get_bookmark_action_items()
+
+    def clean_bookmark_actions(self):
+        raw_value = self.cleaned_data["bookmark_actions"]
+        try:
+            parsed_value = json.loads(raw_value)
+        except (TypeError, ValueError):
+            raise forms.ValidationError(_("Invalid bookmark actions configuration.")) from None
+
+        return UserProfile.normalize_bookmark_actions(parsed_value)
+
+    @property
+    def bookmark_status_items(self) -> list[dict]:
+        if self.is_bound:
+            statuses = self.data.get("bookmark_statuses")
+            try:
+                parsed_statuses = json.loads(statuses) if statuses else []
+            except (TypeError, ValueError):
+                parsed_statuses = []
+            normalized = UserProfile.normalize_bookmark_statuses(parsed_statuses)
+            return [
+                {
+                    **item,
+                    "label": UserProfile.STATUS_LABELS[item["key"]],
+                }
+                for item in normalized
+            ]
+
+        return self.instance.get_bookmark_status_items()
+
+    def clean_bookmark_statuses(self):
+        raw_value = self.cleaned_data["bookmark_statuses"]
+        try:
+            parsed_value = json.loads(raw_value)
+        except (TypeError, ValueError):
+            raise forms.ValidationError(_("Invalid bookmark status configuration.")) from None
+
+        return UserProfile.normalize_bookmark_statuses(parsed_value)
+
     def save(self, commit=True):
         profile = super().save(commit=False)
         profile.collapse_side_panel = not self.cleaned_data["show_sidebar"]
@@ -1174,6 +1391,16 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             profile.default_mark_shared = False
 
         profile.sidebar_modules = self.cleaned_data["sidebar_modules"]
+
+        # Sync bookmark actions to JSON field and legacy boolean fields
+        actions = self.cleaned_data["bookmark_actions"]
+        profile.bookmark_actions = actions
+        for action in actions:
+            field_name = UserProfile.ACTION_FIELD_MAP.get(action["key"])
+            if field_name:
+                setattr(profile, field_name, action["enabled"])
+
+        profile.bookmark_statuses = self.cleaned_data["bookmark_statuses"]
 
         if commit:
             profile.save()

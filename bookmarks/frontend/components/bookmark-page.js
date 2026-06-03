@@ -12,9 +12,9 @@ class BookmarkItem extends Behavior {
     this.onToggleNotes = this.onToggleNotes.bind(this);
     this.onEditClick = this.onEditClick.bind(this);
     this.onTitleClick = this.onTitleClick.bind(this);
-    
+
     this.scroller = document.scrollingElement;
-    
+
     // 初始化 Notes
     this.notesToggle = element.querySelector(".toggle-notes");
     if (this.notesToggle) {
@@ -29,7 +29,7 @@ class BookmarkItem extends Behavior {
 
     // 初始化标题浮窗
     this.initTitleTooltip();
-    
+
     // 初始化描述浮窗
     this.initDescriptionTooltip();
   }

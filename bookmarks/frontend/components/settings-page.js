@@ -71,6 +71,9 @@ class SettingsPageBehavior extends Behavior {
     this.sidebarModuleForms = Array.from(
       element.querySelectorAll("[data-sidebar-modules-form]"),
     );
+    this.bookmarkActionsForms = Array.from(
+      element.querySelectorAll("[data-bookmark-actions-form]"),
+    );
     this.directoryClickHandlers = new Map();
     this.panelToggleButtons = Array.from(
       element.querySelectorAll("[data-settings-panel-toggle]"),
@@ -167,8 +170,43 @@ class SettingsPageBehavior extends Behavior {
       });
 
       this.sortableInstances.push(sortable);
-    
+
       this.syncSidebarModules(form);  // 初始同步
+    });
+
+    // 书签动作拖拽排序
+    this.bookmarkActionsForms.forEach((form) => {
+      const actionsList = form.querySelector("[data-bookmark-actions-list]");
+      if (actionsList) {
+        const sortable = Sortable.create(actionsList, {
+          handle: ".settings-module-handle",
+          animation: 150,
+          ghostClass: "is-dragging",
+          swapThreshold: 0.65,
+          onEnd: () => {
+            this.syncBookmarkActions(form);
+            this.queueSubmit(form);
+          },
+        });
+        this.sortableInstances.push(sortable);
+        this.syncBookmarkActions(form);
+      }
+
+      const statusesList = form.querySelector("[data-bookmark-statuses-list]");
+      if (statusesList) {
+        const sortable = Sortable.create(statusesList, {
+          handle: ".settings-module-handle",
+          animation: 150,
+          ghostClass: "is-dragging",
+          swapThreshold: 0.65,
+          onEnd: () => {
+            this.syncBookmarkStatuses(form);
+            this.queueSubmit(form);
+          },
+        });
+        this.sortableInstances.push(sortable);
+        this.syncBookmarkStatuses(form);
+      }
     });
 
     this.initializeHelpPopovers();
@@ -359,6 +397,11 @@ class SettingsPageBehavior extends Behavior {
       this.syncSidebarModules(form);
     }
 
+    if (form.matches("[data-bookmark-actions-form]")) {
+      this.syncBookmarkActions(form);
+      this.syncBookmarkStatuses(form);
+    }
+
     this.applyDependentState(form);
     this.queueAdaptiveControlLayoutsUpdate();
 
@@ -396,6 +439,11 @@ class SettingsPageBehavior extends Behavior {
 
     if (form.matches("[data-sidebar-modules-form]")) {
       this.syncSidebarModules(form);
+    }
+
+    if (form.matches("[data-bookmark-actions-form]")) {
+      this.syncBookmarkActions(form);
+      this.syncBookmarkStatuses(form);
     }
 
     this.applyDependentState(form);
@@ -818,7 +866,7 @@ class SettingsPageBehavior extends Behavior {
 
   }
 
-  // 语言设置：主选项与“其他语言”下拉的联动提交。
+  // 语言设置：主选项与”其他语言”下拉的联动提交。
   handleLanguageChange(target) {
     if (!(target instanceof HTMLElement) || !this.languageForm) {
       return false;
@@ -1193,6 +1241,36 @@ class SettingsPageBehavior extends Behavior {
     ).map((item) => ({
       key: item.dataset.moduleKey,
       enabled: Boolean(item.querySelector("[data-module-enabled]")?.checked),
+    }));
+
+    if (hiddenInput) {
+      hiddenInput.value = JSON.stringify(items);
+    }
+  }
+
+  // 书签动作：将可拖拽顺序和启用状态序列化为隐藏字段。
+  syncBookmarkActions(form) {
+    const hiddenInput = form.querySelector('[name="bookmark_actions"]');
+    const items = Array.from(
+      form.querySelectorAll("[data-bookmark-actions-list] .settings-module-item"),
+    ).map((item) => ({
+      key: item.dataset.actionKey,
+      enabled: Boolean(item.querySelector("[data-action-enabled]")?.checked),
+    }));
+
+    if (hiddenInput) {
+      hiddenInput.value = JSON.stringify(items);
+    }
+  }
+
+  // 书签状态：将可拖拽顺序和启用状态序列化为隐藏字段。
+  syncBookmarkStatuses(form) {
+    const hiddenInput = form.querySelector('[name="bookmark_statuses"]');
+    const items = Array.from(
+      form.querySelectorAll("[data-bookmark-statuses-list] .settings-module-item"),
+    ).map((item) => ({
+      key: item.dataset.statusKey,
+      enabled: Boolean(item.querySelector("[data-status-enabled]")?.checked),
     }));
 
     if (hiddenInput) {

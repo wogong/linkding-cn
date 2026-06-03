@@ -175,6 +175,7 @@ class BookmarkItem:
         self.preview_image_file = bookmark.preview_image_file
         self.is_archived = bookmark.is_archived
         self.unread = bookmark.unread
+        self.shared = bookmark.shared
         self.owner = bookmark.owner
         self.details_url = context.details(bookmark.id)
 
@@ -214,13 +215,6 @@ class BookmarkItem:
                     bookmark.date_deleted
                 )
 
-        self.show_notes_button = bookmark.notes and not profile.permanent_notes
-        self.show_mark_as_read = is_editable and bookmark.unread
-        self.show_unshare = is_editable and bookmark.shared and profile.enable_sharing
-
-        self.has_extra_actions = (
-            self.show_notes_button or self.show_mark_as_read or self.show_unshare
-        )
 
 
 class SidebarSummaryStat:
@@ -1164,11 +1158,26 @@ class BookmarkListContext:
         self.description_display = user_profile.bookmark_description_display
         self.description_max_lines = user_profile.bookmark_description_max_lines
         self.show_url = user_profile.display_url
-        self.show_view_action = user_profile.display_view_bookmark_action
-        self.show_edit_action = user_profile.display_edit_bookmark_action
-        self.show_archive_action = user_profile.display_archive_bookmark_action
-        self.show_remove_action = user_profile.display_remove_bookmark_action
-        self.show_read_action = user_profile.display_read_bookmark_action
+        self.action_list = [
+            {
+                "key": item["key"],
+                "enabled": item["enabled"],
+                "label": user_profile.ACTION_LABELS[item["key"]],
+            }
+            for item in user_profile.get_bookmark_actions()
+        ]
+        self.action_display_mode = user_profile.bookmark_action_display_mode
+        self.has_visible_actions = any(item["enabled"] for item in self.action_list)
+        self.status_list = [
+            {
+                "key": item["key"],
+                "enabled": item["enabled"],
+                "label": user_profile.STATUS_LABELS[item["key"]],
+            }
+            for item in user_profile.get_bookmark_statuses()
+        ]
+        self.has_visible_statuses = any(item["enabled"] for item in self.status_list)
+        self.sharing_enabled = user_profile.enable_sharing or user_profile.enable_public_sharing
         self.show_favicons = user_profile.enable_favicons
         self.show_preview_images = user_profile.enable_preview_images
         self.show_notes = user_profile.permanent_notes

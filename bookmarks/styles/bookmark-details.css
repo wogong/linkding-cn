@@ -76,6 +76,14 @@
     color: var(--alternative-color);
   }
 
+  & .description-content {
+    line-height: 1.6;
+  }
+
+  & .description-line {
+    padding-left: var(--unit-1);
+  }
+
   & .status form {
     display: flex;
     gap: var(--unit-2);

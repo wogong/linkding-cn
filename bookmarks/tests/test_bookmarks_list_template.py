@@ -80,7 +80,7 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
     def assertArchiveLinkCount(self, html: str, bookmark: Bookmark, count=1):
         self.assertInHTML(
             f"""
-            <button ld-confirm-button type="submit" name="archive" value="{bookmark.id}"
+            <button ld-confirm-button ld-confirm-question="Archive bookmark?" type="submit" name="archive" value="{bookmark.id}"
                class="btn btn-link btn-sm">Archive</button>
         """,
             html,
@@ -90,7 +90,7 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
     def assertDeleteLinkCount(self, html: str, bookmark: Bookmark, count=1):
         self.assertInHTML(
             f"""
-            <button ld-confirm-button type="submit" name="trash" value="{bookmark.id}"
+            <button ld-confirm-button ld-confirm-question="Move to trash?" type="submit" name="trash" value="{bookmark.id}"
                class="btn btn-link btn-sm">Remove</button>
         """,
             html,
@@ -209,12 +209,12 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
     def assertNotesToggle(self, html: str, count=1):
         self.assertInHTML(
             """
-        <button type="button" class="btn btn-link btn-sm btn-icon toggle-notes">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+        <button type="button" class="btn btn-link btn-sm btn-icon toggle-notes"
+                title="Notes">
+          <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
             <use xlink:href="#ld-icon-note"></use>
           </svg>
-          <!-- 笔记 -->
-        </button>      
+        </button>
           """,
             html,
             count=count,
@@ -223,14 +223,11 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
     def assertUnshareButton(self, html: str, bookmark: Bookmark, count=1):
         self.assertInHTML(
             f"""
-        <button type="submit" name="unshare" value="{bookmark.id}"
+        <button ld-confirm-button ld-confirm-question="Unshare?" type="submit" name="unshare" value="{bookmark.id}"
                 class="btn btn-link btn-sm btn-icon"
-                ld-confirm-button ld-confirm-question="Unshare?">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
-            <use xlink:href="#ld-icon-share"></use>
-          </svg>
-          <!-- 已分享 -->
-        </button>    
+                title="Shared">
+          <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><use xlink:href="#ld-icon-share"></use></svg>
+        </button>
           """,
             html,
             count=count,
@@ -241,12 +238,22 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
             f"""
         <button type="submit" name="mark_as_read" value="{bookmark.id}"
                 class="btn btn-link btn-sm btn-icon"
-                ld-confirm-button ld-confirm-question="Mark as read?">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
-            <use xlink:href="#ld-icon-unread"></use>
-          </svg>
-          <!-- 未读 -->
-        </button>   
+                title="Mark as read">
+          <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><use xlink:href="#ld-icon-unread-x"></use></svg>
+        </button>
+          """,
+            html,
+            count=count,
+        )
+
+    def assertMarkAsUnreadButton(self, html: str, bookmark: Bookmark, count=1):
+        self.assertInHTML(
+            f"""
+        <button type="submit" name="mark_as_unread" value="{bookmark.id}"
+                class="btn btn-link btn-sm btn-icon"
+                title="Mark as unread">
+          <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><use xlink:href="#ld-icon-read-check"></use></svg>
+        </button>
           """,
             html,
             count=count,
@@ -868,11 +875,11 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
 
         self.assertMarkAsReadButton(html, bookmark)
 
-    def test_hide_mark_as_read_when_read(self):
+    def test_show_mark_as_unread_when_read(self):
         bookmark = self.setup_bookmark(unread=False)
         html = self.render_template()
 
-        self.assertMarkAsReadButton(html, bookmark, count=0)
+        self.assertMarkAsUnreadButton(html, bookmark, count=1)
 
     def test_hide_mark_as_read_for_non_owned_bookmarks(self):
         other_user = self.setup_user(enable_sharing=True)

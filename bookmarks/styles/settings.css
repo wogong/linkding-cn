@@ -690,6 +690,15 @@
   .settings-module-name {
     min-width: 0;
     font-weight: 400;
+    display: flex;
+    align-items: center;
+    gap: var(--unit-2);
+  }
+
+  .settings-action-preview {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
   }
 
   .settings-inline-action {

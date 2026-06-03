@@ -547,6 +547,18 @@ def mark_as_read(request: HttpRequest, bookmark_id: int | str):
     bookmark.save()
 
 
+def mark_as_unread(request: HttpRequest, bookmark_id: int | str):
+    bookmark = access.bookmark_write(request, bookmark_id)
+    bookmark.unread = True
+    bookmark.save()
+
+
+def share(request: HttpRequest, bookmark_id: int | str):
+    bookmark = access.bookmark_write(request, bookmark_id)
+    bookmark.shared = True
+    bookmark.save()
+
+
 def prefetch_favicon(request: HttpRequest):
     if not request.user.profile.enable_favicons:
         return JsonResponse({"status": "disabled"})
@@ -710,6 +722,10 @@ def handle_action(request: HttpRequest, query: QuerySet[Bookmark] = None):
         return remove(request, request.POST["remove"])
     if "mark_as_read" in request.POST:
         return mark_as_read(request, request.POST["mark_as_read"])
+    if "mark_as_unread" in request.POST:
+        return mark_as_unread(request, request.POST["mark_as_unread"])
+    if "share" in request.POST:
+        return share(request, request.POST["share"])
     if "unshare" in request.POST:
         return unshare(request, request.POST["unshare"])
     if "create_html_snapshot" in request.POST:

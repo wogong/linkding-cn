@@ -18,10 +18,6 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
     quick_boolean_fields = (
         "display_url",
         "permanent_notes",
-        "display_view_bookmark_action",
-        "display_edit_bookmark_action",
-        "display_archive_bookmark_action",
-        "display_remove_bookmark_action",
         "default_mark_unread",
         "default_mark_shared",
         "enable_favicons",
@@ -70,10 +66,14 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
             "sidebar_modules": self.create_sidebar_modules(),
             "display_url": False,
             "permanent_notes": False,
-            "display_view_bookmark_action": True,
-            "display_edit_bookmark_action": True,
-            "display_archive_bookmark_action": True,
-            "display_remove_bookmark_action": True,
+            "bookmark_actions": json.dumps([
+                {"key": "read", "enabled": True},
+                {"key": "view", "enabled": True},
+                {"key": "edit", "enabled": True},
+                {"key": "archive", "enabled": True},
+                {"key": "remove", "enabled": True},
+            ]),
+            "bookmark_action_display_mode": "text",
             "default_mark_unread": False,
             "default_mark_shared": False,
             "enable_favicons": False,
@@ -383,10 +383,13 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
                     "items_per_page": "40",
                     "display_url": True,
                     "permanent_notes": True,
-                    "display_view_bookmark_action": False,
-                    "display_edit_bookmark_action": True,
-                    "display_archive_bookmark_action": False,
-                    "display_remove_bookmark_action": True,
+                    "bookmark_actions": json.dumps([
+                        {"key": "read", "enabled": True},
+                        {"key": "view", "enabled": False},
+                        {"key": "edit", "enabled": True},
+                        {"key": "archive", "enabled": False},
+                        {"key": "remove", "enabled": True},
+                    ]),
                     "default_mark_unread": True,
                     "enable_favicons": True,
                     "enable_preview_images": True,
@@ -441,7 +444,9 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
         self.assertTrue(self.user.profile.display_url)
         self.assertTrue(self.user.profile.permanent_notes)
         self.assertFalse(self.user.profile.display_view_bookmark_action)
+        self.assertTrue(self.user.profile.display_edit_bookmark_action)
         self.assertFalse(self.user.profile.display_archive_bookmark_action)
+        self.assertTrue(self.user.profile.display_remove_bookmark_action)
         self.assertTrue(self.user.profile.default_mark_unread)
         self.assertTrue(self.user.profile.enable_favicons)
         self.assertTrue(self.user.profile.enable_preview_images)

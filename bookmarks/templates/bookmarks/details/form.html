@@ -99,7 +99,17 @@
     {% if details.bookmark.resolved_description %}
       <section class="description col-2">
         <h3>{% translate "Description" %}</h3>
-        <div>{{ details.bookmark.resolved_description }}</div>
+        <div class="description-content">
+          {% if details.bookmark.resolved_description.splitlines %}
+            {% for line in details.bookmark.resolved_description.splitlines %}
+              {% if line.strip %}
+                <div class="description-line">· {{ line.strip }}</div>
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <div class="description-line">· {{ details.bookmark.resolved_description }}</div>
+          {% endif %}
+        </div>
       </section>
     {% endif %}
     {% if details.bookmark.notes %}

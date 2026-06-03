@@ -382,6 +382,9 @@ li[ld-bookmark-item] {
       box-sizing: border-box;
       transition: none;
       text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
 
       &:focus,
       &:hover,
@@ -393,6 +396,12 @@ li[ld-bookmark-item] {
     }
     & > a[href^="/assets"] {
       color: green;
+    }
+
+    & .action-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
     }
   }
 }

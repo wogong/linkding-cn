@@ -103,11 +103,11 @@
           {% if details.bookmark.resolved_description.splitlines %}
             {% for line in details.bookmark.resolved_description.splitlines %}
               {% if line.strip %}
-                <div class="description-line">· {{ line.strip }}</div>
+                <div class="description-line">{{ line.strip }}</div>
               {% endif %}
             {% endfor %}
           {% else %}
-            <div class="description-line">· {{ details.bookmark.resolved_description }}</div>
+            <div class="description-line">{{ details.bookmark.resolved_description }}</div>
           {% endif %}
         </div>
       </section>

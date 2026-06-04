@@ -1901,6 +1901,14 @@ class BookmarkDetailsContext:
             None,
         )
 
+        self.preview_image_file = bookmark.preview_image_file
+
+        # 高亮和批注数量
+        from bookmarks.models import Annotation
+        annotations = Annotation.objects.filter(bookmark=bookmark)
+        self.annotation_count = annotations.count()
+        self.note_count = annotations.exclude(note_content="").count()
+
 
 class ActiveBookmarkDetailsContext(BookmarkDetailsContext):
     request_context = ActiveBookmarksContext

@@ -35,19 +35,32 @@ class ConfirmPopup extends HTMLElement {
       gettext("Are you sure?");
 
     const rect = button.getBoundingClientRect();
-    const top = rect.bottom + 6;
 
     // Render off-screen to measure
     this.style.cssText = "position:fixed;visibility:hidden;";
     this.innerHTML = `<span class="confirm-popup-question">${question}</span><span class="confirm-popup-actions"><button type="button" class="btn btn-sm">${gettext("Cancel")}</button><button type="button" class="btn btn-sm btn-error">${gettext("Confirm")}</button></span>`;
 
     const popupWidth = this.offsetWidth;
+    const popupHeight = this.offsetHeight;
     let left = rect.left + rect.width / 2 - popupWidth / 2;
 
     // Keep within viewport horizontally
     if (left < 8) left = 8;
     if (left + popupWidth > window.innerWidth - 8) {
       left = window.innerWidth - 8 - popupWidth;
+    }
+
+    // Position: prefer up when button is in the lower half of viewport
+    const preferUp = rect.top + rect.height / 2 > window.innerHeight / 2;
+    let top;
+    if (preferUp) {
+      top = rect.top - popupHeight - 6;
+      if (top < 8) top = rect.bottom + 6;
+    } else {
+      top = rect.bottom + 6;
+      if (top + popupHeight > window.innerHeight - 8) {
+        top = rect.top - popupHeight - 6;
+      }
     }
 
     // Final position

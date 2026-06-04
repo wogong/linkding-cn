@@ -601,6 +601,9 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
 
     def test_create_bookmark_minimal_payload(self):
         self.authenticate()
+        profile = self.get_or_create_test_user().profile
+        profile.default_mark_unread = False
+        profile.save()
 
         data = {"url": "https://example.com/"}
         self.post(
@@ -657,6 +660,9 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
 
     def test_create_bookmark_is_not_unread_by_default(self):
         self.authenticate()
+        profile = self.get_or_create_test_user().profile
+        profile.default_mark_unread = False
+        profile.save()
 
         data = {"url": "https://example.com/"}
         self.post(reverse("linkding:bookmark-list"), data, status.HTTP_201_CREATED)

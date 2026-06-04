@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils import timezone, translation
 
 from bookmarks.models import BookmarkSearch, UserProfile
+from bookmarks.views.contexts import SidebarUserSummaryContext
 from bookmarks.tests.helpers import (
     BookmarkFactoryMixin,
     BookmarkListTestMixin,
@@ -26,6 +27,13 @@ class BookmarkIndexViewTestCase(
     def setUp(self) -> None:
         user = self.get_or_create_test_user()
         self.client.force_login(user)
+        # 重置 profile 到已知默认值，避免测试间状态污染
+        profile = user.profile
+        profile.sum_mode = SidebarUserSummaryContext.MODE_CALENDAR
+        profile.sum_show_weekdays = False
+        profile.sum_show_details = False
+        profile.default_mark_unread = False
+        profile.save()
 
     def assertEditLink(self, response, url):
         soup = self.make_soup(response.content.decode())

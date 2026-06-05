@@ -222,7 +222,7 @@ class BookmarkDetailsModalTestCase(TestCase, BookmarkFactoryMixin, HtmlTestMixin
     # ---- Tags ----
 
     def test_tags(self):
-        # without tags
+        # without tags: shows placeholder
         bookmark = self.setup_bookmark()
         soup = self.get_index_details_modal(bookmark)
         section = self.find_section(soup, "Tags")
@@ -230,7 +230,7 @@ class BookmarkDetailsModalTestCase(TestCase, BookmarkFactoryMixin, HtmlTestMixin
         placeholder = section.find("span", {"class": "info-placeholder"})
         self.assertIsNotNone(placeholder)
 
-        # with tags
+        # with tags: shows tag names
         bookmark = self.setup_bookmark(tags=[self.setup_tag(), self.setup_tag()])
         soup = self.get_index_details_modal(bookmark)
         section = self.find_section(soup, "Tags")

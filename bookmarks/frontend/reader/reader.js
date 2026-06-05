@@ -3,6 +3,8 @@ import { Highlighter, HIGHLIGHT_COLORS } from "./anchoring/highlighter";
 import { describeRange, TextPositionAnchor, TextQuoteAnchor } from "./anchoring/index";
 import { READER_ICONS } from "./reader-icons";
 import { gettext, interpolate } from "../utils/i18n.js";
+import "../components/confirm-inline.js";
+import "../components/tag-autocomplete.js";
 import "./reader-toolbar.js";
 import "./reader-sidebar.js";
 import { loadReaderSettings } from "./reader-settings.js";
@@ -1180,7 +1182,9 @@ function renderReader(options = {}) {
     const path = typeof e.composedPath === "function" ? e.composedPath() : [];
     const insideSidebar = path.includes(sidebar);
     const insideToolbar = path.includes(toolbar);
-    if (!insideSidebar && !insideToolbar) {
+    // 确认弹窗等浮层也不应关闭侧边栏
+    const insidePopup = e.target.closest(".reader-confirm-popup, .ld-confirm-popup");
+    if (!insideSidebar && !insideToolbar && !insidePopup) {
       sidebar.open = false;
       toolbar.sidebarOpen = false;
       localStorage.setItem("reader_sidebar_open", "false");

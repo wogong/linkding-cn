@@ -38,9 +38,10 @@ class DetailsModal extends Modal {
     if (titleInput) {
       this._autoResize(titleInput);
       titleInput.addEventListener("input", () => this._autoResize(titleInput));
-      titleInput.addEventListener("blur", (e) =>
-        this._patchBookmark("title", e.target.value),
-      );
+      titleInput.addEventListener("blur", (e) => {
+        e.target.scrollTop = 0;
+        this._patchBookmark("title", e.target.value);
+      });
     }
 
     // ---- 描述/备注 textarea（内联编辑） ----
@@ -71,7 +72,7 @@ class DetailsModal extends Modal {
       });
     });
 
-    // ---- 标签（内联编辑） ----
+    // ---- 标签（点击显示态 → 动态创建 ld-tag-autocomplete） ----
     this.querySelector(".detail-tags-view")?.addEventListener("click", () =>
       this._startEditTags(),
     );
@@ -339,32 +340,49 @@ class DetailsModal extends Modal {
     }
   }
 
-  // ---- 标签内联编辑 ----
+  // ---- 标签（显示态 ↔ 编辑态，编辑态动态创建 ld-tag-autocomplete） ----
 
   _startEditTags() {
     const wrapper = this.querySelector(".detail-tags-wrapper");
-    if (!wrapper || wrapper.classList.contains("editing")) return;
+    if (!wrapper || wrapper._editing) return;
+    wrapper._editing = true;
+    wrapper.classList.add("ld-editing");
 
-    const currentValue = this._data.tag_names.join(" ");
-    const textarea = wrapper.querySelector(".detail-tags-edit");
-    if (!textarea) return;
+    // 动态创建 ld-tag-autocomplete（每次都是全新实例，避免状态残留）
+    const autocomplete = document.createElement("ld-tag-autocomplete");
+    autocomplete.setAttribute("input-value", this._data.tag_names.join(" "));
+    autocomplete.setAttribute("input-placeholder", gettext("Click to edit tags"));
+    wrapper.appendChild(autocomplete);
 
-    wrapper.classList.add("editing");
-    textarea.value = currentValue;
-    textarea.focus();
-    textarea.setSelectionRange(currentValue.length, currentValue.length);
+    // 等组件渲染完成后聚焦（LitElement 渲染是异步的）
+    const onReady = () => {
+      const input = autocomplete.querySelector("input");
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
 
-    const onBlur = () => {
-      wrapper.classList.remove("editing");
-      const newValue = textarea.value.split(/\s+/).map((s) => s.trim()).filter(Boolean);
-      this._patchBookmark("tag_names", newValue);
-      this._updateTagDisplay(newValue);
-      textarea.removeEventListener("blur", onBlur);
+      input.addEventListener("blur", () => {
+        setTimeout(() => {
+          if (autocomplete.contains(document.activeElement)) return;
+
+          const newValue = (input.value || "").split(/\s+/).map(s => s.trim()).filter(Boolean);
+          if (JSON.stringify(newValue) !== JSON.stringify(this._data.tag_names)) {
+            this._patchBookmark("tag_names", newValue);
+          }
+
+          autocomplete.remove();
+          wrapper._editing = false;
+          wrapper.classList.remove("ld-editing");
+          this._updateTagDisplay(newValue);
+        }, 150);
+      });
     };
-    textarea.addEventListener("blur", onBlur);
-    textarea.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") { e.preventDefault(); textarea.blur(); }
-    }, { once: true });
+
+    if (autocomplete.updateComplete) {
+      autocomplete.updateComplete.then(onReady);
+    } else {
+      requestAnimationFrame(onReady);
+    }
   }
 
   _updateTagDisplay(tagNames) {
@@ -397,18 +415,21 @@ class DetailsModal extends Modal {
     const save = () => {
       const newName = input.value.trim();
       if (newName && newName !== currentName) {
-        this._addFormInput("rename_asset", assetId);
-        this._addFormInput("new_display_name", newName);
-        this._actionForm?.requestSubmit();
-      } else {
-        const link = document.createElement("a");
-        link.className = "info-file-link";
-        link.href = `/assets/${assetId}`;
-        link.target = "_blank";
-        link.textContent = newName || currentName;
-        link.title = newName || currentName;
-        input.replaceWith(link);
+        // API PATCH 重命名，不刷新整个页面
+        fetch(`${this.apiBase}bookmarks/${this.bookmarkId}/assets/${assetId}/`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": getCSRFToken() },
+          body: JSON.stringify({ display_name: newName }),
+        }).catch(err => console.error("Rename failed:", err));
       }
+      // 恢复为链接显示
+      const link = document.createElement("a");
+      link.className = "info-file-link";
+      link.href = `/assets/${assetId}`;
+      link.target = "_blank";
+      link.textContent = newName || currentName;
+      link.title = newName || currentName;
+      input.replaceWith(link);
     };
 
     input.addEventListener("blur", save);

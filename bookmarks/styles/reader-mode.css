@@ -762,8 +762,9 @@ html.reader-mode {
   }
 
   .ld-annotation-action-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
+    stroke-width: 1.2;
   }
 
   .ld-annotation-action-delete {
@@ -1023,6 +1024,22 @@ html.reader-mode {
     height: 0;
     flex: 1;
     overflow-y: auto;
+    /* 项目统一滚动条样式：默认隐藏，hover 时显示 */
+    scrollbar-color: transparent transparent;
+    scrollbar-width: thin;
+  }
+  .sidebar-tab-content[data-active="true"]:hover {
+    scrollbar-color: var(--secondary-border-color) transparent;
+  }
+  .sidebar-tab-content[data-active="true"]::-webkit-scrollbar {
+    width: 4px;
+  }
+  .sidebar-tab-content[data-active="true"]::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 2px;
+  }
+  .sidebar-tab-content[data-active="true"]:hover::-webkit-scrollbar-thumb {
+    background: var(--secondary-border-color);
   }
 
   /* ---- Sidebar: Annotation List ---- */
@@ -1301,6 +1318,9 @@ html.reader-mode {
     align-items: center;
     gap: var(--unit-2);
     font-size: var(--font-size-sm);
+    max-width: min(320px, calc(100vw - 16px));
+    white-space: normal;
+    text-align: center;
     white-space: nowrap;
     box-sizing: border-box;
     max-width: min(280px, calc(100vw - var(--unit-6)));
@@ -1318,6 +1338,8 @@ html.reader-mode {
   .confirm-popup-question {
     font-weight: bold;
     color: var(--text-color);
+    overflow-wrap: break-word;
+    white-space: normal;
   }
 
   .confirm-popup-actions {
@@ -1379,6 +1401,13 @@ html.reader-mode {
   .sidebar-bookmark-info {
     padding: var(--unit-3);
     padding-bottom: var(--unit-6);
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-bookmark-info > .info-bottom-actions {
+    margin-top: auto;
   }
 
   .info-section {
@@ -1430,16 +1459,53 @@ html.reader-mode {
     font-size: 14px;
     color: var(--input-text-color, var(--text-color));
     background: var(--input-bg-color, var(--body-color));
-    border: 1px solid transparent;
+    border: none;
     border-radius: var(--border-radius);
     box-sizing: border-box;
     font-family: var(--base-font-family);
     line-height: 1.5;
     field-sizing: content;
-    max-height: 10lh;
-    overflow-y: auto;
+    max-height: calc(1.5em * 10);
+    overflow-y: hidden;
     resize: none;
     outline: none;
+    /* 滚动条默认隐藏，hover/focus/active 时显示 */
+    scrollbar-color: transparent transparent;
+  }
+  .info-textarea:hover,
+  .info-textarea:focus,
+  .info-textarea:active {
+    scrollbar-color: var(--secondary-border-color) transparent;
+  }
+
+  .info-textarea:focus {
+    outline: none;
+  }
+
+  .info-textarea.overflows {
+    overflow-y: auto;
+  }
+
+  /* 滚动条样式：默认隐藏，hover/focus 时显示 */
+  .info-textarea::-webkit-scrollbar,
+  .tag-suggestions::-webkit-scrollbar {
+    width: 4px;
+  }
+  .info-textarea::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 2px;
+  }
+  .info-textarea:hover::-webkit-scrollbar-thumb,
+  .info-textarea:focus::-webkit-scrollbar-thumb {
+    background: var(--secondary-border-color);
+  }
+  .tag-suggestions::-webkit-scrollbar-thumb {
+    background: var(--secondary-border-color);
+    border-radius: 2px;
+  }
+
+  .info-textarea:focus {
+    overflow-y: auto;
   }
 
   .info-input:focus,
@@ -1457,7 +1523,22 @@ html.reader-mode {
   .info-title-input {
     font-size: 16px;
     font-weight: 600;
+    max-height: calc(1.4em * 5);
+    overflow-y: auto;
+    resize: none;
+    field-sizing: content;
+    line-height: 1.4;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    word-break: break-word;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text-color);
+    font-family: var(--base-font-family);
+    padding: 0;
   }
+  .info-title-input::-webkit-scrollbar { display: none; }
 
   .info-title-input::placeholder {
     font-weight: 400;
@@ -1661,13 +1742,19 @@ html.reader-mode {
     position: sticky;
     bottom: 0;
     background: var(--body-color);
-    border-top: 1px solid var(--secondary-border-color);
-    padding: 4px var(--unit-3);
+    padding: var(--unit-3) 0;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: var(--unit-3);
+    justify-content: space-between;
+    gap: var(--unit-2);
     overflow: visible;
+  }
+
+  .info-bottom-left,
+  .info-bottom-right {
+    display: flex;
+    align-items: center;
+    gap: var(--unit-2);
   }
 
   .info-action-wrap {
@@ -1719,12 +1806,97 @@ html.reader-mode {
   }
 
   .info-action-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
+    stroke-width: 2;
   }
 
   .info-tags-display {
     font-size: var(--font-size);
+  }
+
+  /* 标签（与查看弹窗一致：动态 ld-tag-autocomplete） */
+  .info-tags-wrapper {
+    position: relative;
+    min-height: 1.5em;
+  }
+
+  .info-tags-view {
+    cursor: pointer;
+    padding: var(--unit-1) 0;
+    border-radius: var(--border-radius);
+  }
+
+  .info-tags-view:hover {
+    background: var(--body-color-contrast);
+  }
+
+  .info-tags-wrapper.ld-editing .info-tags-view {
+    visibility: hidden;
+  }
+
+  .info-tags-wrapper.ld-editing ld-tag-autocomplete {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+
+  .info-tags-wrapper ld-tag-autocomplete {
+    display: block;
+  }
+
+  .info-tags-wrapper .form-autocomplete-input,
+  .info-tags-wrapper .form-autocomplete-input.form-input {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-size: 14px;
+    color: var(--text-color);
+    outline: none !important;
+  }
+
+  .info-tags-wrapper .form-autocomplete-input.is-focused {
+    box-shadow: none !important;
+    border-color: transparent !important;
+  }
+
+  .info-tags-wrapper .form-autocomplete input,
+  .info-tags-wrapper .form-autocomplete input.form-input {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-size: 14px;
+    color: var(--text-color);
+  }
+
+  /* 阅读页面确认弹窗 */
+  .reader-confirm-popup {
+    background: var(--body-color);
+    border: solid 1px var(--modal-container-border-color, var(--border-color));
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow-lg);
+    padding: var(--unit-3) var(--unit-4);
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--unit-2);
+    font-size: var(--font-size-sm);
+    max-width: min(320px, calc(100vw - 16px));
+    white-space: normal;
+    text-align: center;
+  }
+  .reader-confirm-popup .confirm-popup-question {
+    font-weight: bold;
+    color: var(--text-color);
+    overflow-wrap: break-word;
+    white-space: normal;
+  }
+  .reader-confirm-popup .confirm-popup-actions {
+    display: flex;
+    gap: var(--unit-2);
   }
 
   /* File list */
@@ -1776,14 +1948,15 @@ html.reader-mode {
   }
 
   .ld-confirm-popup-inline--file {
+    position: fixed;
     top: auto;
-    right: 0;
-    bottom: calc(100% + 6px);
+    right: auto;
+    bottom: auto;
     left: auto;
     transform: none;
     margin-top: 0;
     margin-bottom: 0;
-    z-index: calc(var(--zindex-4) + 2);
+    z-index: calc(var(--zindex-4) + 5);
   }
 
   .info-file-link {

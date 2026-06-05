@@ -132,7 +132,6 @@
 
         {# 标签 #}
         <div class="detail-section">
-          <div class="detail-label">{% translate "Tags" %}</div>
           {% if details.is_editable %}
             <div class="detail-tags-wrapper">
               <div class="detail-tags-view">
@@ -146,10 +145,6 @@
                   <span class="info-placeholder">{% translate "Click to edit tags" %}</span>
                 {% endif %}
               </div>
-              <textarea class="detail-tags-edit" rows="1"
-                placeholder="{% translate 'Click to edit tags' %}"
-                autocomplete="off" autocapitalize="off"
-                style="display:none"></textarea>
             </div>
           {% else %}
             <div>
@@ -241,6 +236,7 @@
         {% csrf_token %}
         <input type="file" name="upload_asset_file" class="d-hide" data-upload-file-input>
         <div class="detail-actions">
+          {# 编辑、归档、分享、已读：始终显示 #}
           <a class="detail-action-btn" href="{% url 'linkding:bookmarks.edit' details.bookmark.id %}?return_url={{ details.edit_return_url|urlencode }}" title="{% translate 'Edit' %}">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-edit"></use></svg>
           </a>
@@ -276,17 +272,18 @@
             </button>
           {% endif %}
           <span class="detail-action-spacer"></span>
+          {# 右侧：根据 is_deleted 显示不同按钮 #}
           {% if details.bookmark.is_deleted %}
             <button ld-confirm-button ld-confirm-question="{% translate 'Restore bookmark?' %}"
                     class="detail-action-btn" type="submit" name="restore" value="{{ details.bookmark.id }}" title="{% translate 'Restore' %}">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-restore"></use></svg>
             </button>
-            <button ld-confirm-button ld-confirm-question="{% translate 'Permanently delete? This cannot be undone.' %}"
+            <button ld-confirm-button ld-confirm-danger ld-confirm-question="{% translate 'Permanently delete? This cannot be undone.' %}"
                     class="detail-action-btn detail-action-delete" type="submit" name="remove" value="{{ details.bookmark.id }}" title="{% translate 'Permanently delete' %}">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-delete"></use></svg>
             </button>
           {% else %}
-            <button ld-confirm-button ld-confirm-question="{% translate 'Move to trash?' %}"
+            <button ld-confirm-button ld-confirm-danger ld-confirm-question="{% translate 'Move to trash?' %}"
                     class="detail-action-btn detail-action-delete" type="submit" name="trash" value="{{ details.bookmark.id }}" title="{% translate 'Move to trash' %}">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-remove"></use></svg>
             </button>

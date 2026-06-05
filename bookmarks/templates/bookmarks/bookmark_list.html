@@ -135,7 +135,7 @@
                             <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><use xlink:href="#ld-icon-restore"></use></svg>
                           {% else %}{% translate "Restore" %}{% endif %}
                         </button>
-                        <button ld-confirm-button ld-confirm-question="{% translate 'Permanently delete?' %}" type="submit" name="remove" value="{{ bookmark_item.id }}"
+                        <button ld-confirm-button ld-confirm-danger ld-confirm-question="{% translate 'Permanently delete?' %}" type="submit" name="remove" value="{{ bookmark_item.id }}"
                                 class="btn btn-link btn-sm"
                                 {% if bookmark_list.action_display_mode == "icon" %}title="{% translate 'Permanently delete' %}"{% endif %}>
                           {% if bookmark_list.action_display_mode == "icon" %}
@@ -143,7 +143,7 @@
                           {% else %}{% translate "Permanently delete" %}{% endif %}
                         </button>
                       {% else %}
-                        <button ld-confirm-button ld-confirm-question="{% translate 'Move to trash?' %}" type="submit" name="trash" value="{{ bookmark_item.id }}"
+                        <button ld-confirm-button ld-confirm-danger ld-confirm-question="{% translate 'Move to trash?' %}" type="submit" name="trash" value="{{ bookmark_item.id }}"
                                 class="btn btn-link btn-sm"
                                 {% if bookmark_list.action_display_mode == "icon" %}title="{% translate 'Remove' %}"{% endif %}>
                           {% if bookmark_list.action_display_mode == "icon" %}

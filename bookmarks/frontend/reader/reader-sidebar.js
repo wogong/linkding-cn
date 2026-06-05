@@ -30,14 +30,10 @@ export class ReaderSidebar extends LitElement {
     assetList: { type: Array }, activeTab: { type: String }, apiBase: { type: String },
     assetsBase: { type: String }, bookmarksIndexUrl: { type: String },
     isEditable: { type: Boolean },
-    _editingTags: { type: Boolean, state: true }, _tagInputValue: { type: String, state: true },
-    _tagSuggestions: { type: Array, state: true }, _tagSelectedIdx: { type: Number, state: true },
     _allTags: { type: Array, state: true }, _colorPickerId: { type: String, state: true },
-    _confirmDelAnnId: { type: String, state: true }, _confirmDelFileId: { type: String, state: true },
-    _renameAssetId: { type: String, state: true }, _renameValue: { type: String, state: true },
-    _copyToastId: { type: String, state: true }, _confirmDelBookmark: { type: Boolean, state: true },
-    _confirmArchive: { type: Boolean, state: true }, _confirmShared: { type: Boolean, state: true },
-    _confirmUnread: { type: Boolean, state: true },
+    _confirmDelAnnId: { type: String, state: true },
+    _renameAssetId: { type: String, state: true }, _renameValue: { type: String, state: true }, _renameOriginal: { type: String, state: true },
+    _copyToastId: { type: String, state: true },
     _buttonMode: { type: String, state: true }, _activeAnnId: { type: String, state: true },
   };
 
@@ -49,21 +45,28 @@ export class ReaderSidebar extends LitElement {
     this.apiBase = "/api/";
     this.assetsBase = "/assets";
     this.bookmarksIndexUrl = "/bookmarks";
-    this._editingTags = false;
-    this._tagInputValue = ""; this._tagSuggestions = []; this._tagSelectedIdx = -1;
     this._allTags = []; this._colorPickerId = null; this._colorPickerLeaveTimer = null; this._confirmDelAnnId = null;
-    this._confirmDelFileId = null; this._renameAssetId = null; this._renameValue = "";
-    this._copyToastId = null; this._confirmDelBookmark = false;
-    this._confirmArchive = false; this._confirmShared = false; this._confirmUnread = false;
+    this._renameAssetId = null; this._renameValue = ""; this._renameOriginal = "";
+    this._copyToastId = null;
     this._buttonMode = loadReaderSettings().buttonMode || "float";
     this._activeAnnId = null;
   }
 
   updated(changed) {
     if (changed.has("activeTab")) saveReaderSettings({ sidebarTab: this.activeTab });
-    if (changed.has("_editingTags") && this._editingTags) {
-      this.updateComplete.then(() => { const el = this.renderRoot.querySelector(".info-tag-input"); if (el) el.focus(); });
-    }
+    // textarea 溢出检测
+    this.updateComplete.then(() => this._updateTextareaOverflow());
+  }
+
+  _updateTextareaOverflow() {
+    this.querySelectorAll(".info-textarea").forEach(el => {
+      // 兼容不支持 field-sizing:content 的浏览器
+      el.style.height = "auto";
+      const maxHeight = parseFloat(getComputedStyle(el).maxHeight);
+      const hasLimit = !isNaN(maxHeight) && maxHeight > 0;
+      el.style.height = hasLimit ? Math.min(el.scrollHeight, maxHeight) + "px" : el.scrollHeight + "px";
+      el.classList.toggle("overflows", hasLimit && el.scrollHeight > maxHeight);
+    });
   }
 
   connectedCallback() {
@@ -71,11 +74,6 @@ export class ReaderSidebar extends LitElement {
     this._out = (e) => {
       if (this._colorPickerId && !e.target.closest(".annotation-color-wrap")) this._colorPickerId = null;
       if (this._confirmDelAnnId && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".annotation-action-delete")) this._confirmDelAnnId = null;
-      if (this._confirmDelFileId && !e.target.closest(".ld-confirm-popup-inline")) this._confirmDelFileId = null;
-      if (this._confirmArchive && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-action-wrap")) this._confirmArchive = false;
-      if (this._confirmDelBookmark && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-action-wrap")) this._confirmDelBookmark = false;
-      if (this._confirmShared && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-action-wrap")) this._confirmShared = false;
-      if (this._confirmUnread && !e.target.closest(".ld-confirm-popup-inline") && !e.target.closest(".info-action-wrap")) this._confirmUnread = false;
       if (this._activeAnnId && !e.target.closest(".annotation-item")) this._activeAnnId = null;
     };
     document.addEventListener("mousedown", this._out);
@@ -93,13 +91,13 @@ export class ReaderSidebar extends LitElement {
         method: "PATCH", headers: { "Content-Type": "application/json", "X-CSRFToken": getCSRFToken() },
         body: JSON.stringify({ [f]: v }),
       });
-      if (r.ok) { const u = await r.json(); this.bookmarkData = { ...this.bookmarkData, ...u }; document.dispatchEvent(new CustomEvent("bookmark-updated", { detail: u })); }
+      if (r.ok) { const u = await r.json(); this.bookmarkData = { ...this.bookmarkData, ...u }; this.open = true; document.dispatchEvent(new CustomEvent("bookmark-updated", { detail: u })); }
     } catch {}
   }
 
-  async _patchAsset(assetId, body) {
+  async _patchAsset(assetId, body, reload = true) {
     const bm = this.bookmarkData || {}; if (!bm.id) return false;
-    try { const r = await fetch(joinPath(this.apiBase, `bookmarks/${bm.id}/assets/${assetId}/`), { method: "PATCH", headers: { "Content-Type": "application/json", "X-CSRFToken": getCSRFToken() }, body: JSON.stringify(body) }); if (r.ok) { this._reloadAssets(); return true; } } catch {} return false;
+    try { const r = await fetch(joinPath(this.apiBase, `bookmarks/${bm.id}/assets/${assetId}/`), { method: "PATCH", headers: { "Content-Type": "application/json", "X-CSRFToken": getCSRFToken() }, body: JSON.stringify(body) }); if (r.ok) { if (reload) this._reloadAssets(); return true; } } catch {} return false;
   }
 
   async _deleteAsset(assetId) {
@@ -130,7 +128,15 @@ export class ReaderSidebar extends LitElement {
         headers: { "X-CSRFToken": getCSRFToken() },
       });
       if (r.ok) {
-        this.bookmarkData = { ...this.bookmarkData, is_deleted: true };
+        // 重新获取书签数据以获取 date_deleted
+        const d = await fetch(joinPath(this.apiBase, `bookmarks/${bm.id}/`), { headers: { "X-CSRFToken": getCSRFToken() } });
+        if (d.ok) {
+          const u = await d.json();
+          this.bookmarkData = { ...this.bookmarkData, ...u };
+        } else {
+          this.bookmarkData = { ...this.bookmarkData, is_deleted: true };
+        }
+        this.open = true;
       }
     } catch {}
   }
@@ -143,19 +149,99 @@ export class ReaderSidebar extends LitElement {
         headers: { "X-CSRFToken": getCSRFToken() },
       });
       if (r.ok) {
+        this.open = true;
         this.bookmarkData = { ...this.bookmarkData, is_deleted: false };
       }
     } catch {}
   }
 
+  async _permanentlyDeleteBookmark() {
+    const bm = this.bookmarkData || {}; if (!bm.id) return;
+    try {
+      const r = await fetch(joinPath(this.apiBase, `bookmarks/${bm.id}/`), {
+        method: "DELETE",
+        headers: { "X-CSRFToken": getCSRFToken() },
+      });
+      if (r.ok) {
+        // 彻底删除后跳转回书签列表
+        window.location.href = this.bookmarksIndexUrl || "/bookmarks";
+      }
+    } catch {}
+  }
+
+  /** 静默 PATCH：发送请求 + 更新按钮 icon，不触发 sidebar 重渲染 */
+  async _silentPatch(field, value, btn) {
+    const bm = this.bookmarkData || {};
+    if (!bm.id) return;
+    try {
+      const r = await fetch(joinPath(this.apiBase, `bookmarks/${bm.id}/`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": getCSRFToken() },
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (r.ok) {
+        const u = await r.json();
+        this.bookmarkData = { ...this.bookmarkData, ...u };
+        // 只更新被点击按钮的 icon
+        if (btn) {
+          const icon = this._getStateIcon(field, value);
+          if (icon) btn.innerHTML = icon;
+        }
+      }
+    } catch {}
+  }
+
+  /** 根据字段和值返回对应的 icon SVG */
+  _getStateIcon(field, value) {
+    const icons = {
+      "is_archived": { true: `<svg width="16" height="16"><use href="#ld-icon-archive-slash"></use></svg>`, false: `<svg width="16" height="16"><use href="#ld-icon-archive"></use></svg>` },
+      "shared": { true: `<svg width="16" height="16"><use href="#ld-icon-share"></use></svg>`, false: `<svg width="16" height="16"><use href="#ld-icon-share-x"></use></svg>` },
+      "unread": { true: `<svg width="16" height="16"><use href="#ld-icon-unread-x"></use></svg>`, false: `<svg width="16" height="16"><use href="#ld-icon-read-check"></use></svg>` },
+    };
+    return icons[field]?.[String(value)] || null;
+  }
+
   _reloadAssets() { this.dispatchEvent(new CustomEvent("reload-assets", { bubbles: true, composed: true, detail: { bookmarkId: this.bookmarkData?.id } })); }
   _emitAnn(id, action, extra = {}) { this.dispatchEvent(new CustomEvent("annotation-action", { bubbles: true, composed: true, detail: { id, action, ...extra } })); }
   _handleAnnCopy(annId) { this._emitAnn(annId, "copy"); this._copyToastId = String(annId); setTimeout(() => this._copyToastId = null, 1500); }
-  _showConfirm(type) {
-    this._confirmDelBookmark = type === "delete";
-    this._confirmArchive = type === "archive";
-    this._confirmShared = type === "shared";
-    this._confirmUnread = type === "unread";
+  /** 显示确认弹窗（追加到 body，fixed 定位） */
+  _showPopup(btn, onConfirm) {
+    document.querySelectorAll(".reader-confirm-popup").forEach(el => el.remove());
+
+    const question = btn.getAttribute("ld-confirm-question") || gettext("Are you sure?");
+    const isDanger = btn.hasAttribute("ld-confirm-danger");
+
+    const popup = document.createElement("div");
+    popup.className = "reader-confirm-popup";
+    popup.innerHTML = `<span class="confirm-popup-question">${question}</span><span class="confirm-popup-actions"><button type="button" class="btn btn-sm">${gettext("Cancel")}</button><button type="button" class="btn btn-sm ${isDanger ? "btn-error" : "btn-primary"}">${gettext("Confirm")}</button></span>`;
+
+    popup.style.cssText = "position:fixed;visibility:hidden;";
+    document.body.appendChild(popup);
+
+    const rect = btn.getBoundingClientRect();
+    const popupW = popup.offsetWidth;
+    const popupH = popup.offsetHeight;
+
+    let left = rect.left + rect.width / 2 - popupW / 2;
+    if (left < 8) left = 8;
+    if (left + popupW > window.innerWidth - 8) left = window.innerWidth - 8 - popupW;
+
+    let top = rect.top - popupH - 6;
+    if (top < 8) top = rect.bottom + 6;
+
+    popup.style.cssText = `position:fixed;top:${top}px;left:${left}px;z-index:9999;`;
+
+    const [cancelBtn, confirmBtn] = popup.querySelectorAll(".btn");
+    cancelBtn.addEventListener("click", () => popup.remove());
+    confirmBtn.addEventListener("click", () => {
+      popup.remove();
+      onConfirm();
+    });
+
+    const onOutside = (e) => {
+      if (!popup.contains(e.target)) { popup.remove(); document.removeEventListener("mousedown", onOutside); }
+    };
+    setTimeout(() => document.addEventListener("mousedown", onOutside), 0);
   }
   _setButtonMode(mode) { this._buttonMode = mode; saveReaderSettings({ buttonMode: mode }); }
   _handleAnnColor(annId, color) { this._colorPickerId = null; this._emitAnn(annId, "change-color", { color }); }
@@ -178,21 +264,63 @@ export class ReaderSidebar extends LitElement {
 
   // --- Tags ---
 
-  async _clickTags() {
-    this._tagInputValue = (this.bookmarkData.tag_names || []).join(" ");
-    this._editingTags = true;
-    if (!this._allTags.length) { try { const r = await fetch(joinPath(this.apiBase, "tags/?limit=5000")); if (r.ok) { const d = await r.json(); this._allTags = (d.results || d).map(t => t.name); } } catch {} }
-  }
+  /** 点击标签显示态 → 动态创建 ld-tag-autocomplete */
+  _clickTags() {
+    const wrapper = this.querySelector(".info-tags-wrapper");
+    if (!wrapper || wrapper._editing) return;
+    wrapper._editing = true;
+    wrapper.classList.add("ld-editing");
 
-  _onTagInput() { const i = this.querySelector(".info-tag-input"); if (!i) return; this._tagInputValue = i.value; const w = i.value.slice(0, i.selectionStart).split(/\s+/); const c = (w[w.length - 1] || "").toLowerCase(); this._tagSuggestions = c.length && this._allTags.length ? this._allTags.filter(t => t.toLowerCase().startsWith(c) && t !== c).slice(0, 6) : []; this._tagSelectedIdx = -1; }
-  _onTagKeydown(e) { if (e.key === "Escape") { this._tagSuggestions = []; return; } if (e.key === "ArrowDown") { e.preventDefault(); this._tagSelectedIdx = Math.min(this._tagSelectedIdx + 1, this._tagSuggestions.length - 1); } else if (e.key === "ArrowUp") { e.preventDefault(); this._tagSelectedIdx = Math.max(this._tagSelectedIdx - 1, -1); } else if (e.key === "Enter" && this._tagSelectedIdx >= 0) { e.preventDefault(); this._insertTagSuggestion(this._tagSuggestions[this._tagSelectedIdx]); } }
-  _insertTagSuggestion(tag) { const i = this.querySelector(".info-tag-input"); if (!i) return; const cp = i.selectionStart; const v = this._tagInputValue; const bf = v.slice(0, cp); const af = v.slice(cp); const ws = bf.split(/\s+/); ws[ws.length - 1] = tag; const nb = ws.join(" "); this._tagInputValue = nb + af; this._tagSuggestions = []; this._tagSelectedIdx = -1; this.updateComplete.then(() => { i.focus(); i.setSelectionRange(nb.length, nb.length); }); }
-  _saveTags() { const i = this.querySelector(".info-tag-input"); this._editingTags = false; this._tagSuggestions = []; this._patchBookmark("tag_names", (i ? i.value : this._tagInputValue).split(/\s+/).map(s => s.trim()).filter(Boolean)); }
+    const view = wrapper.querySelector(".info-tags-view");
+    const currentValue = (this.bookmarkData.tag_names || []).join(" ");
+
+    const autocomplete = document.createElement("ld-tag-autocomplete");
+    autocomplete.setAttribute("input-value", currentValue);
+    autocomplete.setAttribute("input-placeholder", gettext("Click to edit tags"));
+    wrapper.appendChild(autocomplete);
+
+    // 等组件渲染完成后聚焦（LitElement 渲染是异步的）
+    const onReady = () => {
+      const input = autocomplete.querySelector("input");
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+
+      input.addEventListener("blur", () => {
+        setTimeout(() => {
+          if (autocomplete.contains(document.activeElement)) return;
+
+          const newTags = (input.value || "").split(/\s+/).map(s => s.trim()).filter(Boolean);
+          const oldTags = this.bookmarkData?.tag_names || [];
+          if (JSON.stringify(newTags) !== JSON.stringify(oldTags)) {
+            this._patchBookmark("tag_names", newTags);
+          }
+
+          autocomplete.remove();
+          wrapper._editing = false;
+          wrapper.classList.remove("ld-editing");
+          if (view) {
+            if (newTags.length) {
+              view.innerHTML = `<span class="info-tags">${newTags.map(t => `<span class="info-tag">#${t}</span>`).join("")}</span>`;
+            } else {
+              view.innerHTML = `<span class="info-placeholder">${gettext("Click to edit tags")}</span>`;
+            }
+          }
+        }, 150);
+      });
+    };
+
+    if (autocomplete.updateComplete) {
+      autocomplete.updateComplete.then(onReady);
+    } else {
+      requestAnimationFrame(onReady);
+    }
+  }
 
   // --- File list ---
 
-  _startRename(assetId, currentName) { this._renameAssetId = String(assetId); this._renameValue = currentName; this.updateComplete.then(() => { const el = this.querySelector(".info-file-rename-input"); if (el) { el.focus(); el.select(); } }); }
-  _saveRename(assetId) { const n = this._renameValue.trim(); if (n) this._patchAsset(assetId, { display_name: n }); this._renameAssetId = null; this._renameValue = ""; }
+  _startRename(assetId, currentName) { this._renameAssetId = String(assetId); this._renameValue = currentName; this._renameOriginal = currentName; this.updateComplete.then(() => { const el = this.querySelector(".info-file-rename-input"); if (el) { el.focus(); el.select(); } }); }
+  _saveRename(assetId) { const n = this._renameValue.trim(); if (n && n !== this._renameOriginal) { this._patchAsset(assetId, { display_name: n }, false); this.assetList = (this.assetList || []).map(a => String(a.id) === String(assetId) ? { ...a, display_name: n } : a); } this._renameAssetId = null; this._renameValue = ""; this._renameOriginal = ""; }
 
   _fmtDate(iso) { if (!iso) return ""; try { const d = new Date(iso); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`; } catch { return ""; } }
   _fmtDT(iso) { if (!iso) return ""; try { const d = new Date(iso); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`; } catch { return ""; } }
@@ -271,7 +399,7 @@ export class ReaderSidebar extends LitElement {
       <div class="sidebar-section-header">
         <span>${highlightsText}${notesText}</span>
         <button class="button-mode-toggle ${this._buttonMode === "always" ? "active" : ""}"
-          title=${this._buttonMode === "always" ? gettext("Click to hide action buttons") : gettext("Click to show action buttons")}
+          title=${this._buttonMode === "always" ? gettext("Hide action buttons") : gettext("Show action buttons")}
           @click=${() => this._setButtonMode(this._buttonMode === "always" ? "float" : "always")}
           .innerHTML=${this._buttonMode === "always" ? READER_ICONS["eye"] : READER_ICONS["eye-off"]}></button>
       </div>
@@ -298,42 +426,38 @@ export class ReaderSidebar extends LitElement {
       ${bm.preview_image_url ? html`<div class="info-section"><img class="info-preview-image" src="${bm.preview_image_url}" alt=${gettext("Preview")} /></div>` : html``}
 
       <div class="info-section">
-        <input class="info-input info-title-input" .value=${bm.title || ""}
+        <textarea class="info-input info-title-input" rows="1"
           placeholder=${gettext("Click to edit title")}
-          @blur=${(e) => this._saveField("title", e.target.value)}
-          @keydown=${this._escapeBlur} />
+          @blur=${(e) => { e.target.scrollTop = 0; this._saveField("title", e.target.value); }}
+          @keydown=${this._escapeBlur}>${bm.title || ""}</textarea>
       </div>
 
       <div class="info-section">
         <a class="info-url" href="${bm.url || "#"}" target="_blank" rel="noopener">
           ${bm.favicon_url ? html`<img class="info-favicon" src="${bm.favicon_url}" width="16" height="16" />` : html``}
           <span class="info-url-text">${bm.url || "—"}</span>
-          <span class="info-external-icon" .innerHTML=${READER_ICONS["external-link"]}></span>
         </a>
       </div>
 
       <div class="info-section info-dates">
-        ${bm.date_added ? html`<span class="info-date" title=${interpolate(gettext("Added %(time)s"), { time: this._fmtDT(bm.date_added) })}><span class="info-date-icon" .innerHTML=${READER_ICONS["clock-added"]}></span>${this._fmtDate(bm.date_added)}</span>` : html``}
-        ${bm.date_modified ? html`<span class="info-date" title=${interpolate(gettext("Modified %(time)s"), { time: this._fmtDT(bm.date_modified) })}><span class="info-date-icon" .innerHTML=${READER_ICONS["clock-modified"]}></span>${this._fmtDate(bm.date_modified)}</span>` : html``}
+        ${bm.date_added ? html`<span class="info-date" title="${gettext("Added")} ${this._fmtDT(bm.date_added)}"><span class="info-date-icon" .innerHTML=${READER_ICONS["clock-added"]}></span>${this._fmtDate(bm.date_added)}</span>` : html``}
+        ${bm.date_modified ? html`<span class="info-date" title="${gettext("Modified")} ${this._fmtDT(bm.date_modified)}"><span class="info-date-icon" .innerHTML=${READER_ICONS["clock-modified"]}></span>${this._fmtDate(bm.date_modified)}</span>` : html``}
+        ${bm.is_deleted && bm.date_deleted ? html`<span class="info-date" title="${gettext("Deleted")} ${this._fmtDT(bm.date_deleted)}"><span class="info-date-icon" .innerHTML=${READER_ICONS["clock-deleted"]}></span>${this._fmtDate(bm.date_deleted)}</span>` : html``}
       </div>
 
       <div class="info-section">
-        ${this._editingTags ? html`
-          <div class="info-tag-autocomplete">
-            <textarea class="info-input info-tag-input" rows="1"
-              .value=${this._tagInputValue} @input=${this._onTagInput} @keydown=${this._onTagKeydown} @blur=${() => this._saveTags()}
-              placeholder=${gettext("tag1 tag2 ...")} autocomplete="off" autocapitalize="off"></textarea>
-            ${this._tagSuggestions.length ? html`<ul class="tag-suggestions">${this._tagSuggestions.map((t, i) => html`<li class="tag-suggestion ${i === this._tagSelectedIdx ? "selected" : ""}" @mousedown=${e => { e.preventDefault(); this._insertTagSuggestion(t); }}>${t}</li>`)}</ul>` : html``}
+        <div class="info-tags-wrapper">
+          <div class="info-tags-view" @click=${() => this._clickTags()}>
+            ${bm.tag_names?.length ? html`<span class="info-tags">${bm.tag_names.map(t => html`<span class="info-tag">#${t}</span>`)}</span>` : html`<span class="info-placeholder">${gettext("Click to edit tags")}</span>`}
           </div>
-        ` : html`<div class="info-value info-editable info-tags-display" @click=${() => this._clickTags()}>
-          ${bm.tag_names?.length ? html`<span class="info-tags">${bm.tag_names.map(t => html`<span class="info-tag">#${t}</span>`)}</span>` : html`<span class="info-placeholder">${gettext("Click to edit tags")}</span>`}
-        </div>`}
+        </div>
       </div>
 
       <div class="info-section">
         <div class="info-label">${gettext("Description")}</div>
         <textarea class="info-textarea" .value=${bm.description || ""}
           placeholder=${gettext("Click to edit description")} rows="1"
+          @input=${(e) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; e.target.classList.toggle("overflows", e.target.scrollHeight > e.target.clientHeight); }}
           @blur=${(e) => this._saveField("description", e.target.value)}
           @keydown=${this._escapeBlur}></textarea>
       </div>
@@ -342,6 +466,7 @@ export class ReaderSidebar extends LitElement {
         <div class="info-label">${gettext("Notes")}</div>
         <textarea class="info-textarea" .value=${bm.notes || ""}
           placeholder=${gettext("Click to edit notes")} rows="1"
+          @input=${(e) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; e.target.classList.toggle("overflows", e.target.scrollHeight > e.target.clientHeight); }}
           @blur=${(e) => this._saveField("notes", e.target.value)}
           @keydown=${this._escapeBlur}></textarea>
       </div>
@@ -363,19 +488,12 @@ export class ReaderSidebar extends LitElement {
               <button class="annotation-action-btn" title=${gettext("Rename")} @click=${() => this._startRename(a.id, name)} .innerHTML=${READER_ICONS["rename"]}></button>
               <span class="info-file-delete-wrap">
                 <button class="annotation-action-btn annotation-action-delete ${isArticle ? "disabled" : ""}"
+                  ld-confirm-question="${gettext("Remove this file?")}"
+                  ld-confirm-danger
                   title="${isArticle ? gettext("Cannot delete article asset") : gettext("Remove")}"
                   ?disabled=${isArticle}
-                  @click=${() => { if (!isArticle) this._confirmDelFileId = String(a.id); }}
+                  @click=${(e) => { if (!isArticle) this._showPopup(e.currentTarget, () => this._deleteAsset(a.id)); }}
                   .innerHTML=${READER_ICONS["delete"]}></button>
-                ${!isArticle && this._confirmDelFileId === String(a.id) ? html`
-                  <span class="ld-confirm-popup-inline ld-confirm-popup-inline--file">
-                    <span class="confirm-popup-question">${gettext("Are you sure?")}</span>
-                    <span class="confirm-popup-actions">
-                      <button class="btn btn-sm" @click=${() => this._confirmDelFileId = null}>${gettext("Cancel")}</button>
-                      <button class="btn btn-sm btn-error" @click=${() => { this._confirmDelFileId = null; this._deleteAsset(a.id); }}>${gettext("Remove")}</button>
-                    </span>
-                  </span>
-                ` : html``}
               </span>
             </div>
           </div>`;
@@ -383,65 +501,55 @@ export class ReaderSidebar extends LitElement {
       </div>
 
       <div class="info-bottom-actions">
-        <span class="info-action-wrap">
-          <button class="info-action-btn info-action-delete ${bm.is_deleted ? "info-action-deleted" : ""}" title=${bm.is_deleted ? gettext("Restore") : gettext("Delete")}
-            @click=${(e) => { e.stopPropagation(); this._showConfirm(this._confirmDelBookmark ? null : "delete"); }}
-            .innerHTML=${READER_ICONS["delete"]}></button>
-          ${this._confirmDelBookmark ? html`
-            <span class="ld-confirm-popup-inline">
-              <span class="confirm-popup-question">${bm.is_deleted ? gettext("Restore bookmark?") : gettext("Move to trash?")}</span>
-              <span class="confirm-popup-actions">
-                <button class="btn btn-sm" @click=${() => this._confirmDelBookmark = false}>${gettext("Cancel")}</button>
-                ${bm.is_deleted
-                  ? html`<button class="btn btn-sm btn-primary" @click=${() => { this._confirmDelBookmark = false; this._restoreBookmark(); }}>${gettext("Restore")}</button>`
-                  : html`<button class="btn btn-sm btn-error" @click=${() => { this._confirmDelBookmark = false; this._trashBookmark(); }}>${gettext("Trash")}</button>`
-                }
-              </span>
+        <div class="info-bottom-left">
+          <span class="info-action-wrap">
+            <button class="info-action-btn"
+              ld-confirm-question="${bm.is_archived ? gettext("Unarchive?") : gettext("Archive?")}"
+              title=${bm.is_archived ? gettext("Unarchive") : gettext("Archive")}
+              @click=${(e) => this._showPopup(e.currentTarget, () => this._silentPatch("is_archived", !bm.is_archived, e.currentTarget))}
+              .innerHTML=${bm.is_archived ? READER_ICONS["archive-slash"] : READER_ICONS["archive"]}></button>
+          </span>
+          <span class="info-action-wrap">
+            <button class="info-action-btn"
+              ld-confirm-question="${bm.shared ? gettext("Unshare?") : gettext("Share?")}"
+              title=${bm.shared ? gettext("Unshare") : gettext("Share")}
+              @click=${(e) => this._showPopup(e.currentTarget, () => this._silentPatch("shared", !bm.shared, e.currentTarget))}
+              .innerHTML=${bm.shared ? READER_ICONS["share"] : READER_ICONS["share-x"]}></button>
+          </span>
+          <span class="info-action-wrap">
+            <button class="info-action-btn" title=${bm.unread ? gettext("Mark as read") : gettext("Mark as unread")}
+              @click=${(e) => this._silentPatch("unread", !bm.unread, e.currentTarget)}
+              .innerHTML=${bm.unread ? READER_ICONS["unread-x"] : READER_ICONS["read-check"]}></button>
+          </span>
+        </div>
+        <div class="info-bottom-right">
+          ${bm.is_deleted ? html`
+            <span class="info-action-wrap">
+              <button class="info-action-btn"
+                ld-confirm-question="${gettext("Restore bookmark?")}"
+                title=${gettext("Restore")}
+                @click=${(e) => this._showPopup(e.currentTarget, () => this._restoreBookmark())}
+                .innerHTML=${READER_ICONS["restore"]}></button>
             </span>
-          ` : ""}
-        </span>
-        <span class="info-action-wrap">
-          <button class="info-action-btn ${bm.is_archived ? "active" : ""}" title=${gettext("Archive")}
-            @click=${(e) => { e.stopPropagation(); this._showConfirm(this._confirmArchive ? null : "archive"); }}
-            .innerHTML=${READER_ICONS["archive"]}></button>
-          ${this._confirmArchive ? html`
-            <span class="ld-confirm-popup-inline">
-              <span class="confirm-popup-question">${bm.is_archived ? gettext("Unarchive bookmark?") : gettext("Archive bookmark?")}</span>
-              <span class="confirm-popup-actions">
-                <button class="btn btn-sm" @click=${() => this._confirmArchive = false}>${gettext("Cancel")}</button>
-                <button class="btn btn-sm btn-primary" @click=${() => { this._confirmArchive = false; this._patchBookmark("is_archived", !bm.is_archived); }}>${gettext("Confirm")}</button>
-              </span>
+            <span class="info-action-wrap">
+              <button class="info-action-btn info-action-delete"
+                ld-confirm-question="${gettext("Permanently delete? This cannot be undone.")}"
+                ld-confirm-danger
+                title=${gettext("Permanently delete")}
+                @click=${(e) => this._showPopup(e.currentTarget, () => this._permanentlyDeleteBookmark())}
+                .innerHTML=${READER_ICONS["delete"]}></button>
             </span>
-          ` : ""}
-        </span>
-        <span class="info-action-wrap">
-          <button class="info-action-btn ${bm.shared ? "active" : ""}" title=${gettext("Shared")}
-            @click=${(e) => { e.stopPropagation(); this._showConfirm(this._confirmShared ? null : "shared"); }}
-            .innerHTML=${READER_ICONS["share"]}></button>
-          ${this._confirmShared ? html`
-            <span class="ld-confirm-popup-inline">
-              <span class="confirm-popup-question">${bm.shared ? gettext("Unshare bookmark?") : gettext("Share bookmark?")}</span>
-              <span class="confirm-popup-actions">
-                <button class="btn btn-sm" @click=${() => this._confirmShared = false}>${gettext("Cancel")}</button>
-                <button class="btn btn-sm btn-primary" @click=${() => { this._confirmShared = false; this._patchBookmark("shared", !bm.shared); }}>${gettext("Confirm")}</button>
-              </span>
+          ` : html`
+            <span class="info-action-wrap">
+              <button class="info-action-btn info-action-delete"
+                ld-confirm-question="${gettext("Move to trash?")}"
+                ld-confirm-danger
+                title=${gettext("Move to trash")}
+                @click=${(e) => this._showPopup(e.currentTarget, () => this._trashBookmark())}
+                .innerHTML=${READER_ICONS["delete"]}></button>
             </span>
-          ` : ""}
-        </span>
-        <span class="info-action-wrap">
-          <button class="info-action-btn ${!bm.unread ? "active" : ""}" title=${gettext("Unread")}
-            @click=${(e) => { e.stopPropagation(); this._showConfirm(this._confirmUnread ? null : "unread"); }}
-            .innerHTML=${READER_ICONS["unread"]}></button>
-          ${this._confirmUnread ? html`
-            <span class="ld-confirm-popup-inline">
-              <span class="confirm-popup-question">${bm.unread ? gettext("Mark as read?") : gettext("Mark as unread?")}</span>
-              <span class="confirm-popup-actions">
-                <button class="btn btn-sm" @click=${() => this._confirmUnread = false}>${gettext("Cancel")}</button>
-                <button class="btn btn-sm btn-primary" @click=${() => { this._confirmUnread = false; this._patchBookmark("unread", !bm.unread); }}>${gettext("Confirm")}</button>
-              </span>
-            </span>
-          ` : ""}
-        </span>
+          `}
+        </div>
       </div>
     </div>`;
   }
@@ -458,13 +566,13 @@ export class ReaderSidebar extends LitElement {
         <a class="info-url" href="${bm.url || "#"}" target="_blank" rel="noopener">
           ${bm.favicon_url ? html`<img class="info-favicon" src="${bm.favicon_url}" width="16" height="16" />` : html``}
           <span class="info-url-text">${bm.url || "—"}</span>
-          <span class="info-external-icon" .innerHTML=${READER_ICONS["external-link"]}></span>
         </a>
       </div>
 
       <div class="info-section info-dates">
-        ${bm.date_added ? html`<span class="info-date" title=${interpolate(gettext("Added %(time)s"), { time: this._fmtDT(bm.date_added) })}><span class="info-date-icon" .innerHTML=${READER_ICONS["clock-added"]}></span>${this._fmtDate(bm.date_added)}</span>` : html``}
-        ${bm.date_modified ? html`<span class="info-date" title=${interpolate(gettext("Modified %(time)s"), { time: this._fmtDT(bm.date_modified) })}><span class="info-date-icon" .innerHTML=${READER_ICONS["clock-modified"]}></span>${this._fmtDate(bm.date_modified)}</span>` : html``}
+        ${bm.date_added ? html`<span class="info-date" title="${gettext("Added")} ${this._fmtDT(bm.date_added)}"><span class="info-date-icon" .innerHTML=${READER_ICONS["clock-added"]}></span>${this._fmtDate(bm.date_added)}</span>` : html``}
+        ${bm.date_modified ? html`<span class="info-date" title="${gettext("Modified")} ${this._fmtDT(bm.date_modified)}"><span class="info-date-icon" .innerHTML=${READER_ICONS["clock-modified"]}></span>${this._fmtDate(bm.date_modified)}</span>` : html``}
+        ${bm.is_deleted && bm.date_deleted ? html`<span class="info-date" title="${gettext("Deleted")} ${this._fmtDT(bm.date_deleted)}"><span class="info-date-icon" .innerHTML=${READER_ICONS["clock-deleted"]}></span>${this._fmtDate(bm.date_deleted)}</span>` : html``}
       </div>
 
       <div class="info-section">

@@ -188,6 +188,12 @@ msgstr "标签1 标签2 ..."
 msgid "Click to edit tags"
 msgstr "点击编辑标签"
 
+msgid "Share"
+msgstr "分享"
+
+msgid "Unshare"
+msgstr "取消分享"
+
 #: bookmarks/frontend/reader/reader-sidebar.js:286
 msgid "Unread"
 msgstr "未读"
@@ -343,16 +349,16 @@ msgid "Click to show action buttons"
 msgstr "点击显示功能按钮"
 
 msgid "Share bookmark?"
-msgstr "开启书签分享？"
+msgstr "分享书签？"
 
 msgid "Unshare bookmark?"
-msgstr "取消书签分享？"
+msgstr "取消分享书签？"
 
 msgid "Mark as read?"
-msgstr "标记书签为已读？"
+msgstr "标记为已读？"
 
 msgid "Mark as unread?"
-msgstr "标记书签为未读？"
+msgstr "标记为未读？"
 
 #: bookmarks/frontend/reader/reader-toolbar.js:481
 msgid "Font"
@@ -507,3 +513,39 @@ msgstr "恢复书签？"
 
 #~ msgid "Yes"
 #~ msgstr "是"
+
+msgid "Share?"
+msgstr "分享？"
+
+msgid "Unshare?"
+msgstr "取消分享？"
+
+msgid "Archive?"
+msgstr "归档？"
+
+msgid "Unarchive?"
+msgstr "取消归档？"
+
+msgid "Permanently delete? This cannot be undone."
+msgstr "彻底删除？此操作不可撤销。"
+
+msgid "Permanently delete"
+msgstr "彻底删除"
+
+msgid "Remove this file?"
+msgstr "移除此文件？"
+
+msgid "Mark as read"
+msgstr "标记为已读"
+
+msgid "Mark as unread"
+msgstr "标记为未读"
+
+msgid "Added"
+msgstr "添加于"
+
+msgid "Modified"
+msgstr "修改于"
+
+msgid "Deleted"
+msgstr "删除于"

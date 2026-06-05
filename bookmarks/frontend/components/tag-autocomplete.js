@@ -137,7 +137,7 @@ export class TagAutocomplete extends TurboLitElement {
 
     setTimeout(() => {
       const selectedListItem = this.suggestionList?.querySelector("li.selected");
-      selectedListItem?.scrollIntoView({ block: "center" });
+      selectedListItem?.scrollIntoView({ block: "nearest" });
     }, 0);
   }
 

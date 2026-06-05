@@ -155,11 +155,37 @@
   max-height: calc(1.5em * 10);
   overflow-y: hidden;
   resize: none;
+  /* 滚动条默认隐藏 */
+  scrollbar-color: transparent transparent;
 }
 
 .detail-textarea::placeholder {
   color: var(--tertiary-text-color);
   font-style: italic;
+}
+
+/* 聚焦/悬浮/活动时显示滚动条 */
+.detail-textarea:focus,
+.detail-textarea:hover,
+.detail-textarea:active {
+  scrollbar-color: var(--secondary-border-color) transparent;
+}
+
+.detail-textarea::-webkit-scrollbar {
+  width: 4px;
+}
+.detail-textarea::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+}
+.detail-textarea:focus::-webkit-scrollbar-thumb,
+.detail-textarea:hover::-webkit-scrollbar-thumb,
+.detail-textarea:active::-webkit-scrollbar-thumb {
+  background: var(--secondary-border-color);
+}
+
+.detail-textarea.overflows {
+  overflow-y: auto;
 }
 
 /* 笔记不限制最大高度 */
@@ -175,7 +201,7 @@
 }
 
 /* ---- Tags ---- */
-/* 标签区域：展示和编辑共用同一容器，零抖动切换 */
+/* 标签 */
 .detail-tags-wrapper {
   position: relative;
   min-height: 1.5em;
@@ -185,40 +211,52 @@
   cursor: pointer;
   padding: var(--unit-1) 0;
   border-radius: var(--border-radius);
+  visibility: visible;
 }
 
 .detail-tags-view:hover {
   background: var(--body-color-contrast);
 }
 
-/* 编辑态：覆盖在展示态上方，绝对定位不撑开容器 */
-.detail-tags-wrapper.editing .detail-tags-view {
+/* 动态创建的 ld-tag-autocomplete 绝对定位，不撑开容器 */
+.detail-tags-wrapper.ld-editing .detail-tags-view {
   visibility: hidden;
 }
 
-.detail-tags-wrapper.editing .detail-tags-edit {
-  display: block !important;
+.detail-tags-wrapper.ld-editing ld-tag-autocomplete {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
 }
 
-.detail-tags-edit {
+/* 动态创建的 ld-tag-autocomplete 样式适配 */
+.detail-tags-wrapper ld-tag-autocomplete {
+  display: block;
+}
+
+/* wrapper div（.form-autocomplete-input.form-input）和内部 input 都去边框 */
+.detail-tags-wrapper .form-autocomplete .form-autocomplete-input,
+.detail-tags-wrapper .form-autocomplete .form-autocomplete-input.form-input,
+.detail-tags-wrapper .form-autocomplete .form-autocomplete-input input,
+.detail-tags-wrapper .form-autocomplete .form-autocomplete-input input.form-input {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
   font-size: 14px;
-  resize: none;
-  overflow-y: auto;
-  max-height: 10lh;
-  line-height: 1.5;
-  field-sizing: content;
-  font-family: var(--base-font-family);
-  padding: var(--unit-1) 0;
-  border: none;
-  border-radius: var(--border-radius);
-  background: transparent;
   color: var(--text-color);
-  outline: none;
-  box-sizing: border-box;
+  outline: none !important;
+}
+
+.detail-tags-wrapper .form-autocomplete .form-autocomplete-input.is-focused {
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+.detail-tags-wrapper .form-autocomplete .form-autocomplete-input.is-focused input {
+  box-shadow: none !important;
+  border: none !important;
 }
 
 .info-tags {

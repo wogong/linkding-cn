@@ -2523,3 +2523,19 @@ msgid "Successfully merged %(count)s tag (%(tag_names)s) into \"%(target_tag)s\"
 msgid_plural "Successfully merged %(count)s tags (%(tag_names)s) into \"%(target_tag)s\"."
 msgstr[0] "已成功将 %(count)s 个标签（%(tag_names)s）合并到'%(target_tag)s'中。"
 msgstr[1] "已成功将 %(count)s 个标签（%(tag_names)s）合并到'%(target_tag)s'中。"
+
+#: bookmarks/frontend/reader/reader-sidebar.js
+msgid "Hide action buttons"
+msgstr "隐藏功能按钮"
+
+#: bookmarks/frontend/reader/reader-sidebar.js
+msgid "Show action buttons"
+msgstr "显示功能按钮"
+
+#: bookmarks/frontend/reader/reader-sidebar.js
+msgid "Archive?"
+msgstr "归档？"
+
+#: bookmarks/frontend/reader/reader-sidebar.js
+msgid "Unarchive?"
+msgstr "取消归档？"

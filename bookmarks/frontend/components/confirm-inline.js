@@ -33,12 +33,14 @@ class ConfirmPopup extends HTMLElement {
     const question =
       button.getAttribute("ld-confirm-question") ||
       gettext("Are you sure?");
+    const isDanger = button.hasAttribute("ld-confirm-danger");
+    const confirmClass = isDanger ? "btn-error" : "btn-primary";
 
     const rect = button.getBoundingClientRect();
 
     // Render off-screen to measure
     this.style.cssText = "position:fixed;visibility:hidden;";
-    this.innerHTML = `<span class="confirm-popup-question">${question}</span><span class="confirm-popup-actions"><button type="button" class="btn btn-sm">${gettext("Cancel")}</button><button type="button" class="btn btn-sm btn-error">${gettext("Confirm")}</button></span>`;
+    this.innerHTML = `<span class="confirm-popup-question">${question}</span><span class="confirm-popup-actions"><button type="button" class="btn btn-sm">${gettext("Cancel")}</button><button type="button" class="btn btn-sm ${confirmClass}">${gettext("Confirm")}</button></span>`;
 
     const popupWidth = this.offsetWidth;
     const popupHeight = this.offsetHeight;
@@ -66,16 +68,25 @@ class ConfirmPopup extends HTMLElement {
     // Final position
     this.style.cssText = `position:fixed;top:${top}px;left:${left}px;`;
 
-    this.querySelector(".confirm-popup-actions .btn:not(.btn-error)").addEventListener("click", (e) => {
+    const buttons = this.querySelectorAll(".confirm-popup-actions .btn");
+    const cancelBtn = buttons[0];
+    const confirmBtn = buttons[1];
+
+    if (cancelBtn) cancelBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       dismissActive();
     });
 
-    this.querySelector(".confirm-popup-actions .btn-error").addEventListener("click", (e) => {
+    if (confirmBtn) confirmBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const form = button.closest("form");
-      if (form) {
-        form.requestSubmit(button);
+      // 支持回调模式（用于非 form 场景，如阅读页面侧边栏）
+      if (this._onConfirm) {
+        this._onConfirm();
+      } else {
+        const form = button.closest("form");
+        if (form) {
+          form.requestSubmit(button);
+        }
       }
       dismissActive();
     });

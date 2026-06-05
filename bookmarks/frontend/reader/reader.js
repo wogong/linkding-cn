@@ -234,6 +234,9 @@ class ReadingProgressController {
 
     this._exiting = false;
 
+    // bfcache 恢复时用于检测视口尺寸是否变化
+    this._lastViewport = null;
+
     this._bindEvents();
     this._init();
   }
@@ -345,9 +348,9 @@ class ReadingProgressController {
   /*
    * 恢复策略（按优先级）：
    * 1. 已读完 → 直接滚到底部
-   * 2. 有文字锚点 → TextQuoteSelector 精确定位，滚到视口顶部
-   * 3. 有元素锚点（IMG 等）→ tag+index 找到元素，offset 在内部精确定位
-   * 4. 同布局 → scroll_top 像素级精确恢复
+   * 2. 同布局 → scroll_top 像素级精确恢复（避免 TextQuoteSelector 的 rect 小数漂移）
+   * 3. 跨布局 + 有文字锚点 → TextQuoteSelector 精确定位，滚到视口顶部
+   * 4. 跨布局 + 有元素锚点（IMG 等）→ tag+index 找到元素，offset 在内部精确定位
    * 5. 跨布局 + 无锚点 → progress 比值近似恢复
    */
   restore(progress) {
@@ -358,8 +361,16 @@ class ReadingProgressController {
       el.scrollTop = maxTop;
       return;
     }
-    // 有文字锚点 → TextQuoteSelector 精确定位，总是滚到视口顶部
-    // 优先级最高：跨设备布局不同时仍能准确恢复，且保证记忆位置在视口顶部
+    // 同布局 → scroll_top 像素级精确恢复
+    // 布局不变时 scroll_top 是最精确的策略；TextQuoteSelector 的 getBoundingClientRect()
+    // 会产生小数偏移，多次保存-恢复后会导致 scrollTop 漂移
+    const sameW = Math.abs(el.clientWidth - (progress.client_width || 0)) <= 4;
+    const sameH = Math.abs(el.clientHeight - (progress.client_height || 0)) <= 4;
+    if (sameW && sameH && progress.scroll_top) {
+      el.scrollTop = Math.min(progress.scroll_top, maxTop);
+      return;
+    }
+    // 跨布局 + 有文字锚点 → TextQuoteSelector 精确定位
     if (progress.text_quote_exact) {
       try {
         const selector = {
@@ -381,7 +392,7 @@ class ReadingProgressController {
         }
       } catch { /* 回退到其他策略 */ }
     }
-    // 有元素锚点（IMG、VIDEO 等）→ 按 tag+index 找到元素，用 offset 精确定位
+    // 跨布局 + 有元素锚点（IMG、VIDEO 等）→ 按 tag+index 找到元素，用 offset 精确定位
     if (progress.element_selector) {
       const { tag, index, offset } = progress.element_selector;
       if (typeof index === "number") {
@@ -399,14 +410,7 @@ class ReadingProgressController {
         }
       }
     }
-    // 同布局 → scroll_top 像素级精确恢复（无文字锚点时的最佳策略）
-    const sameW = Math.abs(el.clientWidth - (progress.client_width || 0)) <= 4;
-    const sameH = Math.abs(el.clientHeight - (progress.client_height || 0)) <= 4;
-    if (sameW && sameH && progress.scroll_top) {
-      el.scrollTop = Math.min(progress.scroll_top, maxTop);
-      return;
-    }
-    // 无锚点 + 跨布局 → progress 比值近似恢复
+    // 跨布局 + 无锚点 → progress 比值近似恢复
     el.scrollTop = Math.round(
       maxTop * Math.min(1, Math.max(0, progress.progress || 0)),
     );
@@ -832,10 +836,11 @@ class ReadingProgressController {
       this._remoteProgress = data;
       this._updateRemoteToastText();
     } else if (data && this._isRemoteProgressUpdate(data)) {
-      // 必须在更新 _progressData 之前比较，否则 delta 永远为 0
       this._showRemoteToast(data);
     }
-    if (data) this._progressData = data;
+    // 不覆盖 _progressData：它只由 _init() 和 _syncToServer 成功后更新，
+    // 代表"我最后确认同步到服务端的位置"。fetch 的 data 不写入，
+    // 避免 beacon 竞态导致旧值覆盖，使 _isRemoteProgressUpdate 误报。
   }
 
   /**
@@ -944,9 +949,14 @@ class ReadingProgressController {
       });
     });
 
-    // hidden → beacon 保存未同步数据；visible → 拉取服务端最新进度（覆盖后台标签页降频期间的更新）
+    // hidden → 记录视口尺寸 + beacon 保存未同步数据
+    // visible → 拉取服务端最新进度（覆盖后台标签页降频期间的更新）
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
+        this._lastViewport = {
+          w: this.contentEl.clientWidth,
+          h: this.contentEl.clientHeight,
+        };
         this._beaconOnExit();
       } else {
         void this._syncFromServer();
@@ -958,10 +968,23 @@ class ReadingProgressController {
     });
 
     // bfcache 恢复时重新初始化（JS 状态是缓存的旧数据）
+    // 视口尺寸未变化时跳过 _init()：bfcache 已精确恢复 DOM 和 scrollTop，
+    // 无需重新定位或弹恢复提示
     window.addEventListener("pageshow", (e) => {
       if (!e.persisted) return;
       this._exiting = false;
       this._progressRetryScheduled = false;
+
+      const prev = this._lastViewport;
+      const curW = this.contentEl.clientWidth;
+      const curH = this.contentEl.clientHeight;
+      if (prev && Math.abs(curW - prev.w) <= 4 && Math.abs(curH - prev.h) <= 4) {
+        // 视口未变 → 浏览器已精确恢复位置，直接进入保存状态
+        this._enterSaving();
+        this.capture();
+        return;
+      }
+
       this.state = "loading";
       this.initialScrollTop = this.contentEl.scrollTop;
       this._init();
@@ -980,6 +1003,9 @@ class ReadingProgressController {
     const payload = { ...this.lastPayload };
     if (this.baseDateModified) payload.base_date_modified = this.baseDateModified;
     sendReadingProgressBeacon(this.apiBase, this.bookmarkId, payload);
+    // 同步 _progressData，防止 beacon 竞态：beacon 是 fire-and-forget，
+    // 若不同步，切回时 fetch 返回旧值会触发 _isRemoteProgressUpdate 误报
+    this._progressData = { ...this._progressData, ...payload };
   }
 
   // PATCH 当前进度到服务端。调用方：_scheduleIdleSave、_writeLocalStorage(sync=true)。
@@ -1002,6 +1028,8 @@ class ReadingProgressController {
       this._hasNewData = false;
       this._lastSavedAt = Date.now();
       this._clearLocalStorage();
+      // 同步 _progressData，防止 _isRemoteProgressUpdate 将自己的保存误判为远端变更
+      this._progressData = { ...this._progressData, ...this.lastPayload };
     } catch (err) {
       if (err?.status === 409) {
         // 冲突：409 本身就是不一致的证明，直接弹远端进度 toast
@@ -1011,7 +1039,6 @@ class ReadingProgressController {
           );
           if (latest) {
             this.baseDateModified = latest.date_modified || null;
-            this._progressData = latest;
             if (this.state === "remote") {
               this._remoteProgress = latest;
               this._updateRemoteToastText();

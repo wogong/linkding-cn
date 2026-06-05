@@ -36,7 +36,6 @@ class DetailsModal extends Modal {
     // ---- 标题（内联编辑） ----
     const titleInput = this.querySelector(".bookmark-title-input");
     if (titleInput) {
-      this._autoResize(titleInput);
       titleInput.addEventListener("input", () => this._autoResize(titleInput));
       titleInput.addEventListener("blur", (e) => {
         e.target.scrollTop = 0;
@@ -46,7 +45,6 @@ class DetailsModal extends Modal {
 
     // ---- 描述/备注 textarea（内联编辑） ----
     this.querySelectorAll(".detail-textarea").forEach((el) => {
-      this._autoResize(el);
       el.addEventListener("input", () => this._autoResize(el));
       el.addEventListener("blur", (e) => {
         const field = e.target.dataset.field;
@@ -55,6 +53,12 @@ class DetailsModal extends Modal {
       el.addEventListener("keydown", (e) => {
         if (e.key === "Escape") { e.preventDefault(); e.target.blur(); }
       });
+    });
+
+    // 所有 textarea 的初始高度计算统一到下一帧，批量读写只触发 1 次 reflow
+    requestAnimationFrame(() => {
+      const allTextareas = [titleInput, ...this.querySelectorAll(".detail-textarea")].filter(Boolean);
+      this._batchAutoResize(allTextareas);
     });
 
     // ---- 清空按钮 ----
@@ -130,10 +134,31 @@ class DetailsModal extends Modal {
   _autoResize(el) {
     const maxHeight = parseFloat(getComputedStyle(el).maxHeight);
     const hasLimit = !isNaN(maxHeight) && maxHeight > 0;
-    const needsScroll = hasLimit && el.scrollHeight > maxHeight;
-    el.style.overflowY = needsScroll ? "auto" : "hidden";
     el.style.height = "auto";
-    el.style.height = hasLimit ? Math.min(el.scrollHeight, maxHeight) + "px" : el.scrollHeight + "px";
+    const naturalHeight = el.scrollHeight;
+    el.style.overflowY = hasLimit && naturalHeight > maxHeight ? "auto" : "hidden";
+    el.style.height = hasLimit ? Math.min(naturalHeight, maxHeight) + "px" : naturalHeight + "px";
+  }
+
+  /**
+   * 批量调整多个 textarea 高度：先统一读，再统一写，只触发 1 次 reflow。
+   */
+  _batchAutoResize(els) {
+    // Phase 1: 所有元素先设为 auto（使布局失效）
+    for (const el of els) {
+      el.style.height = "auto";
+    }
+    // Phase 2: 统一读取 scrollHeight（1 次 reflow）
+    const measured = els.map((el) => {
+      const maxHeight = parseFloat(getComputedStyle(el).maxHeight);
+      const hasLimit = !isNaN(maxHeight) && maxHeight > 0;
+      return { el, hasLimit, maxHeight, naturalHeight: el.scrollHeight };
+    });
+    // Phase 3: 统一写入
+    for (const { el, hasLimit, maxHeight, naturalHeight } of measured) {
+      el.style.overflowY = hasLimit && naturalHeight > maxHeight ? "auto" : "hidden";
+      el.style.height = hasLimit ? Math.min(naturalHeight, maxHeight) + "px" : naturalHeight + "px";
+    }
   }
 
   // ---- form 辅助 ----

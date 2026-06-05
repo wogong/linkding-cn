@@ -203,6 +203,17 @@ def index(request: HttpRequest):
             return _handle_preference_toggle(request)
         return search_action(request)
 
+    # Turbo frame 请求只需详情上下文，跳过其余昂贵查询
+    if turbo.is_frame(request, "details-modal"):
+        details = contexts.get_details_context(
+            request, contexts.ActiveBookmarkDetailsContext
+        )
+        return render(
+            request,
+            "bookmarks/updates/details-modal-frame.html",
+            {"details": details},
+        )
+
     search = BookmarkSearch.from_request(
         request, request.GET, request.user_profile.search_preferences
     )
@@ -239,6 +250,16 @@ def archived(request: HttpRequest):
             return _handle_preference_toggle(request)
         return search_action(request)
 
+    if turbo.is_frame(request, "details-modal"):
+        details = contexts.get_details_context(
+            request, contexts.ArchivedBookmarkDetailsContext
+        )
+        return render(
+            request,
+            "bookmarks/updates/details-modal-frame.html",
+            {"details": details},
+        )
+
     search = BookmarkSearch.from_request(
         request, request.GET, request.user_profile.search_preferences
     )
@@ -271,6 +292,16 @@ def shared(request: HttpRequest):
         if "pref_action" in request.POST:
             return _handle_preference_toggle(request)
         return search_action(request)
+
+    if turbo.is_frame(request, "details-modal"):
+        details = contexts.get_details_context(
+            request, contexts.SharedBookmarkDetailsContext
+        )
+        return render(
+            request,
+            "bookmarks/updates/details-modal-frame.html",
+            {"details": details},
+        )
 
     search = BookmarkSearch.from_request(
         request, request.GET, request.user_profile.search_preferences
@@ -308,6 +339,16 @@ def trashed(request: HttpRequest):
         if "pref_action" in request.POST:
             return _handle_preference_toggle(request)
         return search_action(request)
+
+    if turbo.is_frame(request, "details-modal"):
+        details = contexts.get_details_context(
+            request, contexts.TrashedBookmarkDetailsContext
+        )
+        return render(
+            request,
+            "bookmarks/updates/details-modal-frame.html",
+            {"details": details},
+        )
 
     # 如果用户的回收站搜索偏好为空，设置默认的删除时间降序
     if not request.user_profile.trash_search_preferences:

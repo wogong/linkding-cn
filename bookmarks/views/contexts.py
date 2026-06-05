@@ -1903,11 +1903,15 @@ class BookmarkDetailsContext:
 
         self.preview_image_file = bookmark.preview_image_file
 
-        # 高亮和批注数量
+        # 高亮和批注数量（单次查询）
+        from django.db.models import Count, Q
         from bookmarks.models import Annotation
-        annotations = Annotation.objects.filter(bookmark=bookmark)
-        self.annotation_count = annotations.count()
-        self.note_count = annotations.exclude(note_content="").count()
+        agg = Annotation.objects.filter(bookmark=bookmark).aggregate(
+            total=Count("id"),
+            with_note=Count("id", filter=Q(note_content__gt="")),
+        )
+        self.annotation_count = agg["total"]
+        self.note_count = agg["with_note"]
 
 
 class ActiveBookmarkDetailsContext(BookmarkDetailsContext):

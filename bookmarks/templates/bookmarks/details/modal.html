@@ -69,7 +69,7 @@
         {# 第二行：阅读模式、最新快照、互联网存档 #}
         <div class="weblinks">
           <a class="weblink" href="{% url 'linkding:bookmarks.read' details.bookmark.id %}"
-             target="{{ details.profile.bookmark_link_target }}">
+             target="{{ details.profile.bookmark_link_target }}" data-turbo="false">
             <svg class="favicon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0"/><path d="M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0"/><path d="M3 6l0 13"/><path d="M12 6l0 13"/><path d="M21 6l0 13"/></svg>
             <span>{% translate "Reader mode" %}</span>
           </a>

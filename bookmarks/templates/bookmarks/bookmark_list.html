@@ -87,7 +87,7 @@
                   {% if action.enabled %}
                     {% if action.key == "read" %}
                       <a href="{% url 'linkding:bookmarks.read' bookmark_item.id %}" class="read-action"
-                        target="{{ bookmark_list.link_target }}"
+                        target="{{ bookmark_list.link_target }}" data-turbo="false"
                         {% if bookmark_list.action_display_mode == "icon" %}title="{% translate 'Read' context 'bookmark action' %}"{% endif %}>
                         {% if bookmark_list.action_display_mode == "icon" %}
                           <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><use xlink:href="#ld-icon-unread"></use></svg>

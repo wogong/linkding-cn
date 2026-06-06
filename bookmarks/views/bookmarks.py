@@ -840,7 +840,7 @@ def close(request: HttpRequest):
 
 @login_required
 def read(request: HttpRequest, bookmark_id: int):
-    from bookmarks.services.articles import get_article_content, remove_article
+    from bookmarks.services.articles import remove_article
     from bookmarks.services.wayback import generate_fallback_webarchive_url
 
     bookmark = access.bookmark_read(request, bookmark_id)
@@ -911,35 +911,21 @@ def read(request: HttpRequest, bookmark_id: int):
     if bookmark.latest_article:
         asset = bookmark.latest_article
         if asset.status == BookmarkAsset.STATUS_COMPLETE:
-            try:
-                content = get_article_content(asset)
-                return render(
-                    request,
-                    "bookmarks/read.html",
-                    {
-                        "content": content,
-                        "bookmark_id": bookmark_id,
-                        "asset_id": asset.id,
-                        "bookmark_data": bookmark_data,
-                        "api_base_url": api_base_url,
-                        "assets_base_url": reverse(
-                            "linkding:assets.view", args=[0]
-                        ).rsplit("/0", 1)[0],
-                        "bookmarks_index_url": reverse("linkding:bookmarks.index"),
-                    },
-                )
-            except Exception:
-                # Stored article file may be missing/corrupt; regenerate a new one.
-                asset = tasks.create_article(bookmark)
-                return render(
-                    request,
-                    "bookmarks/read_pending.html",
-                    {
-                        "bookmark_id": bookmark_id,
-                        "asset_id": asset.id,
-                        "api_base_url": api_base_url,
-                    },
-                )
+            # Content loaded asynchronously by client from /assets/<id>/
+            return render(
+                request,
+                "bookmarks/read.html",
+                {
+                    "bookmark_id": bookmark_id,
+                    "asset_id": asset.id,
+                    "bookmark_data": bookmark_data,
+                    "api_base_url": api_base_url,
+                    "assets_base_url": reverse(
+                        "linkding:assets.view", args=[0]
+                    ).rsplit("/0", 1)[0],
+                    "bookmarks_index_url": reverse("linkding:bookmarks.index"),
+                },
+            )
         elif asset.status == BookmarkAsset.STATUS_PENDING:
             # Article is being processed — show loading page
             return render(

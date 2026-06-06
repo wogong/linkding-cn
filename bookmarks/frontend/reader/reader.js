@@ -1,4 +1,3 @@
-import Defuddle from "defuddle";
 import { Highlighter, HIGHLIGHT_COLORS } from "./anchoring/highlighter";
 import { describeRange, TextPositionAnchor, TextQuoteAnchor } from "./anchoring/index";
 import { READER_ICONS } from "./reader-icons";
@@ -1070,20 +1069,14 @@ class ReadingProgressController {
 }
 
 /**
- * Reader mode renderer using Defuddle for content extraction,
+ * Reader mode renderer — fetches defuddle-cleaned content from server,
  * with toolbar, sidebar, and annotation support.
  */
 function renderReader(options = {}) {
   const {
-    contentSelector,
-    outputFormat = "html",
-    defuddleOptions = {},
     bookmarkId,
     assetId,
   } = options;
-
-  const content = document.getElementById("content");
-  if (!content) return;
 
   const apiBase = normalizeBaseUrl(
     parseJsonScriptValue("reader-api-base-url", "/api/"),
@@ -1105,53 +1098,54 @@ function renderReader(options = {}) {
     }
   }
 
-  const contentHtml = content.innerHTML;
-  const dom = new DOMParser().parseFromString(contentHtml, "text/html");
-
-  const defuddleOptions_ = {
-    ...defuddleOptions,
-    url: window.location.href,
-  };
-  if (contentSelector) {
-    defuddleOptions_.contentSelector = contentSelector;
-  }
-  if (outputFormat === "markdown") {
-    defuddleOptions_.markdown = true;
-  }
-
-  const result = new Defuddle(dom, defuddleOptions_).parse();
-
   // Title shown in toolbar should always come from bookmark metadata.
-  let resolvedTitle = bookmarkData.title || "";
-  if (!resolvedTitle) {
+  let toolbarTitle = bookmarkData.title || "";
+  if (!toolbarTitle) {
     try {
-      resolvedTitle = new URL(bookmarkData.url || window.location.href)
+      toolbarTitle = new URL(bookmarkData.url || window.location.href)
         .hostname;
     } catch {
-      resolvedTitle = gettext("Reader");
+      toolbarTitle = gettext("Reader");
     }
   }
-  document.title = resolvedTitle;
+  document.title = toolbarTitle;
 
-  // Build article container (replaces old .reading-time with scroll progress)
+  // Fetch article content asynchronously, then render.
+  const contentUrl = assetId > 0
+    ? joinPath(assetsBase, `${assetId}`)
+    : null;
+
+  if (contentUrl) {
+    fetch(contentUrl)
+      .then((r) => {
+        if (!r.ok) return Promise.reject(r.status);
+        return r.text();
+      })
+      .then((html) => {
+        // 从 defuddle 生成的 HTML 中提取标题用于 document.title
+        const match = html.match(/<h1[^>]*>(.*?)<\/h1>/i);
+        if (match) document.title = match[1];
+        renderArticle(html, toolbarTitle, bookmarkData, apiBase, assetsBase, bookmarksIndexUrl, bookmarkId, assetId);
+      })
+      .catch((err) => {
+        console.error("Failed to load article content:", err);
+        const el = document.getElementById("loading-container");
+        if (el) el.textContent = gettext("Failed to load article.");
+      });
+  }
+}
+
+function renderArticle(html, resolvedTitle, bookmarkData, apiBase, assetsBase, bookmarksIndexUrl, bookmarkId, assetId) {
+  // Remove loading spinner
+  const loadingEl = document.getElementById("loading-container");
+  if (loadingEl) loadingEl.remove();
+
   const container = document.createElement("div");
   container.classList.add("container");
 
-  const articleTitle = document.createElement("h1");
-  articleTitle.textContent = result.title || "";
-  container.append(articleTitle);
-
-  const byline = [result.author, result.site].filter(Boolean);
-  if (byline.length > 0) {
-    const articleByline = document.createElement("p");
-    articleByline.textContent = byline.join(" | ");
-    articleByline.classList.add("byline");
-    container.append(articleByline);
-  }
-
   const articleContent = document.createElement("div");
   articleContent.id = "article-content";
-  articleContent.innerHTML = result.content;
+  articleContent.innerHTML = html;
   postProcess(articleContent);
   container.append(articleContent);
 
@@ -1165,7 +1159,7 @@ function renderReader(options = {}) {
   contentArea.appendChild(container);
   layout.appendChild(contentArea);
 
-  content.replaceWith(layout);
+  document.body.appendChild(layout);
 
   // --- Snapshot URL (open latest snapshot page directly) ---
   const snapshotUrl = bookmarkData.snapshot_id

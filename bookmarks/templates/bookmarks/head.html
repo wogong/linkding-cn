@@ -45,4 +45,14 @@
   {% endif %}
   <script src="{% url 'javascript-catalog' %}"></script>
   <script src="{% static "bundle.js" %}?v={{ app_version }}"></script>
+  {# Edge 浏览器原生 target="_blank" 链接打开缓慢，用 window.open 替代 #}
+  <script>
+    document.addEventListener('click', function(e) {
+      var link = e.target.closest('a.read-action[target="_blank"], a.weblink[href*="/read"][target="_blank"]');
+      if (link) {
+        e.preventDefault();
+        window.open(link.href, '_blank');
+      }
+    });
+  </script>
 </head>

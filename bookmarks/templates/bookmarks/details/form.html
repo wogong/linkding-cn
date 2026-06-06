@@ -17,7 +17,7 @@
       <span>{% translate "Original URL" %}</span>
     </a>
     <a class="weblink" href="{% url 'linkding:bookmarks.read' details.bookmark.id %}"
-       target="{{ details.profile.bookmark_link_target }}">
+       target="{{ details.profile.bookmark_link_target }}" data-turbo="false">
       <svg class="favicon" xmlns="http://www.w3.org/2000/svg">
         <use xlink:href="#ld-icon-unread"></use>
       </svg>

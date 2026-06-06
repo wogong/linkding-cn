@@ -6,6 +6,7 @@
   <meta name="csrfmiddlewaretoken" content="{{ csrf_token }}">
   <title>{% translate "Reader view" %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimal-ui">
+  <meta name="turbo-cache-control" content="cache">
   {# Include specific theme variant based on user profile setting #}
   {% if request.user_profile.theme == 'light' %}
     <link href="{% static 'theme-light.css' %}?v={{ app_version }}" rel="stylesheet" type="text/css"/>
@@ -58,7 +59,24 @@
     <symbol id="ld-icon-delete" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></symbol>
   </svg>
 </div>
-<template id="content">{{ content|safe }}</template>
+<div id="loading-container" class="loading-container">
+  <div class="loading-spinner"></div>
+  <p class="loading-text">{% translate "Loading article..." %}</p>
+</div>
+<style>
+  .loading-container {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 60vh; text-align: center;
+    color: var(--text-color, #999);
+  }
+  .loading-spinner {
+    width: 40px; height: 40px; border: 3px solid var(--border-color, #333);
+    border-top-color: var(--primary-color, #5856e0); border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin-bottom: 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; opacity: 0.7; }
+</style>
 {{ bookmark_data|json_script:"bookmark-data" }}
 {{ api_base_url|default:"/api/"|json_script:"reader-api-base-url" }}
 {{ assets_base_url|default:"/assets"|json_script:"reader-assets-base-url" }}

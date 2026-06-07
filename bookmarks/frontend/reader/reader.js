@@ -1,7 +1,7 @@
 import { Highlighter, HIGHLIGHT_COLORS } from "./anchoring/highlighter";
 import { describeRange, TextPositionAnchor, TextQuoteAnchor } from "./anchoring/index";
 import { READER_ICONS } from "./reader-icons";
-import { gettext, interpolate } from "../utils/i18n.js";
+import { gettext, ngettext, interpolate } from "../utils/i18n.js";
 import "../components/confirm-inline.js";
 import "../components/tag-autocomplete.js";
 import "./reader-toolbar.js";
@@ -1122,10 +1122,16 @@ function renderReader(options = {}) {
         return r.text();
       })
       .then((html) => {
-        // 从 defuddle 生成的 HTML 中提取标题用于 document.title
-        const match = html.match(/<h1[^>]*>(.*?)<\/h1>/i);
-        if (match) document.title = match[1];
-        renderArticle(html, toolbarTitle, bookmarkData, apiBase, assetsBase, bookmarksIndexUrl, bookmarkId, assetId);
+        // 从完整 HTML 文档中提取 body 内容和 head 元数据
+        const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+        const bodyHtml = bodyMatch ? bodyMatch[1] : html;
+        const titleMatch = html.match(/<meta\s+name="title"\s+content="([^"]*)"/i);
+        const wcMatch = html.match(/<meta\s+name="word-count"\s+content="(\d+)"/i);
+        if (titleMatch) document.title = titleMatch[1];
+        renderArticle(bodyHtml, {
+          title: titleMatch ? titleMatch[1] : null,
+          wordCount: wcMatch ? parseInt(wcMatch[1], 10) : 0,
+        }, toolbarTitle, bookmarkData, apiBase, assetsBase, bookmarksIndexUrl, bookmarkId, assetId);
       })
       .catch((err) => {
         console.error("Failed to load article content:", err);
@@ -1135,7 +1141,7 @@ function renderReader(options = {}) {
   }
 }
 
-function renderArticle(html, resolvedTitle, bookmarkData, apiBase, assetsBase, bookmarksIndexUrl, bookmarkId, assetId) {
+function renderArticle(bodyHtml, meta, resolvedTitle, bookmarkData, apiBase, assetsBase, bookmarksIndexUrl, bookmarkId, assetId) {
   // Remove loading spinner
   const loadingEl = document.getElementById("loading-container");
   if (loadingEl) loadingEl.remove();
@@ -1143,9 +1149,43 @@ function renderArticle(html, resolvedTitle, bookmarkData, apiBase, assetsBase, b
   const container = document.createElement("div");
   container.classList.add("container");
 
+  // 标题
+  if (meta.title) {
+    const articleTitle = document.createElement("h1");
+    articleTitle.className = "article-title";
+    articleTitle.textContent = meta.title;
+    container.append(articleTitle);
+  }
+
+  // 字数和预计阅读时长
+  if (meta.wordCount > 0) {
+    const stats = document.createElement("p");
+    stats.className = "article-stats";
+    const hr = document.createElement("hr");
+    container.append(stats);
+    container.append(hr);
+
+    function updateReadingStats() {
+      const speed = Number(loadReaderSettings().readingSpeed) || 400;
+      const fast = Math.ceil(meta.wordCount / (speed * 1.1));
+      const slow = Math.ceil(meta.wordCount / (speed * 0.9));
+      const minText = interpolate(
+        ngettext("%(fast)s~%(slow)s minute", "%(fast)s~%(slow)s minutes", slow),
+        { fast: fast.toLocaleString(), slow: slow.toLocaleString() },
+      );
+      stats.textContent =
+        interpolate(gettext("%(wordCount)s words · %(min)s"), {
+          wordCount: meta.wordCount.toLocaleString(),
+          min: minText,
+        });
+    }
+    updateReadingStats();
+    document.addEventListener("reader-settings-changed", updateReadingStats);
+  }
+
   const articleContent = document.createElement("div");
   articleContent.id = "article-content";
-  articleContent.innerHTML = html;
+  articleContent.innerHTML = bodyHtml;
   postProcess(articleContent);
   container.append(articleContent);
 

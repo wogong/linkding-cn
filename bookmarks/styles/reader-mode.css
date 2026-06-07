@@ -82,6 +82,17 @@ html.reader-mode {
     font-size: 0.8rem;
   }
 
+  h1.article-title {
+    font-size: 1.6em;
+    margin-bottom: 20px;
+  }
+
+  .article-stats {
+    font-size: 0.85em;
+    color: var(--text-color, #999);
+    margin-bottom: 20px;
+  }
+
   img {
     max-width: 100%;
     height: auto;
@@ -319,7 +330,7 @@ html.reader-mode {
     border-radius: var(--border-radius-lg);
     box-shadow: var(--box-shadow-lg);
     z-index: calc(var(--zindex-4) + 5);
-    padding: var(--unit-3);
+    padding: var(--unit-3) var(--unit-3) var(--unit-5);
   }
 
   .settings-section {

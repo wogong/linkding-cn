@@ -549,3 +549,18 @@ msgstr "修改于"
 
 msgid "Deleted"
 msgstr "删除于"
+
+msgid "%(fast)s~%(slow)s minute"
+msgstr "%(fast)s-%(slow)s 分钟"
+
+msgid "%(fast)s~%(slow)s minutes"
+msgstr "%(fast)s-%(slow)s 分钟"
+
+msgid "%(wordCount)s words · %(min)s"
+msgstr "%(wordCount)s 字 · %(min)s"
+
+msgid "Reading Speed"
+msgstr "阅读速度"
+
+msgid "wpm"
+msgstr "字/分钟"

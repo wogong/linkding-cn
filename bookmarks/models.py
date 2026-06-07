@@ -979,6 +979,7 @@ class UserProfile(models.Model):
     sticky_side_panel = models.BooleanField(default=True, null=False)
     collapse_side_panel = models.BooleanField(default=False, null=False)
     hide_bundles = models.BooleanField(default=False, null=False)
+    reader_settings = models.JSONField(default=dict, null=False)
 
     # Summary display preferences
     SUM_MODE_CALENDAR = "calendar"

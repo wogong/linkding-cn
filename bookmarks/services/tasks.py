@@ -669,8 +669,20 @@ def _create_article_task(asset_id: int):
                     ) from direct_error
                 result = defuddle_processor.parse_html(raw_html, url=bookmark.url)
 
+        # 生成标准 HTML 文档：元数据放 head，正文放 body
+        from django.utils.html import escape
+        content = result["content"]
+        head_parts = []
+        if result.get("title"):
+            head_parts.append(f'<meta name="title" content="{escape(result["title"])}">')
+        if result.get("wordCount"):
+            head_parts.append(f'<meta name="word-count" content="{result["wordCount"]}">')
+        head = "".join(head_parts)
+        title_tag = f"<title>{escape(result['title'])}</title>" if result.get("title") else ""
+        content = f"<!DOCTYPE html><html><head>{title_tag}{head}</head><body>{content}</body></html>"
+
         # Save parsed content
-        save_article_content(asset, result["content"], title=result["title"])
+        save_article_content(asset, content, title=result["title"])
 
         logger.info(f"Successfully created article for bookmark. url={bookmark.url}")
     except Exception as error:

@@ -256,6 +256,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "display_url",
             "permanent_notes",
             "search_preferences",
+            "reader_settings",
             "version",
         ]
 

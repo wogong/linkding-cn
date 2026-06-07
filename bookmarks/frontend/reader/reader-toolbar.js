@@ -3,6 +3,39 @@ import { READER_ICONS } from "./reader-icons";
 import { gettext } from "../utils/i18n.js";
 import { loadReaderSettings, saveReaderSettings, setReaderTheme } from "./reader-settings.js";
 
+function getCSRFToken() {
+  const match = document.cookie.match(/csrftoken=([^;]+)/);
+  if (match) return match[1];
+  const meta = document.querySelector('meta[name="csrfmiddlewaretoken"]');
+  return meta ? meta.content : "";
+}
+
+async function syncReaderSettingsToServer(partial) {
+  try {
+    const resp = await fetch("/api/user/profile/reader-settings/", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCSRFToken(),
+      },
+      body: JSON.stringify(partial),
+    });
+    if (resp.ok) return await resp.json();
+  } catch { /* silent */ }
+  return null;
+}
+
+async function fetchReaderSettingsFromServer() {
+  try {
+    const resp = await fetch("/api/user/profile/");
+    if (resp.ok) {
+      const data = await resp.json();
+      return data.reader_settings || {};
+    }
+  } catch { /* silent */ }
+  return {};
+}
+
 const SETTINGS_KEY = "reader_settings";
 const MOBILE_BREAKPOINT = 768;
 const WIDTH_SPLIT_BREAKPOINT = 960;
@@ -28,11 +61,14 @@ const FONT_FAMILY = {
   mono: "var(--mono-font-family)",
 };
 
+const DEFAULT_READING_SPEED = 400;
+
 const DEFAULT_SETTINGS = {
-  fontSize: "16",
+  fontSize: "18",
   font: "sans",
   width: "640",
   lineHeight: "1.7",
+  readingSpeed: String(DEFAULT_READING_SPEED),
 };
 
 function clamp(value, min, max) {
@@ -45,7 +81,8 @@ function settingsEqual(a, b) {
     a?.font === b?.font &&
     a?.width === b?.width &&
     a?.lineHeight === b?.lineHeight &&
-    a?.widthMode === b?.widthMode
+    a?.widthMode === b?.widthMode &&
+    a?.readingSpeed === b?.readingSpeed
   );
 }
 
@@ -108,6 +145,7 @@ function normalizeSettings(partial = {}, options = {}) {
   const fontBounds = getSettingBounds("fontSize");
   const widthBounds = getSettingBounds("width");
   const lineHeightBounds = getSettingBounds("lineHeight");
+  const readingSpeedBounds = getSettingBounds("readingSpeed");
 
   const fontSize = clamp(
     Number.parseFloat(merged.fontSize) || Number.parseFloat(defaults.fontSize),
@@ -125,6 +163,11 @@ function normalizeSettings(partial = {}, options = {}) {
     lineHeightBounds.min,
     lineHeightBounds.max
   );
+  const readingSpeed = clamp(
+    Number.parseFloat(merged.readingSpeed) || DEFAULT_READING_SPEED,
+    readingSpeedBounds.min,
+    readingSpeedBounds.max
+  );
 
   return {
     fontSize: String(Math.round(fontSize)),
@@ -135,6 +178,7 @@ function normalizeSettings(partial = {}, options = {}) {
     width: String(Math.round(width)),
     lineHeight: lineHeight.toFixed(1),
     widthMode: merged.widthMode === "manual" ? "manual" : "auto",
+    readingSpeed: String(Math.round(readingSpeed)),
   };
 }
 
@@ -169,6 +213,9 @@ function getSettingBounds(key) {
       max,
       step,
     };
+  }
+  if (key === "readingSpeed") {
+    return { min: 100, max: 1000, step: 10 };
   }
   return { min: 12, max: 28, step: 1 };
 }
@@ -232,6 +279,30 @@ export class ReaderToolbar extends LitElement {
     this._settings = loadSettings();
     saveSettings(this._settings);
     applySettings(this._settings);
+    // 从服务端同步阅读速度设置
+    this._syncFromServer();
+  }
+
+  async _syncFromServer() {
+    const server = await fetchReaderSettingsFromServer();
+    const local = loadReaderSettings();
+    const merged = {};
+    if (server.reading_speed != null && local.readingSpeed !== String(server.reading_speed)) {
+      merged.readingSpeed = String(server.reading_speed);
+    }
+    if (server.font_size != null && local.fontSize !== String(server.font_size)) {
+      merged.fontSize = String(server.font_size);
+    }
+    if (server.line_height != null && local.lineHeight !== String(server.line_height)) {
+      merged.lineHeight = String(parseFloat(server.line_height).toFixed(1));
+    }
+    if (Object.keys(merged).length > 0) {
+      saveReaderSettings(merged);
+      this._settings = normalizeSettings({ ...this._settings, ...merged });
+      applySettings(this._settings);
+      this.requestUpdate();
+      document.dispatchEvent(new CustomEvent("reader-settings-changed"));
+    }
   }
 
   connectedCallback() {
@@ -320,6 +391,7 @@ export class ReaderToolbar extends LitElement {
     this._settings = updated;
     saveSettings(updated);
     applySettings(updated, { sidebarOpen: this.sidebarOpen });
+    this._syncSettingToServer(key, updated);
   }
 
   _setSettingNum(key, delta) {
@@ -335,6 +407,7 @@ export class ReaderToolbar extends LitElement {
     this._settings = updated;
     saveSettings(updated);
     applySettings(updated, { sidebarOpen: this.sidebarOpen });
+    this._syncSettingToServer(key, updated);
   }
 
   _handleSliderInput(key, value) {
@@ -351,6 +424,23 @@ export class ReaderToolbar extends LitElement {
     this._settings = updated;
     saveSettings(updated);
     applySettings(updated, { sidebarOpen: this.sidebarOpen });
+    this._syncSettingToServer(key, updated);
+  }
+
+  _syncSettingToServer(key, settings) {
+    const serverKeyMap = {
+      readingSpeed: "reading_speed",
+      fontSize: "font_size",
+      lineHeight: "line_height",
+    };
+    const serverKey = serverKeyMap[key];
+    if (serverKey) {
+      const val = key === "lineHeight" ? parseFloat(settings[key]) : Number(settings[key]);
+      syncReaderSettingsToServer({ [serverKey]: val });
+    }
+    if (key === "readingSpeed" || key === "fontSize" || key === "lineHeight") {
+      document.dispatchEvent(new CustomEvent("reader-settings-changed"));
+    }
   }
 
   _resetSetting(key) {
@@ -370,6 +460,7 @@ export class ReaderToolbar extends LitElement {
     this._settings = updated;
     saveSettings(updated);
     applySettings(updated, { sidebarOpen: this.sidebarOpen });
+    this._syncSettingToServer(key, updated);
   }
 
   _setFont(value) {
@@ -466,6 +557,9 @@ export class ReaderToolbar extends LitElement {
 
     const sliderRow = (key, label, unit) => {
       const bounds = getSettingBounds(key);
+      const defaultVal = DEFAULT_SETTINGS[key];
+      const isDefault = this._settings[key] === defaultVal ||
+        (key === "width" && this._settings.widthMode === "auto");
       return html`
       <div class="settings-section">
         <div class="settings-slider-header">
@@ -477,8 +571,10 @@ export class ReaderToolbar extends LitElement {
             min=${String(bounds.min)} max=${String(bounds.max)} step=${String(bounds.step)}
             .value=${this._settings[key]}
             @input=${(e) => this._handleSliderInput(key, e.target.value)} />
-          <button class="settings-reset-btn" title=${gettext("Reset")}
-            @click=${() => this._resetSetting(key)} .innerHTML=${READER_ICONS["reset"]}></button>
+          ${!isDefault ? html`
+            <button class="settings-reset-btn" title=${gettext("Reset")}
+              @click=${() => this._resetSetting(key)} .innerHTML=${READER_ICONS["reset"]}></button>
+          ` : ""}
         </div>
       </div>
     `;
@@ -560,6 +656,7 @@ export class ReaderToolbar extends LitElement {
         ${sliderRow("fontSize", gettext("Font Size"), "px")}
         ${sliderRow("width", gettext("Page Width"), "px")}
         ${sliderRow("lineHeight", gettext("Line Height"), "")}
+        ${sliderRow("readingSpeed", gettext("Reading Speed"), " " + gettext("wpm"))}
       </div>
     `;
   }

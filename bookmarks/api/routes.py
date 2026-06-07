@@ -361,6 +361,16 @@ class UserViewSet(viewsets.GenericViewSet):
     def profile(self, request: HttpRequest):
         return Response(UserProfileSerializer(request.user.profile).data)
 
+    @action(methods=["patch"], detail=False, url_path="profile/reader-settings")
+    def reader_settings(self, request: HttpRequest):
+        profile = request.user.profile
+        settings = request.data
+        if not isinstance(settings, dict):
+            return Response({"error": "Expected a JSON object"}, status=400)
+        profile.reader_settings = {**profile.reader_settings, **settings}
+        profile.save(update_fields=["reader_settings"])
+        return Response(profile.reader_settings)
+
 
 class BookmarkBundleViewSet(
     viewsets.GenericViewSet,

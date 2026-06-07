@@ -2023,10 +2023,9 @@ html.reader-mode {
   .ld-highlight-note-marker::after {
     content: "";
     position: absolute;
-    right: -6px;
-    top: -0.12em;
-    width: 5px;
-    height: 5px;
+    right: -0.28em;
+    width: 0.25em;
+    height: 0.25em;
     border-radius: 50%;
     background-color: var(--primary-color);
   }

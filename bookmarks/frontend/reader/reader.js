@@ -2554,9 +2554,6 @@ async function loadAnnotations(
         currentAnnotations.push(ann);
         continue;
       }
-      if (ann.article_asset !== null && ann.article_asset !== undefined) {
-        continue;
-      }
 
       try {
         const restored = await restoreAnnotationToAsset(

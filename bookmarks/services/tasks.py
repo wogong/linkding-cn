@@ -541,6 +541,15 @@ def create_article(bookmark: Bookmark) -> BookmarkAsset:
     return asset
 
 
+def create_html_articles(bookmark_list: list[Bookmark]):
+    """Batch create pending article assets and queue defuddle tasks."""
+    from bookmarks.services.articles import create_article_asset_pending
+
+    for bookmark in bookmark_list:
+        asset = create_article_asset_pending(bookmark)
+        _create_article_task(asset.id)
+
+
 def _load_snapshot_asset_html(snapshot: BookmarkAsset | None) -> str | None:
     """Load HTML content from a snapshot asset, or None if unavailable."""
     if (

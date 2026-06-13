@@ -41,6 +41,12 @@
       {% if not 'bulk_remove_snapshot' in disable_actions %}
         <option value="bulk_remove_snapshot">{% translate "Remove all snapshots" %}</option>
       {% endif %}
+      {% if not 'bulk_article' in disable_actions %}
+        <option value="bulk_article">{% translate "Create HTML article" %}</option>
+      {% endif %}
+      {% if not 'bulk_remove_article' in disable_actions %}
+        <option value="bulk_remove_article">{% translate "Remove all articles" %}</option>
+      {% endif %}
 
       <hr>
       {% if not 'bulk_archive' in disable_actions %}

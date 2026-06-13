@@ -689,6 +689,14 @@ msgstr "创建 HTML 快照"
 msgid "Remove all snapshots"
 msgstr "删除所有快照"
 
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:45
+msgid "Create HTML article"
+msgstr "创建 HTML 文章"
+
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:48
+msgid "Remove all articles"
+msgstr "删除所有文章"
+
 #: bookmarks/templates/bookmarks/bulk_edit/bar.html:55
 msgid "Restore bookmarks"
 msgstr "恢复书签"

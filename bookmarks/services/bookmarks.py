@@ -291,6 +291,25 @@ def remove_all_html_snapshots(bookmark_ids: [int | str], current_user: User):
     ).delete()
 
 
+def create_html_articles(bookmark_ids: list[int | str], current_user: User):
+    sanitized_bookmark_ids = _sanitize_id_list(bookmark_ids)
+    owned_bookmarks = Bookmark.objects.filter(
+        owner=current_user, id__in=sanitized_bookmark_ids
+    )
+
+    tasks.create_html_articles(owned_bookmarks)
+
+
+def remove_all_html_articles(bookmark_ids: [int | str], current_user: User):
+    sanitized_bookmark_ids = _sanitize_id_list(bookmark_ids)
+
+    BookmarkAsset.objects.filter(
+        bookmark__owner=current_user,
+        bookmark_id__in=sanitized_bookmark_ids,
+        asset_type=BookmarkAsset.TYPE_ARTICLE,
+    ).delete()
+
+
 def _merge_bookmark_data(from_bookmark: Bookmark, to_bookmark: Bookmark):
     to_bookmark.title = from_bookmark.title
     to_bookmark.description = from_bookmark.description

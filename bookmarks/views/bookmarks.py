@@ -38,11 +38,13 @@ from bookmarks.services import (
 from bookmarks.services.bookmarks import (
     archive_bookmark,
     archive_bookmarks,
+    create_html_articles,
     create_html_snapshots,
     delete_bookmarks,
     mark_bookmarks_as_read,
     mark_bookmarks_as_unread,
     refresh_bookmarks_metadata,
+    remove_all_html_articles,
     remove_all_html_snapshots,
     restore_bookmark,
     restore_bookmarks,
@@ -831,6 +833,10 @@ def handle_action(request: HttpRequest, query: QuerySet[Bookmark] = None):
             return create_html_snapshots(bookmark_ids, request.user)
         if bulk_action == "bulk_remove_snapshot":
             return remove_all_html_snapshots(bookmark_ids, request.user)
+        if bulk_action == "bulk_article":
+            return create_html_articles(bookmark_ids, request.user)
+        if bulk_action == "bulk_remove_article":
+            return remove_all_html_articles(bookmark_ids, request.user)
 
 
 @login_required

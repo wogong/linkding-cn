@@ -30,14 +30,16 @@ async function patchBookmark(bookmarkId, data) {
 }
 
 function autoResizeTextarea(textarea) {
-  const maxHeight = Number.parseInt(textarea.dataset.maxHeight || "300", 10);
   textarea.style.height = "auto";
   textarea.style.overflowY = "hidden";
 
-  const nextHeight = Math.min(textarea.scrollHeight, maxHeight);
+  const maxHeightPx = Number.parseFloat(
+    getComputedStyle(textarea).maxHeight,
+  ) || Infinity;
+  const nextHeight = Math.min(textarea.scrollHeight, maxHeightPx);
   textarea.style.height = `${nextHeight}px`;
   textarea.style.overflowY =
-    textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+    textarea.scrollHeight > maxHeightPx ? "auto" : "hidden";
 }
 
 function focusEnd(element) {
@@ -502,16 +504,18 @@ class BookmarkItem extends Behavior {
 
     this.element.classList.add("show-notes");
 
-    const notesContainer = this._getNotesContainer();
-    const scrollTop = notesContainer?.scrollTop || 0;
+    // 保存显示态滚动位置
+    this._savedNotesScrollTop = this.notesMarkdown.scrollTop || 0;
 
     this.notesMarkdown.style.display = "none";
     this.notesEditor.style.display = "block";
     autoResizeTextarea(this.notesEditor);
 
-    if (notesContainer) {
-      notesContainer.scrollTop = scrollTop;
-    }
+    // focus 后浏览器会自动滚动到光标末尾，异步恢复滚动位置
+    focusEnd(this.notesEditor);
+    requestAnimationFrame(() => {
+      this.notesEditor.scrollTop = this._savedNotesScrollTop;
+    });
 
     this._activateQuickEditor("notes", ({ save }) => {
       this.notesEditor.removeEventListener("input", this._onNotesInput);
@@ -520,8 +524,6 @@ class BookmarkItem extends Behavior {
 
     this._onNotesInput = () => autoResizeTextarea(this.notesEditor);
     this.notesEditor.addEventListener("input", this._onNotesInput);
-
-    focusEnd(this.notesEditor);
   }
 
   _createNotesEditor() {
@@ -607,9 +609,11 @@ class BookmarkItem extends Behavior {
 
   _switchNotesToDisplay() {
     const notesContainer = this._getNotesContainer();
-    const scrollTop = notesContainer?.scrollTop || 0;
 
     if (!this.notesEditor) return;
+
+    // 保存编辑态滚动位置
+    const editorScrollTop = this.notesEditor.scrollTop || 0;
 
     this.notesEditor.style.fontStyle = "";
     this.notesEditor.placeholder = "";
@@ -629,8 +633,9 @@ class BookmarkItem extends Behavior {
       return;
     }
 
-    if (notesContainer) {
-      notesContainer.scrollTop = scrollTop;
+    // 恢复到显示态（优先用编辑态滚动位置，其次用进入编辑态前的位置）
+    if (this.notesMarkdown) {
+      this.notesMarkdown.scrollTop = editorScrollTop || this._savedNotesScrollTop || 0;
     }
   }
 

@@ -853,17 +853,35 @@ ul.bookmark-list {
   }
 
   & .inline-edit .markdown {
+    max-height: calc(var(--ld-notes-max-lines, 15) * 1.1rem);
     padding: var(--unit-2) var(--unit-3);
+    box-sizing: border-box;
+    overflow-y: auto;
     /* 宽图片适配 */
     & img {
       max-width: 100%;
       height: auto;
     }
+    /* 滚动条样式：匹配侧边栏，默认隐藏，hover 时显示 */
+    scrollbar-width: thin;
+    scrollbar-gutter: stable;
+    scrollbar-color: transparent transparent;
+    &::-webkit-scrollbar { width: 8px; }
+    &::-webkit-scrollbar-thumb {
+      background: transparent;
+      border-radius: 4px;
+    }
+    &:hover {
+      scrollbar-color: var(--secondary-border-color) transparent;
+    }
+    &:hover::-webkit-scrollbar-thumb {
+      background: var(--secondary-border-color);
+    }
   }
 
   & .inline-edit .inline-edit-textarea {
     width: 100%;
-    max-height: 300px;
+    max-height: calc(var(--ld-notes-max-lines, 15) * 1.1rem);
     padding: var(--unit-2) var(--unit-3);
     margin: 0;
     border: none;

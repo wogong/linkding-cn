@@ -54,7 +54,7 @@
   display: flex;
   max-width: 300px;
   margin-left: auto;
-  position: relative; /* 添加相对定位作为菜单的定位父元素 */
+  position: relative;
 
   & form {
     width: 100%;
@@ -124,7 +124,22 @@
       top: 100%;
       left: auto;
       right: 0;
-      
+      /* 滚动条样式：匹配项目统一风格，默认隐藏，hover 时显示 */
+      scrollbar-width: thin;
+      scrollbar-gutter: stable;
+      scrollbar-color: transparent transparent;
+      &::-webkit-scrollbar { width: 8px; }
+      &::-webkit-scrollbar-thumb {
+        background: transparent;
+        border-radius: 4px;
+      }
+      &:hover {
+        scrollbar-color: var(--secondary-border-color) transparent;
+      }
+      &:hover::-webkit-scrollbar-thumb {
+        background: var(--secondary-border-color);
+      }
+
       /* 当屏幕宽度大于426px时右对齐 */
       @media (max-width: 426px) {
         left: 0;

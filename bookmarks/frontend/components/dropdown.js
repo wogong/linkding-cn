@@ -46,15 +46,26 @@ class Dropdown extends HeadlessElement {
   _positionMenu() {
     const menu = this.querySelector(".menu");
     if (!menu) return;
+
+    // 提升祖先 sticky 元素的 z-index，使菜单浮于同级 sticky 元素（如分页器）之上
+    const stickyAncestor = this.closest("[data-sticky-on]");
+    if (stickyAncestor) {
+      stickyAncestor.style.zIndex = "30";
+    }
+
+    // 水平：防止右侧溢出
+    const toggleRect = this.toggle.getBoundingClientRect();
     const menuWidth = menu.offsetWidth;
     const viewportWidth = document.documentElement.clientWidth;
-    const thisRect = this.getBoundingClientRect();
-
-    const overflow = thisRect.left + menuWidth - viewportWidth;
+    const overflow = toggleRect.right + menuWidth - toggleRect.left - viewportWidth;
     if (overflow > 0) {
       menu.style.left = -overflow + "px";
       menu.style.right = "auto";
     }
+
+    // 垂直：根据 toggle 到视口底部的可用空间限制菜单高度
+    const available = document.documentElement.clientHeight - toggleRect.bottom - 8;
+    menu.style.maxHeight = Math.max(available, 200) + "px";
   }
 
   _resetMenuPosition() {
@@ -62,6 +73,11 @@ class Dropdown extends HeadlessElement {
     if (menu) {
       menu.style.left = "";
       menu.style.right = "";
+      menu.style.maxHeight = "";
+    }
+    const stickyAncestor = this.closest("[data-sticky-on]");
+    if (stickyAncestor) {
+      stickyAncestor.style.zIndex = "";
     }
   }
 

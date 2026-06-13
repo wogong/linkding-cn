@@ -20,6 +20,7 @@ from django.db.models.expressions import RawSQL
 from django.db.models.functions import Lower
 
 from bookmarks.models import (
+    Annotation,
     Bookmark,
     BookmarkBundle,
     BookmarkSearch,
@@ -403,6 +404,34 @@ def _apply_filters(
         query_set = query_set.exclude(favicon_file="")
     elif search.favicon == BookmarkSearch.FILTER_ASSET_NO:
         query_set = query_set.filter(favicon_file="")
+
+    # Highlight filter
+    if search.highlight == BookmarkSearch.FILTER_HIGHLIGHT_YES:
+        query_set = query_set.filter(
+            Exists(Annotation.objects.filter(bookmark=OuterRef("id")))
+        )
+    elif search.highlight == BookmarkSearch.FILTER_HIGHLIGHT_NO:
+        query_set = query_set.filter(
+            ~Exists(Annotation.objects.filter(bookmark=OuterRef("id")))
+        )
+
+    # Annotation filter
+    if search.annotation == BookmarkSearch.FILTER_ANNOTATION_YES:
+        query_set = query_set.filter(
+            Exists(
+                Annotation.objects.filter(
+                    bookmark=OuterRef("id"), note_content__gt=""
+                )
+            )
+        )
+    elif search.annotation == BookmarkSearch.FILTER_ANNOTATION_NO:
+        query_set = query_set.filter(
+            ~Exists(
+                Annotation.objects.filter(
+                    bookmark=OuterRef("id"), note_content__gt=""
+                )
+            )
+        )
 
     # Filter by bundle
     if search.bundle:

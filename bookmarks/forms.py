@@ -191,6 +191,18 @@ class BookmarkBundleForm(forms.ModelForm):
         label=_("Favicon"),
         required=False,
     )
+    highlight = forms.ChoiceField(
+        choices=BookmarkSearchForm.FILTER_HIGHLIGHT_CHOICES,
+        widget=forms.RadioSelect,
+        label=_("Highlight filter"),
+        required=False,
+    )
+    annotation = forms.ChoiceField(
+        choices=BookmarkSearchForm.FILTER_ANNOTATION_CHOICES,
+        widget=forms.RadioSelect,
+        label=_("Annotation filter"),
+        required=False,
+    )
 
     class Meta:
         model = BookmarkBundle
@@ -214,6 +226,8 @@ class BookmarkBundleForm(forms.ModelForm):
             "html_snapshot",
             "preview_image",
             "favicon",
+            "highlight",
+            "annotation",
         ]
 
     def __init__(self, *args, **kwargs):
@@ -239,6 +253,8 @@ class BookmarkBundleForm(forms.ModelForm):
             "html_snapshot",
             "preview_image",
             "favicon",
+            "highlight",
+            "annotation",
         ]:
             if field_name in self.fields:
                 self.fields[field_name].initial = defaults.get(field_name)
@@ -260,6 +276,8 @@ class BookmarkBundleForm(forms.ModelForm):
             "html_snapshot",
             "preview_image",
             "favicon",
+            "highlight",
+            "annotation",
         ]
 
         for field_name in search_field_names:

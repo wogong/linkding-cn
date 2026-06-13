@@ -5,6 +5,7 @@ import "./components/bulk-edit.js";
 import "./components/asset-rename.js";
 import "./components/sidebar-user-summary.js";
 import "./components/date-filter-fields.js";
+import "./components/annotation-filter.js";
 import "./components/settings-page.js";
 import "./components/bundle-page.js";
 import "./components/clear-button.js";

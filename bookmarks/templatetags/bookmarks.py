@@ -67,6 +67,8 @@ def bookmark_search(context, search: BookmarkSearch, mode: str = ""):
                 "shared",
                 "unread",
                 "tagged",
+                "highlight",
+                "annotation",
                 "date_filter_by",
                 "date_filter_type",
                 "date_filter_start",

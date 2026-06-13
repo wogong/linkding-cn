@@ -357,6 +357,14 @@ class BookmarkSearch:
     FILTER_ASSET_YES = "yes"
     FILTER_ASSET_NO = "no"
 
+    FILTER_HIGHLIGHT_OFF = "off"
+    FILTER_HIGHLIGHT_YES = "yes"
+    FILTER_HIGHLIGHT_NO = "no"
+
+    FILTER_ANNOTATION_OFF = "off"
+    FILTER_ANNOTATION_YES = "yes"
+    FILTER_ANNOTATION_NO = "no"
+
     FILTER_DATE_OFF = "off"
     FILTER_DATE_BY_ADDED = "added"
     FILTER_DATE_BY_MODIFIED = "modified"
@@ -384,6 +392,8 @@ class BookmarkSearch:
         "html_snapshot",
         "preview_image",
         "favicon",
+        "highlight",
+        "annotation",
     ]
     preferences = [
         "sort",
@@ -413,6 +423,8 @@ class BookmarkSearch:
         "html_snapshot": FILTER_ASSET_OFF,
         "preview_image": FILTER_ASSET_OFF,
         "favicon": FILTER_ASSET_OFF,
+        "highlight": FILTER_HIGHLIGHT_OFF,
+        "annotation": FILTER_ANNOTATION_OFF,
     }
 
     @staticmethod
@@ -482,6 +494,8 @@ class BookmarkSearch:
         html_snapshot: str = None,
         preview_image: str = None,
         favicon: str = None,
+        highlight: str = None,
+        annotation: str = None,
         preferences: dict = None,
         request: any = None,
     ):
@@ -510,6 +524,8 @@ class BookmarkSearch:
             "html_snapshot": html_snapshot,
             "preview_image": preview_image,
             "favicon": favicon,
+            "highlight": highlight,
+            "annotation": annotation,
         }
         bundle_params = {}
         if bundle:
@@ -697,6 +713,16 @@ class BookmarkSearchForm(forms.Form):
         (BookmarkSearch.FILTER_ASSET_YES, _("Has")),
         (BookmarkSearch.FILTER_ASSET_NO, _("Missing")),
     ]
+    FILTER_HIGHLIGHT_CHOICES = [
+        (BookmarkSearch.FILTER_HIGHLIGHT_OFF, _("Off")),
+        (BookmarkSearch.FILTER_HIGHLIGHT_YES, _("Has")),
+        (BookmarkSearch.FILTER_HIGHLIGHT_NO, _("Missing")),
+    ]
+    FILTER_ANNOTATION_CHOICES = [
+        (BookmarkSearch.FILTER_ANNOTATION_OFF, _("Off")),
+        (BookmarkSearch.FILTER_ANNOTATION_YES, _("Has")),
+        (BookmarkSearch.FILTER_ANNOTATION_NO, _("Missing")),
+    ]
     FILTER_DATE_BY_CHOICES = [
         (BookmarkSearch.FILTER_DATE_OFF, _("Off")),
         (BookmarkSearch.FILTER_DATE_BY_ADDED, _("Added")),
@@ -742,6 +768,16 @@ class BookmarkSearchForm(forms.Form):
     )
     favicon = forms.ChoiceField(
         choices=FILTER_ASSET_CHOICES,
+        widget=forms.RadioSelect,
+        required=False,
+    )
+    highlight = forms.ChoiceField(
+        choices=FILTER_HIGHLIGHT_CHOICES,
+        widget=forms.RadioSelect,
+        required=False,
+    )
+    annotation = forms.ChoiceField(
+        choices=FILTER_ANNOTATION_CHOICES,
         widget=forms.RadioSelect,
         required=False,
     )

@@ -248,11 +248,7 @@
   {% endfor %}
 </div>
 
-<div class="form-footer d-flex mt-4">
-  <input type="submit" name="save" value="{% translate 'Save' %}" class="btn btn-primary btn-wide">
-  <a href="{% url 'linkding:bundles.index' %}" class="btn btn-wide ml-auto">{% translate "Cancel" %}</a>
-  <a href="{% url 'linkding:bundles.preview' %}" data-turbo-frame="preview" class="d-none" id="preview-link"></a>
-</div>
+<a href="{% url 'linkding:bundles.preview' %}" data-turbo-frame="preview" class="d-none" id="preview-link"></a>
 
 <script>
   (function init() {

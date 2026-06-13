@@ -794,7 +794,7 @@ html.reader-mode {
     margin-top: var(--ld-anno-note-margin-top);
     width: 100%;
     min-height: var(--reader-anno-note-min-h);
-    padding: 0 var(--reader-anno-toolbar-padding-x);
+    margin-right: var(--reader-anno-toolbar-padding-x);
     position: relative;
   }
 

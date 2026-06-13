@@ -36,7 +36,8 @@ header {
   max-height: calc(var(--app-viewport-height) - 140px);
   overflow-y: auto;
   overflow-x: hidden; /* 防止横向滚动 */
-  
+  scrollbar-gutter: stable; /* 始终预留滚动条宽度，避免内容变化时抖动 */
+
   /* 隐藏滚动条（透明）*/
   scrollbar-color: transparent transparent; /* Chrome、Edge、Firefox */
 

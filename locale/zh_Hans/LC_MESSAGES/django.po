@@ -2539,3 +2539,72 @@ msgstr "归档？"
 #: bookmarks/frontend/reader/reader-sidebar.js
 msgid "Unarchive?"
 msgstr "取消归档？"
+
+#: bookmarks/templates/settings/general.html
+msgid "Quick edit"
+msgstr "快捷编辑"
+
+#: bookmarks/templates/settings/general.html
+msgid "Quick edit buttons allow inline editing of bookmark fields."
+msgstr "快捷按钮用于对书签各字段进行原地编辑（内联编辑）。"
+
+#: bookmarks/templates/settings/general.html
+msgid "Buttons can be displayed as text or icons."
+msgstr "按钮可被显示为文字或图标。"
+
+#: bookmarks/templates/settings/general.html
+msgid "Button order can be changed by dragging below."
+msgstr "按钮排序可在下方拖拽更改。"
+
+#: bookmarks/templates/settings/general.html
+msgid "Each button can be independently enabled or disabled below."
+msgstr "每个按钮均可在下方独立开启或关闭。"
+
+#: bookmarks/frontend/components/bookmark-page.js
+msgid "Enter notes here"
+msgstr "在此输入笔记"
+
+#: bookmarks/frontend/components/bookmark-page.js
+msgid "Enter tags"
+msgstr "输入标签"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgid "Edit title"
+msgstr "编辑标题"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgid "Edit description"
+msgstr "编辑描述"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgid "Edit notes"
+msgstr "编辑笔记"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgid "Edit tags"
+msgstr "编辑标签"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgctxt "bookmark status"
+msgid "Notes"
+msgstr "笔记"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgctxt "bookmark status"
+msgid "Read"
+msgstr "已读"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgctxt "bookmark status"
+msgid "Share"
+msgstr "分享"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgctxt "bookmark status"
+msgid "Shared"
+msgstr "已分享"
+
+#: bookmarks/templates/bookmarks/bookmark_list.html
+msgctxt "bookmark status"
+msgid "Unread"
+msgstr "未读"

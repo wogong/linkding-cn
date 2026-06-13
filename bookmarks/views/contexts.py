@@ -1167,6 +1167,8 @@ class BookmarkListContext:
             for item in user_profile.get_bookmark_actions()
         ]
         self.action_display_mode = user_profile.bookmark_action_display_mode
+        self.status_display_mode = user_profile.bookmark_status_display_mode
+        self.quick_edit_display_mode = user_profile.bookmark_quick_edit_display_mode
         self.has_visible_actions = any(item["enabled"] for item in self.action_list)
         self.status_list = [
             {
@@ -1177,6 +1179,15 @@ class BookmarkListContext:
             for item in user_profile.get_bookmark_statuses()
         ]
         self.has_visible_statuses = any(item["enabled"] for item in self.status_list)
+        self.quick_edit_list = [
+            {
+                "key": item["key"],
+                "enabled": item["enabled"],
+                "label": user_profile.QUICK_EDIT_LABELS[item["key"]],
+            }
+            for item in user_profile.get_bookmark_quick_edits()
+        ]
+        self.has_visible_quick_edits = any(item["enabled"] for item in self.quick_edit_list)
         self.sharing_enabled = user_profile.enable_sharing or user_profile.enable_public_sharing
         self.show_favicons = user_profile.enable_favicons
         self.show_preview_images = user_profile.enable_preview_images

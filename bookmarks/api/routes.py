@@ -246,6 +246,17 @@ class BookmarkViewSet(
             status=status.HTTP_201_CREATED,
         )
 
+    @action(methods=["get"], detail=True, url_path="notes_html")
+    def notes_html(self, request: HttpRequest, pk):
+        """返回书签笔记的渲染后 HTML"""
+        bookmark = self.get_object()
+        if not bookmark.notes:
+            return Response({"html": ""})
+
+        from bookmarks.templatetags.shared import render_markdown
+        html = render_markdown({}, bookmark.notes)
+        return Response({"html": str(html)})
+
 class BookmarkAssetViewSet(
     viewsets.GenericViewSet,
     mixins.ListModelMixin,

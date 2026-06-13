@@ -890,6 +890,25 @@ class UserProfile(models.Model):
         STATUS_UNREAD: "ld-icon-unread",
     }
 
+    # 快捷编辑按钮
+    QUICK_EDIT_TITLE = "title"
+    QUICK_EDIT_DESCRIPTION = "description"
+    QUICK_EDIT_NOTES = "notes"
+    QUICK_EDIT_TAGS = "tags"
+    QUICK_EDIT_KEYS = [QUICK_EDIT_TITLE, QUICK_EDIT_DESCRIPTION, QUICK_EDIT_NOTES, QUICK_EDIT_TAGS]
+    QUICK_EDIT_LABELS = {
+        QUICK_EDIT_TITLE: _("Title"),
+        QUICK_EDIT_DESCRIPTION: _("Description"),
+        QUICK_EDIT_NOTES: _("Notes"),
+        QUICK_EDIT_TAGS: _("Tags"),
+    }
+    QUICK_EDIT_ICONS = {
+        QUICK_EDIT_TITLE: "ld-icon-edit-title",
+        QUICK_EDIT_DESCRIPTION: "ld-icon-edit-description",
+        QUICK_EDIT_NOTES: "ld-icon-edit-notes",
+        QUICK_EDIT_TAGS: "ld-icon-tag",
+    }
+
     ACTION_DISPLAY_MODE_TEXT = "text"
     ACTION_DISPLAY_MODE_ICON = "icon"
     ACTION_DISPLAY_MODE_CHOICES = [
@@ -954,11 +973,24 @@ class UserProfile(models.Model):
     display_read_bookmark_action = models.BooleanField(default=True, null=False)
     bookmark_actions = models.JSONField(default=list, blank=True, null=False)
     bookmark_statuses = models.JSONField(default=list, blank=True, null=False)
+    bookmark_quick_edits = models.JSONField(default=list, blank=True, null=False)
     bookmark_action_display_mode = models.CharField(
         max_length=10,
         choices=ACTION_DISPLAY_MODE_CHOICES,
         blank=False,
         default=ACTION_DISPLAY_MODE_TEXT,
+    )
+    bookmark_status_display_mode = models.CharField(
+        max_length=10,
+        choices=ACTION_DISPLAY_MODE_CHOICES,
+        blank=False,
+        default=ACTION_DISPLAY_MODE_ICON,
+    )
+    bookmark_quick_edit_display_mode = models.CharField(
+        max_length=10,
+        choices=ACTION_DISPLAY_MODE_CHOICES,
+        blank=False,
+        default=ACTION_DISPLAY_MODE_ICON,
     )
     permanent_notes = models.BooleanField(default=False, null=False)
     custom_css = models.TextField(blank=True, null=False)
@@ -1175,6 +1207,52 @@ class UserProfile(models.Model):
             for item in self.get_bookmark_statuses()
         ]
 
+    @classmethod
+    def default_bookmark_quick_edits(cls) -> list[dict]:
+        return [{"key": key, "enabled": True} for key in cls.QUICK_EDIT_KEYS]
+
+    @classmethod
+    def normalize_bookmark_quick_edits(cls, bookmark_quick_edits: list | None) -> list[dict]:
+        if not isinstance(bookmark_quick_edits, list) or len(bookmark_quick_edits) == 0:
+            return cls.default_bookmark_quick_edits()
+
+        defaults = {key: True for key in cls.QUICK_EDIT_KEYS}
+        normalized = []
+        seen = set()
+
+        for item in bookmark_quick_edits:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("key")
+            if key not in defaults or key in seen:
+                continue
+            normalized.append(
+                {
+                    "key": key,
+                    "enabled": bool(item.get("enabled", defaults[key])),
+                }
+            )
+            seen.add(key)
+
+        for key, enabled in defaults.items():
+            if key not in seen:
+                normalized.append({"key": key, "enabled": enabled})
+
+        return normalized
+
+    def get_bookmark_quick_edits(self) -> list[dict]:
+        return self.normalize_bookmark_quick_edits(self.bookmark_quick_edits)
+
+    def get_bookmark_quick_edit_items(self) -> list[dict]:
+        return [
+            {
+                **item,
+                "label": self.QUICK_EDIT_LABELS[item["key"]],
+            }
+            for item in self.get_bookmark_quick_edits()
+        ]
+
+
 
 class UserProfileForm(forms.ModelForm):
     class Meta:
@@ -1202,7 +1280,10 @@ class UserProfileForm(forms.ModelForm):
             "display_read_bookmark_action",
             "bookmark_actions",
             "bookmark_statuses",
+            "bookmark_quick_edits",
             "bookmark_action_display_mode",
+            "bookmark_status_display_mode",
+            "bookmark_quick_edit_display_mode",
             "permanent_notes",
             "default_mark_unread",
             "default_mark_shared",
@@ -1234,6 +1315,7 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
     sidebar_modules = forms.CharField()
     bookmark_actions = forms.CharField()
     bookmark_statuses = forms.CharField()
+    bookmark_quick_edits = forms.CharField()
 
     class Meta:
         model = UserProfile
@@ -1249,6 +1331,8 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             "legacy_search",
             "display_url",
             "bookmark_action_display_mode",
+            "bookmark_status_display_mode",
+            "bookmark_quick_edit_display_mode",
             "permanent_notes",
             "default_mark_unread",
             "default_mark_shared",
@@ -1283,6 +1367,9 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             )
             self.fields["bookmark_statuses"].initial = json.dumps(
                 self.instance.get_bookmark_statuses()
+            )
+            self.fields["bookmark_quick_edits"].initial = json.dumps(
+                self.instance.get_bookmark_quick_edits()
             )
 
     @property
@@ -1375,6 +1462,34 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
 
         return UserProfile.normalize_bookmark_statuses(parsed_value)
 
+    @property
+    def bookmark_quick_edit_items(self) -> list[dict]:
+        if self.is_bound:
+            quick_edits = self.data.get("bookmark_quick_edits")
+            try:
+                parsed_quick_edits = json.loads(quick_edits) if quick_edits else []
+            except (TypeError, ValueError):
+                parsed_quick_edits = []
+            normalized = UserProfile.normalize_bookmark_quick_edits(parsed_quick_edits)
+            return [
+                {
+                    **item,
+                    "label": UserProfile.QUICK_EDIT_LABELS[item["key"]],
+                }
+                for item in normalized
+            ]
+
+        return self.instance.get_bookmark_quick_edit_items()
+
+    def clean_bookmark_quick_edits(self):
+        raw_value = self.cleaned_data["bookmark_quick_edits"]
+        try:
+            parsed_value = json.loads(raw_value)
+        except (TypeError, ValueError):
+            raise forms.ValidationError(_("Invalid bookmark quick edit configuration.")) from None
+
+        return UserProfile.normalize_bookmark_quick_edits(parsed_value)
+
     def save(self, commit=True):
         profile = super().save(commit=False)
         profile.collapse_side_panel = not self.cleaned_data["show_sidebar"]
@@ -1402,6 +1517,7 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
                 setattr(profile, field_name, action["enabled"])
 
         profile.bookmark_statuses = self.cleaned_data["bookmark_statuses"]
+        profile.bookmark_quick_edits = self.cleaned_data["bookmark_quick_edits"]
 
         if commit:
             profile.save()

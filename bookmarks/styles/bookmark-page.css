@@ -209,6 +209,7 @@ ul.bookmark-list {
 li[ld-bookmark-item] {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   gap: var(--unit-2);
   margin-top: 0;
   margin-bottom: var(--unit-3);
@@ -216,9 +217,11 @@ li[ld-bookmark-item] {
   & .content {
     flex: 1 1 0;
     min-width: 0;
+    order: 1;
   }
 
   & .preview-image {
+    order: 2;
     flex: 0 0 auto;
     width: 100px;
     height: 60px;
@@ -275,6 +278,19 @@ li[ld-bookmark-item] {
     width: 100%;
   }
 
+  & .title .quick-edit-title-input {
+    width: 100%;
+    min-width: 0;
+    font: inherit;
+    font-weight: var(--bookmark-title-weight);
+    color: inherit;
+    border: 1px solid var(--primary-color);
+    border-radius: var(--border-radius);
+    padding: 2px 4px;
+    background: var(--body-color);
+    outline: none;
+  }
+
   & .title .favicon-link {
     display: inline-block;
     vertical-align: middle;
@@ -309,6 +325,49 @@ li[ld-bookmark-item] {
     color: var(--bookmark-description-color);
     font-weight: var(--bookmark-description-weight);
     position: relative;
+  }
+
+  & .description.is-editing-description .description-container {
+    display: block;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  & .description .quick-edit-description-textarea {
+    width: 100%;
+    max-height: 300px;
+    padding: var(--unit-1) var(--unit-2);
+    margin: 0;
+    border: 1px solid var(--primary-color);
+    border-radius: var(--border-radius);
+    background: var(--body-color);
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    overflow-y: hidden;
+    resize: none;
+    outline: none;
+    box-sizing: border-box;
+    vertical-align: middle;
+    /* 滚动条样式：匹配笔记，默认隐藏，hover/focus 时显示 */
+    scrollbar-width: thin;
+    scrollbar-gutter: stable;
+    scrollbar-color: transparent transparent;
+    &::-webkit-scrollbar { width: 8px; }
+    &::-webkit-scrollbar-thumb {
+      background: transparent;
+      border-radius: 4px;
+    }
+    &:hover,
+    &:focus {
+      scrollbar-color: var(--secondary-border-color) transparent;
+    }
+    &:hover::-webkit-scrollbar-thumb,
+    &:focus::-webkit-scrollbar-thumb {
+      background: var(--secondary-border-color);
+    }
   }
 
   & .description .separate{
@@ -394,6 +453,18 @@ li[ld-bookmark-item] {
         --btn-icon-color: var(--bookmark-actions-hover-color);
       }
     }
+
+    & button.btn-link.quick-edit-btn.active {
+      color: var(--primary-color);
+      --btn-icon-color: var(--primary-color);
+    }
+
+    & button.btn-link.quick-edit-btn.active:hover,
+    & button.btn-link.quick-edit-btn.active:focus {
+      color: var(--primary-color-highlight);
+      --btn-icon-color: var(--primary-color-highlight);
+    }
+
     & > a[href^="/assets"] {
       color: green;
     }
@@ -768,24 +839,84 @@ li[ld-bookmark-item] {
   justify-content: center;
 }
 
-/* Bookmark notes */
+/* Inline edit (used for notes and description) */
 ul.bookmark-list {
-  & .notes {
+  & .inline-edit {
     display: none;
-    max-height: 300px;
+    flex-basis: 100%;
+    order: 3;
+    position: relative;
     margin: var(--unit-1) 0;
-    overflow-y: auto;
+    overflow: visible;
     background: var(--body-color-contrast);
     border-radius: var(--border-radius);
   }
 
-  & .notes .markdown {
+  & .inline-edit .markdown {
     padding: var(--unit-2) var(--unit-3);
+    /* 宽图片适配 */
+    & img {
+      max-width: 100%;
+      height: auto;
+    }
   }
 
-  &.show-notes .notes,
-  & li.show-notes .notes {
+  & .inline-edit .inline-edit-textarea {
+    width: 100%;
+    max-height: 300px;
+    padding: var(--unit-2) var(--unit-3);
+    margin: 0;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    resize: none;
+    outline: none;
+    box-sizing: border-box;
+    /* placeholder 样式 */
+    &::placeholder {
+      color: var(--tertiary-text-color);
+      font-style: italic;
+    }
+    /* 滚动条样式：匹配侧边栏，默认隐藏，hover/focus 时显示 */
+    scrollbar-width: thin;
+    scrollbar-gutter: stable;
+    scrollbar-color: transparent transparent;
+    &::-webkit-scrollbar { width: 8px; }
+    &::-webkit-scrollbar-thumb {
+      background: transparent;
+      border-radius: 4px;
+    }
+    &:hover,
+    &:focus {
+      scrollbar-color: var(--secondary-border-color) transparent;
+    }
+    &:hover::-webkit-scrollbar-thumb,
+    &:focus::-webkit-scrollbar-thumb {
+      background: var(--secondary-border-color);
+    }
+  }
+
+  &.show-notes .inline-edit,
+  & li.show-notes .inline-edit {
     display: block;
+  }
+
+  /* Tag autocomplete menu: fixed positioning to escape overflow clipping */
+  & .form-autocomplete .menu {
+    position: fixed;
+    transform: none;
+    max-height: min(var(--menu-max-height, 200px), 50vh);
+    /* 滚动条样式：始终显示 */
+    scrollbar-width: thin;
+    scrollbar-gutter: stable;
+    scrollbar-color: var(--secondary-border-color) transparent;
+    &::-webkit-scrollbar { width: 8px; }
+    &::-webkit-scrollbar-thumb {
+      background: var(--secondary-border-color);
+      border-radius: 4px;
+    }
   }
 }
 

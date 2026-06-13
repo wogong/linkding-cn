@@ -78,24 +78,24 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         )
 
     def assertArchiveLinkCount(self, html: str, bookmark: Bookmark, count=1):
-        self.assertInHTML(
-            f"""
-            <button ld-confirm-button ld-confirm-question="Archive bookmark?" type="submit" name="archive" value="{bookmark.id}"
-               class="btn btn-link btn-sm">Archive</button>
-        """,
-            html,
-            count=count,
+        soup = self.make_soup(html)
+        buttons = soup.select(
+            f'button[ld-confirm-button][name="archive"][value="{bookmark.id}"]'
         )
+        self.assertEqual(len(buttons), count)
+        for button in buttons:
+            self.assertEqual(button.get("ld-confirm-question"), "Archive bookmark?")
+            self.assertEqual(button.get_text(strip=True), "Archive")
 
     def assertDeleteLinkCount(self, html: str, bookmark: Bookmark, count=1):
-        self.assertInHTML(
-            f"""
-            <button ld-confirm-button ld-confirm-question="Move to trash?" type="submit" name="trash" value="{bookmark.id}"
-               class="btn btn-link btn-sm">Remove</button>
-        """,
-            html,
-            count=count,
+        soup = self.make_soup(html)
+        buttons = soup.select(
+            f'button[ld-confirm-button][name="trash"][value="{bookmark.id}"]'
         )
+        self.assertEqual(len(buttons), count)
+        for button in buttons:
+            self.assertEqual(button.get("ld-confirm-question"), "Move to trash?")
+            self.assertEqual(button.get_text(strip=True), "Remove")
 
     def assertBookmarkActions(self, html: str, bookmark: Bookmark):
         self.assertBookmarkActionsCount(html, bookmark, count=1)
@@ -194,17 +194,17 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         self.assertBookmarkURLCount(html, bookmark, count=0)
 
     def assertNotes(self, html: str, notes_html: str, count=1):
-        self.assertInHTML(
-            f"""
-        <div class="notes">
-          <div class="markdown">
-            {notes_html}
-          </div>
-        </div>
-        """,
-            html,
-            count=count,
+        soup = self.make_soup(html)
+        notes = soup.select(".inline-edit.inline-edit-notes")
+
+        if not notes_html:
+            self.assertEqual(len(notes), count)
+            return
+
+        markdown_html = "\n".join(
+            str(note.select_one(".markdown")) for note in notes
         )
+        self.assertInHTML(notes_html, markdown_html, count=count)
 
     def assertNotesToggle(self, html: str, count=1):
         self.assertInHTML(
@@ -312,16 +312,24 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         separate_description = soup.select_one(".description.separate")
         self.assertIsNone(separate_description)
 
-        # one direct child element per description or tags
-        children = description.find_all(recursive=False)
-        expected_child_count = (
-            0 + (1 if has_description else 0) + (1 if has_tags else 0)
-        )
-        self.assertEqual(len(children), expected_child_count)
-
-        # has separator between description and tags
+        # one direct child element per description, tags, and optional separator
+        expected_selectors = []
+        if has_tags:
+            expected_selectors.append(".tags")
         if has_description and has_tags:
-            self.assertTrue("|" in description.text)
+            expected_selectors.append(".description-separator")
+        if has_description:
+            expected_selectors.append(".description-text")
+        children = description.find_all(recursive=False)
+        self.assertEqual(
+            [child.get("class", [None])[0] for child in children],
+            [selector.removeprefix(".") for selector in expected_selectors],
+        )
+
+        if has_description and has_tags:
+            separator = description.select_one(".description-separator")
+            self.assertIsNotNone(separator)
+            self.assertEqual(separator.text, " | ")
 
         # contains description text, without leading/trailing whitespace
         if has_description:
@@ -1141,14 +1149,26 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
             '<p class="empty-title h5">You have no bookmarks yet</p>', html
         )
 
-    def test_pagination_is_not_sticky_by_default(self):
+    def test_pagination_is_sticky_by_default(self):
         self.setup_bookmark()
         html = self.render_template()
 
-        self.assertIn(
-            '<div class="bookmark-pagination" ld-pagination data-sticky-on="false">',
-            html,
-        )
+        soup = self.make_soup(html)
+        pagination = soup.select_one(".bookmark-pagination")
+        self.assertIsNotNone(pagination)
+        self.assertEqual(pagination.get("data-sticky-on"), "true")
+
+    def test_pagination_is_not_sticky_when_disabled_in_profile(self):
+        self.setup_bookmark()
+        profile = self.get_or_create_test_user().profile
+        profile.sticky_pagination = False
+        profile.save()
+        html = self.render_template()
+
+        soup = self.make_soup(html)
+        pagination = soup.select_one(".bookmark-pagination")
+        self.assertIsNotNone(pagination)
+        self.assertEqual(pagination.get("data-sticky-on"), "false")
 
     def test_pagination_is_sticky_when_enabled_in_profile(self):
         self.setup_bookmark()
@@ -1157,10 +1177,10 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         profile.save()
         html = self.render_template()
 
-        self.assertIn(
-            '<div class="bookmark-pagination" ld-pagination data-sticky-on="true">',
-            html,
-        )
+        soup = self.make_soup(html)
+        pagination = soup.select_one(".bookmark-pagination")
+        self.assertIsNotNone(pagination)
+        self.assertEqual(pagination.get("data-sticky-on"), "true")
 
     def test_items_per_page_is_30_by_default(self):
         self.setup_numbered_bookmarks(50)

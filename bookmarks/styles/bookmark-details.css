@@ -274,7 +274,6 @@
   color: var(--tertiary-text-color);
   font-style: italic;
 }
-}
 
 /* ---- URL display & inline editing ---- */
 .detail-url-wrapper {

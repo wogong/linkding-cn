@@ -207,6 +207,23 @@ class SettingsPageBehavior extends Behavior {
         this.sortableInstances.push(sortable);
         this.syncBookmarkStatuses(form);
       }
+
+      const quickEditsList = form.querySelector("[data-bookmark-quick-edits-list]");
+      if (quickEditsList) {
+        const sortable = Sortable.create(quickEditsList, {
+          handle: ".settings-module-handle",
+          animation: 150,
+          ghostClass: "is-dragging",
+          swapThreshold: 0.65,
+          onEnd: () => {
+            this.syncBookmarkQuickEdits(form);
+            this.queueSubmit(form);
+          },
+        });
+        this.sortableInstances.push(sortable);
+        this.syncBookmarkQuickEdits(form);
+      }
+
     });
 
     this.initializeHelpPopovers();
@@ -400,6 +417,7 @@ class SettingsPageBehavior extends Behavior {
     if (form.matches("[data-bookmark-actions-form]")) {
       this.syncBookmarkActions(form);
       this.syncBookmarkStatuses(form);
+      this.syncBookmarkQuickEdits(form);
     }
 
     this.applyDependentState(form);
@@ -444,6 +462,7 @@ class SettingsPageBehavior extends Behavior {
     if (form.matches("[data-bookmark-actions-form]")) {
       this.syncBookmarkActions(form);
       this.syncBookmarkStatuses(form);
+      this.syncBookmarkQuickEdits(form);
     }
 
     this.applyDependentState(form);
@@ -1271,6 +1290,21 @@ class SettingsPageBehavior extends Behavior {
     ).map((item) => ({
       key: item.dataset.statusKey,
       enabled: Boolean(item.querySelector("[data-status-enabled]")?.checked),
+    }));
+
+    if (hiddenInput) {
+      hiddenInput.value = JSON.stringify(items);
+    }
+  }
+
+  // 快捷编辑：将可拖拽顺序和启用状态序列化为隐藏字段。
+  syncBookmarkQuickEdits(form) {
+    const hiddenInput = form.querySelector('[name="bookmark_quick_edits"]');
+    const items = Array.from(
+      form.querySelectorAll("[data-bookmark-quick-edits-list] .settings-module-item"),
+    ).map((item) => ({
+      key: item.dataset.quickEditKey,
+      enabled: Boolean(item.querySelector("[data-quick-edit-enabled]")?.checked),
     }));
 
     if (hiddenInput) {

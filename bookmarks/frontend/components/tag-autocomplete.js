@@ -1,4 +1,5 @@
 import { html, nothing } from "lit";
+import { keyed } from "lit/directives/keyed.js";
 import { cache } from "../utils/tag-cache.js";
 import { TurboLitElement } from "../utils/element.js";
 import { PositionController } from "../utils/position-controller.js";
@@ -126,7 +127,7 @@ export class TagAutocomplete extends TurboLitElement {
     this.close();
   }
 
-  updateSelection(dir) {
+  async updateSelection(dir) {
     const length = this.suggestions.length;
     let newIndex = this.selectedIndex + dir;
 
@@ -135,10 +136,9 @@ export class TagAutocomplete extends TurboLitElement {
 
     this.selectedIndex = newIndex;
 
-    setTimeout(() => {
-      const selectedListItem = this.suggestionList?.querySelector("li.selected");
-      selectedListItem?.scrollIntoView({ block: "nearest" });
-    }, 0);
+    await this.updateComplete;
+    const selectedListItem = this.suggestionList?.querySelector("li.selected");
+    selectedListItem?.scrollIntoView({ block: "nearest" });
   }
 
   render() {
@@ -173,17 +173,19 @@ export class TagAutocomplete extends TurboLitElement {
         >
           ${this.suggestions.map(
             (tag, index) => html`
-              <li class="menu-item ${this.selectedIndex === index ? "selected" : ""}">
-                <a
-                  href="#"
-                  @mousedown=${(event) => {
-                    event.preventDefault();
-                    this.complete(tag);
-                  }}
-                >
-                  ${tag.name}
-                </a>
-              </li>
+              ${keyed(tag.name, html`
+                <li class="menu-item ${this.selectedIndex === index ? "selected" : ""}">
+                  <a
+                    href="#"
+                    @mousedown=${(event) => {
+                      event.preventDefault();
+                      this.complete(tag);
+                    }}
+                  >
+                    ${tag.name}
+                  </a>
+                </li>
+              `)}
             `,
           )}
         </ul>

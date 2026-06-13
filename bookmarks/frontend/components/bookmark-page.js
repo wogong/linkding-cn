@@ -156,7 +156,7 @@ class BookmarkItem extends Behavior {
     this.initTitleTooltip();
 
     // 初始化描述浮窗
-    this.initDescriptionTooltip();
+    this.initDescriptionToggle();
   }
 
   destroy() {
@@ -193,27 +193,10 @@ class BookmarkItem extends Behavior {
       this.titleElement.removeEventListener("click", this.onTitleClick);
     }
 
-    if (this.descriptionContainer) {
-      this.descriptionContainer.removeEventListener(
-        "mouseenter",
-        this.showDescriptionTooltip,
-      );
-      this.descriptionContainer.removeEventListener(
-        "mouseleave",
-        this.hideDescriptionTooltip,
-      );
-      this.descriptionContainer.removeEventListener(
-        "focus",
-        this.showDescriptionTooltip,
-      );
-      this.descriptionContainer.removeEventListener(
-        "blur",
-        this.hideDescriptionTooltip,
-      );
-      this.descriptionContainer.removeEventListener(
-        "click",
-        this.showDescriptionTooltip,
-      );
+    if (this.onToggleDescription) {
+      const target =
+        this._descriptionToggleTarget || this.descriptionContainer;
+      target.removeEventListener("click", this.onToggleDescription);
     }
   }
 
@@ -421,6 +404,7 @@ class BookmarkItem extends Behavior {
     }
 
     descContainer.classList.remove("truncate");
+    description?.classList.remove("expanded");
     description?.classList.add("is-editing-description");
     descText.style.display = "none";
 
@@ -832,79 +816,69 @@ class BookmarkItem extends Behavior {
     }
   }
 
-  initDescriptionTooltip() {
+  initDescriptionToggle() {
     this.descriptionContainer = this.element.querySelector(
       ".description-container",
     );
     if (!this.descriptionContainer) return;
 
-    const descriptionElement = this.element.querySelector(".description");
-    const descriptionText =
-      this.descriptionContainer.querySelector(".description-text");
-    const isDescriptionInline =
-      descriptionElement?.classList.contains("inline");
+    this.descriptionElement = this.element.querySelector(".description");
+    if (!this.descriptionElement) return;
 
-    if (descriptionText) {
-      requestAnimationFrame(() => {
-        if (isDescriptionInline) {
-          const tagsElement = this.descriptionContainer.querySelector(".tags");
-          let availableWidth = this.descriptionContainer.offsetWidth - 7;
-          if (tagsElement) availableWidth -= tagsElement.offsetWidth;
+    // 检测描述是否被截断，绑定点击展开
+    requestAnimationFrame(() => {
+      const descriptionText =
+        this.descriptionContainer.querySelector(".description-text");
+      if (!descriptionText) return;
 
-          if (
-            window.matchMedia("(pointer: coarse)").matches &&
-            availableWidth <= 0
-          )
-            return;
-          if (descriptionText.offsetWidth > availableWidth) {
-            this.descriptionContainer.dataset.tooltip =
-              descriptionText.textContent;
-          }
-        } else if (
-          this.descriptionContainer.scrollHeight >
+      const isInline =
+        this.descriptionElement.classList.contains("inline");
+
+      if (isInline) {
+        // 同行模式：检测文字是否溢出
+        const tagsElement = this.descriptionContainer.querySelector(".tags");
+        let availableWidth = this.descriptionContainer.offsetWidth - 7;
+        if (tagsElement) availableWidth -= tagsElement.offsetWidth;
+        if (descriptionText.offsetWidth <= availableWidth) return;
+
+        descriptionText.style.cursor = "pointer";
+        this._descriptionToggleTarget = descriptionText;
+        this.onToggleDescription = (event) => {
+          event.stopPropagation();
+          const expanded = !descriptionText.classList.contains("expanded");
+          descriptionText.classList.toggle("expanded", expanded);
+          this.descriptionContainer.classList.toggle("expanded", expanded);
+        };
+        descriptionText.addEventListener("click", this.onToggleDescription);
+      } else {
+        // 分行模式：检测内容是否超出显示区域
+        if (
+          this.descriptionContainer.scrollHeight <=
           this.descriptionContainer.clientHeight
-        ) {
-          this.descriptionContainer.dataset.tooltip =
-            descriptionText.textContent;
-        }
-      });
-    }
+        )
+          return;
 
-    this.showDescriptionTooltip = () =>
-      this.showFloatTooltip(this.descriptionContainer);
-    this.hideDescriptionTooltip = () =>
-      this.hideFloatTooltip(this.descriptionContainer);
-
-    this.descriptionContainer.addEventListener(
-      "focus",
-      this.showDescriptionTooltip,
-      { passive: true },
-    );
-    this.descriptionContainer.addEventListener(
-      "blur",
-      this.hideDescriptionTooltip,
-      { passive: true },
-    );
-
-    const isTouch = window.matchMedia("(pointer: coarse)").matches;
-    if (isTouch) {
-      this.descriptionContainer.addEventListener(
-        "click",
-        this.showDescriptionTooltip,
-        { passive: true },
-      );
-    } else {
-      this.descriptionContainer.addEventListener(
-        "mouseenter",
-        this.showDescriptionTooltip,
-        { passive: true },
-      );
-      this.descriptionContainer.addEventListener(
-        "mouseleave",
-        this.hideDescriptionTooltip,
-        { passive: true },
-      );
-    }
+        this.descriptionContainer.style.cursor = "pointer";
+        this.onToggleDescription = (event) => {
+          event.stopPropagation();
+          const expanding =
+            !this.descriptionElement.classList.contains("expanded");
+          if (!expanding) {
+            this._descriptionScrollTop =
+              this.descriptionContainer.scrollTop || 0;
+          }
+          this.descriptionElement.classList.toggle("expanded", expanding);
+          if (expanding) {
+            this.descriptionContainer.scrollTop =
+              this._descriptionScrollTop || 0;
+          }
+        };
+        this.descriptionContainer.addEventListener(
+          "click",
+          this.onToggleDescription,
+        );
+      }
+    });
   }
 }
 registerBehavior("ld-bookmark-item", BookmarkItem);

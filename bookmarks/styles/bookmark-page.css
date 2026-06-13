@@ -327,6 +327,40 @@ li[ld-bookmark-item] {
     position: relative;
   }
 
+  /* 同行模式：点击描述文字展开，标签不动 */
+  & .description .description-container.expanded {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  & .description .description-text.expanded {
+    cursor: pointer;
+  }
+
+  /* 分行模式：点击容器展开，限制最大高度 + 滚动条 */
+  & .description.expanded .description-container {
+    white-space: normal;
+    -webkit-line-clamp: unset;
+    max-height: calc(15 * 1.1rem);
+    overflow-y: auto;
+    /* 滚动条样式 */
+    scrollbar-width: thin;
+    scrollbar-gutter: stable;
+    scrollbar-color: transparent transparent;
+    &::-webkit-scrollbar { width: 8px; }
+    &::-webkit-scrollbar-thumb {
+      background: transparent;
+      border-radius: 4px;
+    }
+    &:hover {
+      scrollbar-color: var(--secondary-border-color) transparent;
+    }
+    &:hover::-webkit-scrollbar-thumb {
+      background: var(--secondary-border-color);
+    }
+  }
+
   & .description.is-editing-description .description-container {
     display: block;
     white-space: normal;

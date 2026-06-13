@@ -564,3 +564,7 @@ msgstr "阅读速度"
 
 msgid "wpm"
 msgstr "字/分钟"
+
+#: bookmarks/frontend/components/bulk-edit.js
+msgid "Selected(%(count)s)"
+msgstr "已选中 %(count)s 个"

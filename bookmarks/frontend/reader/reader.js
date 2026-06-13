@@ -1169,10 +1169,18 @@ function renderArticle(bodyHtml, meta, resolvedTitle, bookmarkData, apiBase, ass
       const speed = Number(loadReaderSettings().readingSpeed) || 400;
       const fast = Math.ceil(meta.wordCount / (speed * 1.1));
       const slow = Math.ceil(meta.wordCount / (speed * 0.9));
-      const minText = interpolate(
-        ngettext("%(fast)s~%(slow)s minute", "%(fast)s~%(slow)s minutes", slow),
-        { fast: fast.toLocaleString(), slow: slow.toLocaleString() },
-      );
+      let minText;
+      if (fast === slow) {
+        minText = interpolate(
+          ngettext("%(fast)s minute", "%(fast)s minutes", fast),
+          { fast: fast.toLocaleString() },
+        );
+      } else {
+        minText = interpolate(
+          ngettext("%(fast)s~%(slow)s minute", "%(fast)s~%(slow)s minutes", slow),
+          { fast: fast.toLocaleString(), slow: slow.toLocaleString() },
+        );
+      }
       stats.textContent =
         interpolate(gettext("%(wordCount)s words · %(min)s"), {
           wordCount: meta.wordCount.toLocaleString(),

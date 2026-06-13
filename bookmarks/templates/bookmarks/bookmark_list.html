@@ -4,13 +4,15 @@
   {% include 'bookmarks/empty_bookmarks.html' %}
 {% else %}
   <section aria-label="{% translate 'Bookmark list' %}">
-    <ul class="bookmark-list{% if bookmark_list.show_notes %} show-notes{% endif %}"
+    <ul class="bookmark-list"
         role="list" tabindex="-1"
         style="--ld-bookmark-description-max-lines:{{ bookmark_list.description_max_lines }};"
-        data-bookmarks-total="{{ bookmark_list.bookmarks_total }}">
+        data-bookmarks-total="{{ bookmark_list.bookmarks_total }}"
+        data-notes-global="{{ bookmark_list.show_notes|yesno:'true,false,false' }}">
       {% for bookmark_item in bookmark_list.items %}
         <li ld-bookmark-item data-bookmark-id="{{ bookmark_item.id }}" role="listitem"
-            {% if bookmark_item.css_classes %}class="{{ bookmark_item.css_classes }}"{% endif %}>
+            data-notes-enabled="{{ bookmark_list.show_notes|yesno:'true,false,false' }}"
+            class="{% if bookmark_item.css_classes %}{{ bookmark_item.css_classes }}{% endif %}{% if bookmark_list.show_notes %} show-notes{% endif %}">
           <div class="content">
             <div class="title">
               <label class="form-checkbox bulk-edit-checkbox">

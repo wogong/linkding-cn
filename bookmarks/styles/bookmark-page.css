@@ -916,7 +916,6 @@ ul.bookmark-list {
     }
   }
 
-  &.show-notes .inline-edit,
   & li.show-notes .inline-edit {
     display: block;
   }

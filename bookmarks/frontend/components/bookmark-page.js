@@ -220,7 +220,9 @@ class BookmarkItem extends Behavior {
   onToggleNotes(event) {
     event.preventDefault();
     event.stopPropagation();
-    this.element.classList.toggle("show-notes");
+    const next = !this.element.classList.contains("show-notes");
+    this.element.dataset.notesEnabled = String(next);
+    this.element.classList.toggle("show-notes", next);
   }
 
   onQuickEditMouseDown(event) {
@@ -503,6 +505,7 @@ class BookmarkItem extends Behavior {
     if (!this.notesMarkdown || !this.notesEditor) return;
 
     this.element.classList.add("show-notes");
+    this.element.dataset.notesEnabled = "true";
 
     // 保存显示态滚动位置
     this._savedNotesScrollTop = this.notesMarkdown.scrollTop || 0;

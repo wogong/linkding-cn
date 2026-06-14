@@ -119,6 +119,7 @@
     & .menu {
       padding: var(--unit-4);
       width: 265px;
+      min-width: 0;
       font-size: var(--font-size-sm);
       position: absolute;
       top: 100%;

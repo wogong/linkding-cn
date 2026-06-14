@@ -612,6 +612,7 @@ def prefetch_favicon(request: HttpRequest):
 
     cached_favicon = favicon_loader.get_cached_favicon(url)
     if cached_favicon:
+        _update_favicon_for_matching_bookmarks(request.user, url, cached_favicon.filename)
         return JsonResponse(
             {"status": "success", "favicon_file": cached_favicon.filename}
         )
@@ -619,11 +620,55 @@ def prefetch_favicon(request: HttpRequest):
     favicon_file = favicon_loader.load_favicon(url, timeout=5)
 
     if favicon_file:
+        _update_favicon_for_matching_bookmarks(request.user, url, favicon_file)
         return JsonResponse({"status": "success", "favicon_file": favicon_file})
     else:
+        _clear_favicon_for_matching_bookmarks(request.user, url)
         return JsonResponse(
             {"status": "error", "message": _("Failed to prefetch favicon")}
         )
+
+
+def _update_favicon_for_matching_bookmarks(user, url: str, new_favicon_file: str):
+    """Update bookmarks with the same domain that have a different or missing favicon_file."""
+    from bookmarks.services.favicon_loader import _get_url_parameters
+
+    url_params = _get_url_parameters(url)
+    base_url = url_params["url"]  # scheme://hostname
+
+    # Find bookmarks owned by user with matching scheme+hostname but different favicon_file
+    bookmarks = Bookmark.objects.filter(
+        owner=user,
+        url__startswith=base_url,
+    ).exclude(favicon_file=new_favicon_file)
+
+    for bookmark in bookmarks:
+        # Verify this bookmark's URL maps to the same favicon key
+        bookmark_params = _get_url_parameters(bookmark.url)
+        if bookmark_params["url"] == base_url:
+            bookmark.favicon_file = new_favicon_file
+            bookmark.save(update_fields=["favicon_file"])
+
+
+def _clear_favicon_for_matching_bookmarks(user, url: str):
+    """Clear favicon_file for bookmarks with the same domain to prevent repeated 404 errors."""
+    from bookmarks.services.favicon_loader import _get_url_parameters
+
+    url_params = _get_url_parameters(url)
+    base_url = url_params["url"]  # scheme://hostname
+
+    # Find bookmarks owned by user with matching scheme+hostname that have a non-empty favicon_file
+    bookmarks = Bookmark.objects.filter(
+        owner=user,
+        url__startswith=base_url,
+    ).exclude(favicon_file="")
+
+    for bookmark in bookmarks:
+        # Verify this bookmark's URL maps to the same favicon key
+        bookmark_params = _get_url_parameters(bookmark.url)
+        if bookmark_params["url"] == base_url:
+            bookmark.favicon_file = ""
+            bookmark.save(update_fields=["favicon_file"])
 
 
 def load_temporary_preview_image(request: HttpRequest):

@@ -275,6 +275,14 @@ msgstr "添加时间"
 msgid "Modified"
 msgstr "修改时间"
 
+#: bookmarks/models.py
+msgid "Highlighted"
+msgstr "高亮日期"
+
+#: bookmarks/models.py
+msgid "Annotated"
+msgstr "批注日期"
+
 #: bookmarks/models.py:732 bookmarks/models.py:843
 msgid "Absolute"
 msgstr "绝对"
@@ -2648,6 +2656,33 @@ msgstr[1] "最高连续活跃 %(count)s 天"
 #, python-brace-format
 msgid "{bookmarks}, {days}, {streak}."
 msgstr "{bookmarks}，{days}，{streak}。"
+
+#: bookmarks/views/contexts.py
+#, python-format
+msgid "Added %(count)s highlight"
+msgid_plural "Added %(count)s highlights"
+msgstr[0] "新增高亮 %(count)s 个"
+msgstr[1] "新增高亮 %(count)s 个"
+
+#: bookmarks/views/contexts.py
+#, python-format
+msgid "%(count)s annotation"
+msgid_plural "%(count)s annotations"
+msgstr[0] "新增批注 %(count)s 个"
+msgstr[1] "新增批注 %(count)s 个"
+
+#: bookmarks/views/contexts.py
+#, python-brace-format
+msgid "{bookmarks}, {days}, {streak}. {highlights}, {notes}."
+msgstr "{bookmarks}，{days}，{streak}。{highlights}，{notes}。"
+
+#: bookmarks/views/contexts.py
+msgid "Highlights"
+msgstr "高亮"
+
+#: bookmarks/views/contexts.py
+msgid "Annotations"
+msgstr "批注"
 
 #: bookmarks/views/contexts.py:1079
 #, python-brace-format

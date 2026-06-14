@@ -17,6 +17,7 @@ from pypinyin import Style, pinyin
 
 from bookmarks import queries, utils
 from bookmarks.models import (
+    Annotation,
     Bookmark,
     BookmarkAsset,
     BookmarkBundle,
@@ -368,6 +369,16 @@ class SidebarUserSummaryContext:
 
         bookmarks_total = active_bookmarks.count()
         tags_total = Tag.objects.filter(owner=request.user).count()
+        unread_total = active_bookmarks.filter(unread=True).count()
+
+        stats_agg = Annotation.objects.filter(
+            bookmark__owner=request.user,
+            bookmark__is_archived=False,
+            bookmark__is_deleted=False,
+        ).aggregate(
+            highlights=models.Count("id"),
+            notes=models.Count("id", filter=models.Q(note_content__gt="")),
+        )
 
         self.primary_stats = [
             SidebarSummaryStat(
@@ -376,8 +387,31 @@ class SidebarUserSummaryContext:
                 bookmarks_total,
                 self._build_url(reset_search=True),
             ),
-            SidebarSummaryStat("tags", _("Tags"), tags_total),
+            SidebarSummaryStat(
+                "tags",
+                _("Tags"),
+                tags_total,
+                reverse("linkding:tags.index"),
+            ),
             SidebarSummaryStat("collection-days", _("Days"), self.collection_days),
+            SidebarSummaryStat(
+                "unread",
+                _("Unread"),
+                unread_total,
+                self._build_url(reset_search=True, unread="yes"),
+            ),
+            SidebarSummaryStat(
+                "highlights",
+                _("Highlights"),
+                stats_agg["highlights"],
+                self._build_url(reset_search=True, highlight="yes"),
+            ),
+            SidebarSummaryStat(
+                "annotations",
+                _("Annotations"),
+                stats_agg["notes"],
+                self._build_url(reset_search=True, annotation="yes"),
+            ),
         ]
         self.settings_options = self._build_settings_options()
 
@@ -1029,7 +1063,17 @@ class SidebarUserSummaryContext:
         }
 
     @staticmethod
-    def _build_activity_count_html(fragment: dict[str, str | int]):
+    def _build_activity_count_html(
+        fragment: dict[str, str | int], url: str | None = None
+    ):
+        if url and fragment["count"] > 0:
+            return format_html(
+                '{}<a class="summary-activity-summary-value" href="{}">{}</a>{}',
+                fragment["prefix"],
+                url,
+                fragment["count"],
+                fragment["suffix"],
+            )
         return format_html(
             '{}<strong class="summary-activity-summary-value">{}</strong>{}',
             fragment["prefix"],
@@ -1071,10 +1115,62 @@ class SidebarUserSummaryContext:
             ),
             longest_streak,
         )
-        copy_text = _("{bookmarks}, {days}, {streak}.").format(
+        # 高亮和批注统计（按高亮/批注自身的创建日期筛选）
+        annotations_agg = Annotation.objects.filter(
+            bookmark__owner=self.request.user,
+            bookmark__is_archived=False,
+            bookmark__is_deleted=False,
+            date_created__date__gte=period_start,
+            date_created__date__lte=period_end,
+        ).aggregate(
+            highlights=models.Count("id"),
+            notes=models.Count("id", filter=models.Q(note_content__gt="")),
+        )
+        highlights_total = annotations_agg["highlights"]
+        notes_total = annotations_agg["notes"]
+        highlights_fragment = self._build_activity_count_fragment(
+            ngettext(
+                "Added %(count)s highlight",
+                "Added %(count)s highlights",
+                highlights_total,
+            ),
+            highlights_total,
+        )
+        notes_fragment = self._build_activity_count_fragment(
+            ngettext(
+                "%(count)s annotation",
+                "%(count)s annotations",
+                notes_total,
+            ),
+            notes_total,
+        )
+        # 高亮/批注可点击跳转的 URL（带日期范围 + 过滤条件）
+        date_range = dict(
+            date_filter_type=BookmarkSearch.FILTER_DATE_TYPE_ABSOLUTE,
+            date_filter_relative_string=None,
+            date_filter_start=period_start.isoformat(),
+            date_filter_end=period_end.isoformat(),
+        )
+        highlights_url = self._build_url(
+            reset_search=True,
+            date_filter_by=BookmarkSearch.FILTER_DATE_BY_HIGHLIGHT,
+            highlight="yes",
+            **date_range,
+        )
+        notes_url = self._build_url(
+            reset_search=True,
+            date_filter_by=BookmarkSearch.FILTER_DATE_BY_ANNOTATION,
+            annotation="yes",
+            **date_range,
+        )
+        copy_text = _(
+            "{bookmarks}, {days}, {streak}. {highlights}, {notes}."
+        ).format(
             bookmarks=bookmark_fragment["text"],
             days=active_days_fragment["text"],
             streak=longest_streak_fragment["text"],
+            highlights=highlights_fragment["text"],
+            notes=notes_fragment["text"],
         )
         text = _("{lead} {copy}").format(
             lead=lead,
@@ -1085,11 +1181,19 @@ class SidebarUserSummaryContext:
             "bookmark_total": bookmark_total,
             "active_days": active_days,
             "longest_streak": longest_streak,
+            "highlights_total": highlights_total,
+            "notes_total": notes_total,
             "copy_html": format_html(
-                _("{bookmarks}, {days}, {streak}."),
+                _("{bookmarks}, {days}, {streak}. {highlights}, {notes}."),
                 bookmarks=self._build_activity_count_html(bookmark_fragment),
                 days=self._build_activity_count_html(active_days_fragment),
                 streak=self._build_activity_count_html(longest_streak_fragment),
+                highlights=self._build_activity_count_html(
+                    highlights_fragment, url=highlights_url
+                ),
+                notes=self._build_activity_count_html(
+                    notes_fragment, url=notes_url
+                ),
             ),
             "text": text,
         }

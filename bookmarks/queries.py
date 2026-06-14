@@ -466,6 +466,23 @@ def _apply_filters(
                 end = end + datetime.timedelta(days=1)
             query_set = query_set.filter(**{f"{field}__lt": end})
 
+    # 按高亮/批注创建日期筛选
+    if search.date_filter_by in ("highlight", "annotation"):
+        start = _parse_date(search.date_filter_start)
+        end = _parse_date(search.date_filter_end)
+        annotation_qs = Annotation.objects.filter(bookmark=OuterRef("id"))
+        if search.date_filter_by == "annotation":
+            annotation_qs = annotation_qs.filter(note_content__gt="")
+        if start:
+            annotation_qs = annotation_qs.filter(date_created__date__gte=start)
+        if end:
+            if isinstance(end, datetime.date) and not isinstance(
+                end, datetime.datetime
+            ):
+                end = end + datetime.timedelta(days=1)
+            annotation_qs = annotation_qs.filter(date_created__lt=end)
+        query_set = query_set.filter(Exists(annotation_qs))
+
     return query_set
 
 

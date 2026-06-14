@@ -1297,9 +1297,9 @@ class BookmarkIndexViewTestCase(
             primary_stats = summary.select(".summary-primary-stats [data-summary-stat]")
             self.assertEqual(
                 [item.attrs["data-summary-stat"] for item in primary_stats],
-                ["bookmarks", "tags", "collection-days"],
+                ["bookmarks", "tags", "collection-days", "unread", "highlights", "annotations"],
             )
-            self.assertEqual(len(primary_stats), 3)
+            self.assertEqual(len(primary_stats), 6)
             self.assertEqual(
                 summary.select_one("[data-summary-stat='bookmarks']")
                 .select_one(".summary-metric-value")
@@ -1350,7 +1350,7 @@ class BookmarkIndexViewTestCase(
             self.assertIsNone(
                 collection_days_toggle.select_one(".summary-info-popover")
             )
-            self.assertIsNone(summary.select_one("[data-summary-stat='unread']"))
+            self.assertIsNotNone(summary.select_one("[data-summary-stat='unread']"))
             self.assertIsNone(summary.select_one("[data-summary-stat='untagged']"))
 
             self.assertIsNone(
@@ -1950,7 +1950,7 @@ class BookmarkIndexViewTestCase(
                 activity_summary.select_one(".summary-activity-summary-copy").get_text(
                     " ", strip=True
                 ),
-                f"收藏书签 {expected_count} 个，共活跃 {expected_count} 天，最高连续活跃 {expected_count} 天。",
+                f"收藏书签 {expected_count} 个，共活跃 {expected_count} 天，最高连续活跃 {expected_count} 天。新增高亮 0 个，新增批注 0 个。",
             )
             self.assertEqual(
                 [
@@ -1959,7 +1959,7 @@ class BookmarkIndexViewTestCase(
                         ".summary-activity-summary-value"
                     )
                 ],
-                [str(expected_count), str(expected_count), str(expected_count)],
+                [str(expected_count), str(expected_count), str(expected_count), "0", "0"],
             )
 
             menu_buttons = [
@@ -2030,7 +2030,7 @@ class BookmarkIndexViewTestCase(
                 heatmap_activity_summary.select_one(
                     ".summary-activity-summary-copy"
                 ).get_text(" ", strip=True),
-                f"收藏书签 {week_count} 个，共活跃 {week_count} 天，最高连续活跃 {expected_longest_streak} 天。",
+                f"收藏书签 {week_count} 个，共活跃 {week_count} 天，最高连续活跃 {expected_longest_streak} 天。新增高亮 0 个，新增批注 0 个。",
             )
 
     def test_sidebar_summary_follows_selected_date_filter_without_explicit_period(self):
@@ -2108,7 +2108,7 @@ class BookmarkIndexViewTestCase(
             calendar_activity_summary.select_one(
                 ".summary-activity-summary-copy"
             ).get_text(" ", strip=True),
-            "收藏书签 3 个，共活跃 3 天，最高连续活跃 3 天。",
+            "收藏书签 3 个，共活跃 3 天，最高连续活跃 3 天。新增高亮 0 个，新增批注 0 个。",
         )
 
         # Toggle mode to heatmap
@@ -2156,7 +2156,7 @@ class BookmarkIndexViewTestCase(
             heatmap_activity_summary.select_one(
                 ".summary-activity-summary-copy"
             ).get_text(" ", strip=True),
-            "收藏书签 3 个，共活跃 3 天，最高连续活跃 3 天。",
+            "收藏书签 3 个，共活跃 3 天，最高连续活跃 3 天。新增高亮 0 个，新增批注 0 个。",
         )
         start_heatmap_day = heatmap_summary.select_one(
             f"[data-summary-heatmap-day='{start_day.isoformat()}']"

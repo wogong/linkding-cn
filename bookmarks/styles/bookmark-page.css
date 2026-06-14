@@ -1707,6 +1707,15 @@ ul.bookmark-list {
     font-weight: 700;
   }
 
+  & a.summary-activity-summary-value {
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  & a.summary-activity-summary-value:hover {
+    text-decoration: underline;
+  }
+
   & .summary-nav-form,
   & .summary-mode-switch-form,
   & .summary-toolbar-action-form {

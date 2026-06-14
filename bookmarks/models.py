@@ -369,6 +369,8 @@ class BookmarkSearch:
     FILTER_DATE_BY_ADDED = "added"
     FILTER_DATE_BY_MODIFIED = "modified"
     FILTER_DATE_BY_DELETED = "deleted"
+    FILTER_DATE_BY_HIGHLIGHT = "highlight"
+    FILTER_DATE_BY_ANNOTATION = "annotation"
 
     FILTER_DATE_TYPE_ABSOLUTE = "absolute"
     FILTER_DATE_TYPE_RELATIVE = "relative"
@@ -727,6 +729,8 @@ class BookmarkSearchForm(forms.Form):
         (BookmarkSearch.FILTER_DATE_OFF, _("Off")),
         (BookmarkSearch.FILTER_DATE_BY_ADDED, _("Added")),
         (BookmarkSearch.FILTER_DATE_BY_MODIFIED, _("Modified")),
+        (BookmarkSearch.FILTER_DATE_BY_HIGHLIGHT, _("Highlighted")),
+        (BookmarkSearch.FILTER_DATE_BY_ANNOTATION, _("Annotated")),
     ]
     FILTER_DATE_TYPE_CHOICES = [
         (BookmarkSearch.FILTER_DATE_TYPE_ABSOLUTE, _("Absolute")),

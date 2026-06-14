@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-13 15:12+0800\n"
+"POT-Creation-Date: 2026-06-13 22:48+0800\n"
 "PO-Revision-Date: 2026-04-22 20:55+0800\n"
 "Last-Translator: Codex\n"
 "Language-Team: Simplified Chinese\n"
@@ -100,10 +100,8 @@ msgid "Article asset must have type 'article'."
 msgstr "文章资产的类型必须是”article”。"
 
 #: bookmarks/api/serializers.py:380
-#, fuzzy
-#| msgid "Article asset must belong to the same bookmark as the annotation."
 msgid "Article asset must belong to the same bookmark."
-msgstr "文章资产必须与该批注属于同一个书签。"
+msgstr "文章资产必须属于同一个书签。"
 
 #: bookmarks/forms.py:117
 msgid "A bookmark with this URL already exists."
@@ -243,14 +241,15 @@ msgstr "已分享"
 msgid "Unshared"
 msgstr "未分享"
 
-#: bookmarks/models.py:703 bookmarks/models.py:921
-#: bookmarks/templates/bookmarks/details/form.html:54
+#: bookmarks/models.py:703
+msgctxt "bookmark filter"
 msgid "Unread"
 msgstr "未读"
 
-#: bookmarks/models.py:704 bookmarks/models.py:893
+#: bookmarks/models.py:704
+msgctxt "bookmark filter"
 msgid "Read"
-msgstr "阅读"
+msgstr "已读"
 
 #: bookmarks/models.py:708
 msgid "Tagged"
@@ -370,6 +369,12 @@ msgstr "域名"
 msgid "Tags"
 msgstr "标签"
 
+#: bookmarks/models.py:893 bookmarks/templates/bookmarks/bookmark_list.html:93
+#: bookmarks/templates/bookmarks/bookmark_list.html:96
+msgctxt "bookmark action"
+msgid "Read"
+msgstr "阅读"
+
 #: bookmarks/models.py:894 bookmarks/templates/bookmarks/bookmark_list.html:101
 #: bookmarks/templates/bookmarks/bookmark_list.html:104
 #: bookmarks/templates/bookmarks/details/assets.html:22
@@ -386,7 +391,7 @@ msgstr "编辑"
 
 #: bookmarks/models.py:896 bookmarks/templates/bookmarks/bookmark_list.html:125
 #: bookmarks/templates/bookmarks/bookmark_list.html:128
-#: bookmarks/templates/bookmarks/bulk_edit/bar.html:47
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:53
 #: bookmarks/templates/bookmarks/details/modal.html:250
 msgid "Archive"
 msgstr "归档"
@@ -398,21 +403,20 @@ msgstr "归档"
 msgid "Remove"
 msgstr "删除"
 
-#: bookmarks/models.py:919 bookmarks/models.py:938
-#: bookmarks/templates/bookmarks/bookmark_list.html:211
-#: bookmarks/templates/bookmarks/details/form.html:117
-#: bookmarks/templates/bookmarks/details/modal.html:201
-#: bookmarks/templates/bookmarks/form.html:78
-#: bookmarks/templates/bookmarks/form.html:80
+#: bookmarks/models.py:919 bookmarks/templates/bookmarks/bookmark_list.html:214
+msgctxt "bookmark status"
 msgid "Notes"
 msgstr "笔记"
 
-#: bookmarks/models.py:920 bookmarks/templates/bookmarks/bookmark_list.html:228
-#: bookmarks/templates/bookmarks/bulk_edit/bar.html:19
-#: bookmarks/templates/bookmarks/details/modal.html:261
-#: bookmarks/templates/bookmarks/form.html:128
+#: bookmarks/models.py:920 bookmarks/templates/bookmarks/bookmark_list.html:231
+msgctxt "bookmark status"
 msgid "Share"
 msgstr "分享"
+
+#: bookmarks/models.py:921 bookmarks/templates/bookmarks/bookmark_list.html:249
+msgctxt "bookmark status"
+msgid "Unread"
+msgstr "未读"
 
 #: bookmarks/models.py:936 bookmarks/templates/bookmarks/form.html:12
 msgid "Title"
@@ -423,6 +427,14 @@ msgstr "标题"
 #: bookmarks/templates/bookmarks/form.html:66
 msgid "Description"
 msgstr "描述"
+
+#: bookmarks/models.py:938 bookmarks/templates/bookmarks/bookmark_list.html:211
+#: bookmarks/templates/bookmarks/details/form.html:117
+#: bookmarks/templates/bookmarks/details/modal.html:201
+#: bookmarks/templates/bookmarks/form.html:78
+#: bookmarks/templates/bookmarks/form.html:80
+msgid "Notes"
+msgstr "笔记"
 
 #: bookmarks/models.py:951
 msgid "Text"
@@ -465,10 +477,8 @@ msgid "Invalid bookmark status configuration."
 msgstr "无效的书签状态配置。"
 
 #: bookmarks/models.py:1525
-#, fuzzy
-#| msgid "Invalid bookmark actions configuration."
 msgid "Invalid bookmark quick edit configuration."
-msgstr "无效的书签动作配置。"
+msgstr "无效的书签快捷编辑配置。"
 
 #: bookmarks/models.py:1601
 msgid ""
@@ -544,12 +554,6 @@ msgstr "已归档"
 msgid "Bookmark list"
 msgstr "书签列表"
 
-#: bookmarks/templates/bookmarks/bookmark_list.html:93
-#: bookmarks/templates/bookmarks/bookmark_list.html:96
-msgctxt "bookmark action"
-msgid "Read"
-msgstr "阅读"
-
 #: bookmarks/templates/bookmarks/bookmark_list.html:115
 #: bookmarks/templates/bookmarks/details/modal.html:244
 msgid "Unarchive bookmark?"
@@ -557,7 +561,7 @@ msgstr "取消归档书签？"
 
 #: bookmarks/templates/bookmarks/bookmark_list.html:117
 #: bookmarks/templates/bookmarks/bookmark_list.html:120
-#: bookmarks/templates/bookmarks/bulk_edit/bar.html:50
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:56
 #: bookmarks/templates/bookmarks/details/modal.html:245
 msgid "Unarchive"
 msgstr "取消归档"
@@ -613,11 +617,6 @@ msgstr "编辑笔记"
 msgid "Edit tags"
 msgstr "编辑标签"
 
-#: bookmarks/templates/bookmarks/bookmark_list.html:214
-msgctxt "bookmark status"
-msgid "Notes"
-msgstr "笔记"
-
 #: bookmarks/templates/bookmarks/bookmark_list.html:218
 #: bookmarks/templates/bookmarks/details/modal.html:255
 msgid "Unshare?"
@@ -633,8 +632,10 @@ msgstr "已分享"
 msgid "Share?"
 msgstr "分享？"
 
-#: bookmarks/templates/bookmarks/bookmark_list.html:231
-msgctxt "bookmark status"
+#: bookmarks/templates/bookmarks/bookmark_list.html:228
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:19
+#: bookmarks/templates/bookmarks/details/modal.html:261
+#: bookmarks/templates/bookmarks/form.html:128
 msgid "Share"
 msgstr "分享"
 
@@ -655,11 +656,6 @@ msgstr "已读"
 #: bookmarks/templates/bookmarks/form.html:117
 msgid "Mark as unread"
 msgstr "标记为未读"
-
-#: bookmarks/templates/bookmarks/bookmark_list.html:249
-msgctxt "bookmark status"
-msgid "Unread"
-msgstr "未读"
 
 #: bookmarks/templates/bookmarks/bulk_edit/bar.html:22
 #: bookmarks/templates/bookmarks/details/modal.html:256
@@ -697,31 +693,32 @@ msgstr "创建 HTML 文章"
 msgid "Remove all articles"
 msgstr "删除所有文章"
 
-#: bookmarks/templates/bookmarks/bulk_edit/bar.html:55
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:61
 msgid "Restore bookmarks"
 msgstr "恢复书签"
 
-#: bookmarks/templates/bookmarks/bulk_edit/bar.html:59
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:65
 #: bookmarks/templates/bookmarks/details/modal.html:287
 msgid "Move to trash"
 msgstr "移至回收站"
 
-#: bookmarks/templates/bookmarks/bulk_edit/bar.html:62
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:68
 msgid "Delete permanently"
 msgstr "永久删除"
 
-#: bookmarks/templates/bookmarks/bulk_edit/bar.html:68
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:74
 msgid "Tag names"
 msgstr "标签名称"
 
-#: bookmarks/templates/bookmarks/bulk_edit/bar.html:73
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:79
 msgid "Execute"
 msgstr "执行"
 
-#: bookmarks/templates/bookmarks/bulk_edit/bar.html:77
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:83
 #: bookmarks/templates/bookmarks/details/modal.html:54
 #: bookmarks/templates/bookmarks/form.html:146
-#: bookmarks/templates/bundles/form.html:253
+#: bookmarks/templates/bundles/edit.html:27
+#: bookmarks/templates/bundles/new.html:27
 #: bookmarks/templates/settings/create_api_token_modal.html:58
 #: bookmarks/templates/tags/edit.html:24
 #: bookmarks/templates/tags/edit_modal.html:29
@@ -732,11 +729,11 @@ msgstr "执行"
 msgid "Cancel"
 msgstr "取消"
 
-#: bookmarks/templates/bookmarks/bulk_edit/bar.html:82
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:89
 msgid "All pages"
 msgstr "所有页面"
 
-#: bookmarks/templates/bookmarks/bulk_edit/bar.html:82
+#: bookmarks/templates/bookmarks/bulk_edit/bar.html:89
 msgid "bookmarks"
 msgstr "书签"
 
@@ -757,22 +754,20 @@ msgstr "上传文件"
 #: bookmarks/templates/bookmarks/details/assets_inline.html:12
 #: bookmarks/templates/bookmarks/details/assets_inline.html:18
 msgid "queued"
-msgstr ""
+msgstr "排队中"
 
 #: bookmarks/templates/bookmarks/details/assets_inline.html:13
 #: bookmarks/templates/bookmarks/details/assets_inline.html:19
 msgid "failed"
-msgstr ""
+msgstr "失败"
 
 #: bookmarks/templates/bookmarks/details/assets_inline.html:32
 msgid "Remove this file?"
 msgstr "移除此文件？"
 
 #: bookmarks/templates/bookmarks/details/assets_inline.html:45
-#, fuzzy
-#| msgid "Upload file"
 msgid "No files"
-msgstr "上传文件"
+msgstr "无文件"
 
 #: bookmarks/templates/bookmarks/details/form.html:17
 #: bookmarks/templates/bookmarks/read_unavailable.html:87
@@ -798,6 +793,10 @@ msgstr "状态"
 #: bookmarks/templates/bookmarks/details/form.html:47
 msgid "Archived"
 msgstr "已归档"
+
+#: bookmarks/templates/bookmarks/details/form.html:54
+msgid "Unread"
+msgstr "未读"
 
 #: bookmarks/templates/bookmarks/details/form.html:70
 #: bookmarks/templates/bookmarks/details/modal.html:162
@@ -836,7 +835,8 @@ msgstr "从网址重新抓取元数据"
 
 #: bookmarks/templates/bookmarks/details/modal.html:53
 #: bookmarks/templates/bookmarks/form.html:144
-#: bookmarks/templates/bundles/form.html:252
+#: bookmarks/templates/bundles/edit.html:26
+#: bookmarks/templates/bundles/new.html:26
 #: bookmarks/templates/settings/general.html:168
 #: bookmarks/templates/settings/general.html:474
 #: bookmarks/templates/settings/general.html:537
@@ -999,7 +999,7 @@ msgstr "自托管书签服务"
 msgid "Linkding"
 msgstr "Linkding"
 
-#: bookmarks/templates/bookmarks/index.html:6 bookmarks/views/bookmarks.py:234
+#: bookmarks/templates/bookmarks/index.html:6 bookmarks/views/bookmarks.py:236
 msgid "Bookmarks - Linkding"
 msgstr "书签 - Linkding"
 
@@ -1095,10 +1095,8 @@ msgid "Reader view"
 msgstr "阅读视图"
 
 #: bookmarks/templates/bookmarks/read.html:64
-#, fuzzy
-#| msgid "Processing article..."
 msgid "Loading article..."
-msgstr "正在处理文章..."
+msgstr "正在加载文章…"
 
 #: bookmarks/templates/bookmarks/read_pending.html:80
 msgid "Timed out waiting for article to be ready."
@@ -1300,8 +1298,8 @@ msgstr "编辑过滤器 - Linkding"
 msgid "Edit filter"
 msgstr "编辑过滤器"
 
-#: bookmarks/templates/bundles/edit.html:28
-#: bookmarks/templates/bundles/new.html:28
+#: bookmarks/templates/bundles/edit.html:33
+#: bookmarks/templates/bundles/new.html:33
 msgid "Preview"
 msgstr "预览"
 
@@ -2466,48 +2464,48 @@ msgid_plural "%(count)s weeks ago"
 msgstr[0] "%(count)s 周前"
 msgstr[1] "%(count)s 周前"
 
-#: bookmarks/views/bookmarks.py:279
+#: bookmarks/views/bookmarks.py:281
 msgid "Archived bookmarks - Linkding"
 msgstr "已归档 - Linkding"
 
-#: bookmarks/views/bookmarks.py:324
+#: bookmarks/views/bookmarks.py:326
 msgid "Shared bookmarks - Linkding"
 msgstr "已分享 - Linkding"
 
-#: bookmarks/views/bookmarks.py:376
+#: bookmarks/views/bookmarks.py:378
 msgid "Trash - Linkding"
 msgstr "回收站 - Linkding"
 
-#: bookmarks/views/bookmarks.py:391
+#: bookmarks/views/bookmarks.py:393
 msgid "Bookmark details - Linkding"
 msgstr "书签详情 - Linkding"
 
-#: bookmarks/views/bookmarks.py:609 bookmarks/views/bookmarks.py:630
+#: bookmarks/views/bookmarks.py:611 bookmarks/views/bookmarks.py:632
 msgid "URL parameter is missing"
 msgstr "缺少 URL 参数"
 
-#: bookmarks/views/bookmarks.py:623
+#: bookmarks/views/bookmarks.py:625
 msgid "Failed to prefetch favicon"
 msgstr "预取 favicon 失败"
 
-#: bookmarks/views/bookmarks.py:643
+#: bookmarks/views/bookmarks.py:645
 #, python-format
 msgid "Failed to download image: %(error)s"
 msgstr "下载图片失败：%(error)s"
 
-#: bookmarks/views/bookmarks.py:654
+#: bookmarks/views/bookmarks.py:656
 msgid "Asset upload is disabled"
 msgstr "资源上传已禁用"
 
-#: bookmarks/views/bookmarks.py:659
+#: bookmarks/views/bookmarks.py:661
 msgid "No file provided"
 msgstr "未提供文件"
 
-#: bookmarks/views/bookmarks.py:720
+#: bookmarks/views/bookmarks.py:722
 msgid "View does not support bulk actions"
 msgstr "当前视图不支持批量操作"
 
-#: bookmarks/views/bookmarks.py:977
+#: bookmarks/views/bookmarks.py:983
 #, python-format
 msgid "Unable to load page content: %(error)s"
 msgstr "无法加载页面内容：%(error)s"
@@ -2768,21 +2766,3 @@ msgstr[0] ""
 "已成功将 %(count)s 个标签（%(tag_names)s）合并到'%(target_tag)s'中。"
 msgstr[1] ""
 "已成功将 %(count)s 个标签（%(tag_names)s）合并到'%(target_tag)s'中。"
-
-#~ msgid "Hide action buttons"
-#~ msgstr "隐藏功能按钮"
-
-#~ msgid "Show action buttons"
-#~ msgstr "显示功能按钮"
-
-#~ msgid "Archive?"
-#~ msgstr "归档？"
-
-#~ msgid "Unarchive?"
-#~ msgstr "取消归档？"
-
-#~ msgid "Enter notes here"
-#~ msgstr "在此输入笔记"
-
-#~ msgid "Enter tags"
-#~ msgstr "输入标签"

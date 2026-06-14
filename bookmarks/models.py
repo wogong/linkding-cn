@@ -16,7 +16,7 @@ from django.db.models import Q
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.http import QueryDict
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext_lazy as _, pgettext_lazy
 
 from bookmarks.utils import normalize_url, unique
 from bookmarks.validators import BookmarkURLValidator
@@ -700,8 +700,8 @@ class BookmarkSearchForm(forms.Form):
     ]
     FILTER_UNREAD_CHOICES = [
         (BookmarkSearch.FILTER_UNREAD_OFF, _("Off")),
-        (BookmarkSearch.FILTER_UNREAD_YES, _("Unread")),
-        (BookmarkSearch.FILTER_UNREAD_NO, _("Read")),
+        (BookmarkSearch.FILTER_UNREAD_YES, pgettext_lazy("bookmark filter", "Unread")),
+        (BookmarkSearch.FILTER_UNREAD_NO, pgettext_lazy("bookmark filter", "Read")),
     ]
     FILTER_TAGGED_CHOICES = [
         (BookmarkSearch.FILTER_TAGGED_OFF, _("Off")),
@@ -890,7 +890,7 @@ class UserProfile(models.Model):
     ACTION_REMOVE = "remove"
     ACTION_KEYS = [ACTION_READ, ACTION_VIEW, ACTION_EDIT, ACTION_ARCHIVE, ACTION_REMOVE]
     ACTION_LABELS = {
-        ACTION_READ: _("Read"),
+        ACTION_READ: pgettext_lazy("bookmark action", "Read"),
         ACTION_VIEW: _("View"),
         ACTION_EDIT: _("Edit"),
         ACTION_ARCHIVE: _("Archive"),
@@ -916,9 +916,9 @@ class UserProfile(models.Model):
     STATUS_UNREAD = "unread"
     STATUS_KEYS = [STATUS_NOTES, STATUS_SHARE, STATUS_UNREAD]
     STATUS_LABELS = {
-        STATUS_NOTES: _("Notes"),
-        STATUS_SHARE: _("Share"),
-        STATUS_UNREAD: _("Unread"),
+        STATUS_NOTES: pgettext_lazy("bookmark status", "Notes"),
+        STATUS_SHARE: pgettext_lazy("bookmark status", "Share"),
+        STATUS_UNREAD: pgettext_lazy("bookmark status", "Unread"),
     }
     STATUS_ICONS = {
         STATUS_NOTES: "ld-icon-note",

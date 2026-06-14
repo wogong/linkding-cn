@@ -794,6 +794,14 @@ msgstr "状态"
 msgid "Archived"
 msgstr "已归档"
 
+#: bookmarks/templates/bookmarks/details/modal.html
+msgid "Not archived"
+msgstr "未归档"
+
+#: bookmarks/templates/bookmarks/details/modal.html
+msgid "Not shared"
+msgstr "未分享"
+
 #: bookmarks/templates/bookmarks/details/form.html:54
 msgid "Unread"
 msgstr "未读"

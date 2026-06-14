@@ -340,6 +340,50 @@
   border-color: var(--primary-color);
 }
 
+/* ---- Status chips ---- */
+.detail-status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--unit-2);
+}
+
+.detail-status-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+.detail-status-chip:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.detail-status-chip.active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+}
+
+.detail-status-chip.active:hover {
+  opacity: 0.85;
+  color: #fff;
+}
+
+.detail-status-chip svg {
+  flex-shrink: 0;
+}
+
 /* ---- Dates ---- */
 .detail-dates {
   display: flex;

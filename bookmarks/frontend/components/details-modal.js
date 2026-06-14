@@ -61,6 +61,26 @@ class DetailsModal extends Modal {
       this._batchAutoResize(allTextareas);
     });
 
+    // Turbo morph 会就地更新 textarea 内容，但不会重新触发 connectedCallback/init，
+    // 导致 textarea 的 style.height 保持旧值。监听 morph 事件，在完成后重新计算高度。
+    this._onMorph = (event) => {
+      if (event.target !== this) return;
+      // morph 尚未执行，等两帧确保 DOM 已更新且布局已完成
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const titleInput2 = this.querySelector(".bookmark-title-input");
+          const allTextareas = [titleInput2, ...this.querySelectorAll(".detail-textarea")].filter(Boolean);
+          this._batchAutoResize(allTextareas);
+        });
+      });
+    };
+    document.addEventListener("turbo:before-morph-element", this._onMorph);
+
+    // ---- 状态 chips（API 局部刷新） ----
+    this.querySelectorAll(".detail-status-chip[data-chip-field]").forEach((btn) => {
+      btn.addEventListener("click", () => this._toggleChip(btn));
+    });
+
     // ---- 清空按钮 ----
     this.querySelectorAll(".detail-clear-btn").forEach((btn) => {
       btn.addEventListener("mousedown", (e) => {
@@ -158,6 +178,39 @@ class DetailsModal extends Modal {
     for (const { el, hasLimit, maxHeight, naturalHeight } of measured) {
       el.style.overflowY = hasLimit && naturalHeight > maxHeight ? "auto" : "hidden";
       el.style.height = hasLimit ? Math.min(naturalHeight, maxHeight) + "px" : naturalHeight + "px";
+    }
+  }
+
+  // ---- 状态 chip 切换（API 局部刷新） ----
+
+  async _toggleChip(btn) {
+    const field = btn.dataset.chipField;
+    const currentValue = btn.dataset.chipValue === "true";
+    const newValue = !currentValue;
+
+    try {
+      const r = await fetch(`${this.apiBase}bookmarks/${this.bookmarkId}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": getCSRFToken() },
+        body: JSON.stringify({ [field]: newValue }),
+      });
+      if (!r.ok) return;
+
+      // 更新本地数据
+      this._data[field] = newValue;
+
+      // 更新 chip UI
+      btn.dataset.chipValue = String(newValue);
+      btn.classList.toggle("active", field === "unread" ? !newValue : newValue);
+      const iconHref = newValue ? btn.dataset.chipActiveIcon : btn.dataset.chipInactiveIcon;
+      const text = newValue ? btn.dataset.chipActiveText : btn.dataset.chipInactiveText;
+      btn.querySelector("svg use").setAttribute("xlink:href", iconHref);
+      btn.querySelector("span").textContent = text;
+
+      // 同步列表
+      this._refreshBookmarkList();
+    } catch (err) {
+      console.error("Toggle chip failed:", err);
     }
   }
 
@@ -462,6 +515,14 @@ class DetailsModal extends Modal {
       if (e.key === "Enter") input.blur();
       if (e.key === "Escape") { input.value = currentName; input.blur(); }
     });
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._onMorph) {
+      document.removeEventListener("turbo:before-morph-element", this._onMorph);
+      this._onMorph = null;
+    }
   }
 
   // ---- 关闭 ----

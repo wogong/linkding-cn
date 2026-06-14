@@ -155,6 +155,47 @@
           {% endif %}
         </div>
 
+        {# 状态 chips（通过 API 局部刷新，无页面跳转） #}
+        {% if details.is_editable %}
+          <div class="detail-status-chips">
+            <button type="button"
+                    class="detail-status-chip{% if details.bookmark.is_archived %} active{% endif %}"
+                    data-chip-field="is_archived"
+                    data-chip-value="{{ details.bookmark.is_archived|yesno:'true,false' }}"
+                    data-chip-active-icon="#ld-icon-archive"
+                    data-chip-inactive-icon="#ld-icon-archive"
+                    data-chip-active-text="{% translate 'Archived' %}"
+                    data-chip-inactive-text="{% translate 'Not archived' %}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><use xlink:href="#ld-icon-archive"></use></svg>
+              <span>{% if details.bookmark.is_archived %}{% translate "Archived" %}{% else %}{% translate "Not archived" %}{% endif %}</span>
+            </button>
+            <button type="button"
+                    class="detail-status-chip{% if not details.bookmark.unread %} active{% endif %}"
+                    data-chip-field="unread"
+                    data-chip-value="{{ details.bookmark.unread|yesno:'true,false' }}"
+                    data-chip-active-icon="#ld-icon-read-check"
+                    data-chip-inactive-icon="#ld-icon-unread-x"
+                    data-chip-active-text="{% translate "Read" context "bookmark status" %}"
+                    data-chip-inactive-text="{% translate 'Unread' %}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><use xlink:href="{% if details.bookmark.unread %}#ld-icon-unread-x{% else %}#ld-icon-read-check{% endif %}"></use></svg>
+              <span>{% if details.bookmark.unread %}{% translate "Unread" %}{% else %}{% translate "Read" context "bookmark status" %}{% endif %}</span>
+            </button>
+            {% if details.profile.enable_sharing %}
+              <button type="button"
+                      class="detail-status-chip{% if details.bookmark.shared %} active{% endif %}"
+                      data-chip-field="shared"
+                      data-chip-value="{{ details.bookmark.shared|yesno:'true,false' }}"
+                      data-chip-active-icon="#ld-icon-share"
+                      data-chip-inactive-icon="#ld-icon-share-x"
+                      data-chip-active-text="{% translate 'Shared' %}"
+                      data-chip-inactive-text="{% translate 'Not shared' %}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><use xlink:href="{% if details.bookmark.shared %}#ld-icon-share{% else %}#ld-icon-share-x{% endif %}"></use></svg>
+                <span>{% if details.bookmark.shared %}{% translate "Shared" %}{% else %}{% translate "Not shared" %}{% endif %}</span>
+              </button>
+            {% endif %}
+          </div>
+        {% endif %}
+
         {# 文件 #}
         {% if details.assets or details.is_editable %}
           <div class="detail-section">
@@ -236,41 +277,10 @@
         {% csrf_token %}
         <input type="file" name="upload_asset_file" class="d-hide" data-upload-file-input>
         <div class="detail-actions">
-          {# 编辑、归档、分享、已读：始终显示 #}
+          {# 左侧：编辑 #}
           <a class="detail-action-btn" href="{% url 'linkding:bookmarks.edit' details.bookmark.id %}?return_url={{ details.edit_return_url|urlencode }}" title="{% translate 'Edit' %}">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-edit"></use></svg>
           </a>
-          {% if details.bookmark.is_archived %}
-            <button ld-confirm-button ld-confirm-question="{% translate 'Unarchive bookmark?' %}"
-                    class="detail-action-btn" type="submit" name="unarchive" value="{{ details.bookmark.id }}" title="{% translate 'Unarchive' %}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-archive-slash"></use></svg>
-            </button>
-          {% else %}
-            <button ld-confirm-button ld-confirm-question="{% translate 'Archive bookmark?' %}"
-                    class="detail-action-btn" type="submit" name="archive" value="{{ details.bookmark.id }}" title="{% translate 'Archive' %}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-archive"></use></svg>
-            </button>
-          {% endif %}
-          {% if details.bookmark.shared %}
-            <button ld-confirm-button ld-confirm-question="{% translate 'Unshare?' %}"
-                    class="detail-action-btn" type="submit" name="unshare" value="{{ details.bookmark.id }}" title="{% translate 'Unshare' %}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-share"></use></svg>
-            </button>
-          {% else %}
-            <button ld-confirm-button ld-confirm-question="{% translate 'Share?' %}"
-                    class="detail-action-btn" type="submit" name="share" value="{{ details.bookmark.id }}" title="{% translate 'Share' %}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-share-x"></use></svg>
-            </button>
-          {% endif %}
-          {% if details.bookmark.unread %}
-            <button class="detail-action-btn" type="submit" name="mark_as_read" value="{{ details.bookmark.id }}" title="{% translate 'Mark as read' %}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-unread-x"></use></svg>
-            </button>
-          {% else %}
-            <button class="detail-action-btn" type="submit" name="mark_as_unread" value="{{ details.bookmark.id }}" title="{% translate 'Mark as unread' %}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-read-check"></use></svg>
-            </button>
-          {% endif %}
           <span class="detail-action-spacer"></span>
           {# 右侧：根据 is_deleted 显示不同按钮 #}
           {% if details.bookmark.is_deleted %}

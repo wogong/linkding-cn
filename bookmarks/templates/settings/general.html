@@ -174,7 +174,7 @@
           <form action="{% url 'linkding:settings.save' %}" method="post" class="settings-card" data-settings-save-mode="instant">
             {% csrf_token %}
             <input type="hidden" name="form_id" value="profile_quick">
-            <input type="hidden" name="form_fields" value="items_per_page,sticky_header_controls,sticky_pagination">
+            <input type="hidden" name="form_fields" value="items_per_page,highlights_per_page,sticky_header_controls,sticky_pagination">
             <div class="settings-row">
               <div class="settings-copy">
                 <label for="{{ profile_quick_form.items_per_page.id_for_label }}" class="settings-label">{% translate "Bookmarks per page" %}</label>
@@ -185,6 +185,18 @@
               <div class="settings-control">
                 {% formfield profile_quick_form.items_per_page class="form-input settings-number-input settings-number-input-compact" min="10" %}
                 <div class="settings-field-errors" data-field-error-for="items_per_page"></div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-copy">
+                <label for="{{ profile_quick_form.highlights_per_page.id_for_label }}" class="settings-label">{% translate "Highlights per page" %}</label>
+                <div class="form-input-hint">
+                  {% translate "Choose how many highlights are shown on each page of the highlights page." %}
+                </div>
+              </div>
+              <div class="settings-control">
+                {% formfield profile_quick_form.highlights_per_page class="form-input settings-number-input settings-number-input-compact" min="1" %}
+                <div class="settings-field-errors" data-field-error-for="highlights_per_page"></div>
               </div>
             </div>
             <div class="settings-row">

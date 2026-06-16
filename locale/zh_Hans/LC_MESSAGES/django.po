@@ -2809,3 +2809,169 @@ msgstr[0] ""
 "已成功将 %(count)s 个标签（%(tag_names)s）合并到'%(target_tag)s'中。"
 msgstr[1] ""
 "已成功将 %(count)s 个标签（%(tag_names)s）合并到'%(target_tag)s'中。"
+
+#: bookmarks/views/highlights.py
+msgid "Highlights & Annotations - Linkding"
+msgstr "高亮与批注 - Linkding"
+
+#: bookmarks/views/highlights.py
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Highlights & Annotations"
+msgstr "高亮与批注"
+
+#: bookmarks/views/highlights.py
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Search scope"
+msgstr "搜索范围"
+
+#: bookmarks/views/highlights.py
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Group by"
+msgstr "聚合依据"
+
+#: bookmarks/views/highlights.py
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Color filter"
+msgstr "颜色筛选"
+
+#: bookmarks/views/highlights.py
+msgid "Created ↓"
+msgstr "创建时间 ↓"
+
+#: bookmarks/views/highlights.py
+msgid "Created ↑"
+msgstr "创建时间 ↑"
+
+#: bookmarks/views/highlights.py
+msgid "Modified ↓"
+msgstr "修改时间 ↓"
+
+#: bookmarks/views/highlights.py
+msgid "Modified ↑"
+msgstr "修改时间 ↑"
+
+#: bookmarks/views/highlights.py
+msgid "None"
+msgstr "无"
+
+#: bookmarks/views/highlights.py
+msgid "Bookmark"
+msgstr "书签"
+
+#: bookmarks/views/highlights.py
+msgid "Domain"
+msgstr "域名"
+
+#: bookmarks/views/highlights.py
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "List"
+msgstr "列表"
+
+#: bookmarks/views/highlights.py
+msgid "Card"
+msgstr "卡片"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Search for words"
+msgstr "搜索关键词"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "No highlights match your filters"
+msgstr "没有符合筛选条件的高亮"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "No highlights yet"
+msgstr "暂无高亮"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Select text in the reading mode to create highlights and annotations"
+msgstr "在阅读模式中选中文字即可创建高亮和批注"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Clear annotations"
+msgstr "清除批注"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Delete highlights"
+msgstr "删除高亮"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Copy highlights"
+msgstr "复制高亮"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Copy annotations"
+msgstr "复制批注"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Copy all"
+msgstr "复制全部"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Toggle note"
+msgstr "切换批注"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Copied!"
+msgstr "已复制！"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Copy failed"
+msgstr "复制失败"
+
+#: bookmarks/templates/settings/general.html
+msgid "Highlights per page"
+msgstr "每页高亮数"
+
+#: bookmarks/templates/settings/general.html
+msgid "Choose how many highlights are shown on each page of the highlights page."
+msgstr "设置高亮管理页面每页显示的高亮条目数量。"
+
+#: bookmarks/models.py
+msgid "Yellow"
+msgstr "黄色"
+
+#: bookmarks/models.py
+msgid "Green"
+msgstr "绿色"
+
+#: bookmarks/models.py
+msgid "Blue"
+msgstr "蓝色"
+
+#: bookmarks/models.py
+msgid "Pink"
+msgstr "粉色"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Bulk edit"
+msgstr "批量编辑"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Filter settings"
+msgstr "筛选设置"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Locate in article"
+msgstr "在文章中定位"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Change color"
+msgstr "更改颜色"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+msgid "Article unavailable"
+msgstr "文章不可用"
+
+#: bookmarks/views/highlights.py
+msgid "All"
+msgstr "全部"
+
+#: bookmarks/views/highlights.py
+msgid "Color"
+msgstr "颜色"
+
+#: bookmarks/templates/bookmarks/highlights/index.html
+#, python-format
+msgid "%(total)s highlights, %(notes)s annotations, across %(bms)s bookmarks"
+msgstr "%(total)s 条高亮，%(notes)s 条批注，来自 %(bms)s 个书签"

@@ -212,11 +212,11 @@ class Annotation(models.Model):
     COLOR_PINK = "pink"
     COLOR_PRIMARY = "primary"
     COLOR_CHOICES = [
-        (COLOR_YELLOW, "Yellow"),
-        (COLOR_GREEN, "Green"),
-        (COLOR_BLUE, "Blue"),
-        (COLOR_PINK, "Pink"),
-        (COLOR_PRIMARY, "Theme"),
+        (COLOR_YELLOW, _("Yellow")),
+        (COLOR_GREEN, _("Green")),
+        (COLOR_BLUE, _("Blue")),
+        (COLOR_PINK, _("Pink")),
+        (COLOR_PRIMARY, _("Theme")),
     ]
 
     bookmark = models.ForeignKey(
@@ -1039,12 +1039,16 @@ class UserProfile(models.Model):
     auto_tagging_rules = models.TextField(blank=True, null=False)
     search_preferences = models.JSONField(default=dict, null=False)
     trash_search_preferences = models.JSONField(default=dict, null=False)
+    highlights_search_preferences = models.JSONField(default=dict, null=False)
     sidebar_modules = models.JSONField(default=list, blank=True, null=False)
     enable_automatic_html_snapshots = models.BooleanField(default=True, null=False)
     default_mark_unread = models.BooleanField(default=True, null=False)
     default_mark_shared = models.BooleanField(default=False, null=False)
     items_per_page = models.IntegerField(
         null=False, default=30, validators=[MinValueValidator(10)]
+    )
+    highlights_per_page = models.IntegerField(
+        null=False, default=50, validators=[MinValueValidator(1)]
     )
     sticky_header_controls = models.BooleanField(default=True, null=False)
     sticky_pagination = models.BooleanField(default=True, null=False)
@@ -1331,6 +1335,7 @@ class UserProfileForm(forms.ModelForm):
             "custom_domain_root",
             "auto_tagging_rules",
             "items_per_page",
+            "highlights_per_page",
             "sticky_header_controls",
             "sticky_pagination",
             "sticky_side_panel",
@@ -1380,6 +1385,7 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             "enable_preview_images",
             "enable_automatic_html_snapshots",
             "items_per_page",
+            "highlights_per_page",
             "sticky_header_controls",
             "sticky_pagination",
             "sticky_side_panel",

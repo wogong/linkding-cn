@@ -1076,6 +1076,7 @@ function renderReader(options = {}) {
   const {
     bookmarkId,
     assetId,
+    from,
   } = options;
 
   const apiBase = normalizeBaseUrl(
@@ -1131,7 +1132,7 @@ function renderReader(options = {}) {
         renderArticle(bodyHtml, {
           title: titleMatch ? titleMatch[1] : null,
           wordCount: wcMatch ? parseInt(wcMatch[1], 10) : 0,
-        }, toolbarTitle, bookmarkData, apiBase, assetsBase, bookmarksIndexUrl, bookmarkId, assetId);
+        }, toolbarTitle, bookmarkData, apiBase, assetsBase, bookmarksIndexUrl, bookmarkId, assetId, from);
       })
       .catch((err) => {
         console.error("Failed to load article content:", err);
@@ -1141,7 +1142,7 @@ function renderReader(options = {}) {
   }
 }
 
-function renderArticle(bodyHtml, meta, resolvedTitle, bookmarkData, apiBase, assetsBase, bookmarksIndexUrl, bookmarkId, assetId) {
+function renderArticle(bodyHtml, meta, resolvedTitle, bookmarkData, apiBase, assetsBase, bookmarksIndexUrl, bookmarkId, assetId, fromParam) {
   // Remove loading spinner
   const loadingEl = document.getElementById("loading-container");
   if (loadingEl) loadingEl.remove();
@@ -1329,8 +1330,9 @@ function renderArticle(bodyHtml, meta, resolvedTitle, bookmarkData, apiBase, ass
   }
 
   // --- Highlighter (owner only) ---
+  let highlighter = null;
   if (isEditable && bookmarkId && Number(assetId) > 0) {
-    initHighlighter(articleContent, bookmarkId, assetId, sidebar, apiBase);
+    highlighter = initHighlighter(articleContent, bookmarkId, assetId, sidebar, apiBase);
   }
 
   // --- Scroll progress (owner only) ---
@@ -1346,13 +1348,84 @@ function renderArticle(bodyHtml, meta, resolvedTitle, bookmarkData, apiBase, ass
         });
       }
     } catch {}
-    new ReadingProgressController(
-      contentArea,
-      articleContent,
-      bookmarkId,
-      assetId,
-      apiBase,
-    );
+    if (fromParam === "highlights") {
+      // From highlights page: skip progress saving, scroll to annotation
+      _initHighlightsJumpMode(contentArea, articleContent, bookmarkId, assetId, apiBase, highlighter);
+    } else {
+      new ReadingProgressController(
+        contentArea,
+        articleContent,
+        bookmarkId,
+        assetId,
+        apiBase,
+      );
+    }
+  }
+}
+
+/**
+ * From highlights page: pause progress sync, scroll to annotation, show banner.
+ */
+function _initHighlightsJumpMode(contentArea, articleContent, bookmarkId, assetId, apiBase, highlighter) {
+  // Show pause banner
+  const banner = document.createElement("div");
+  banner.className = "reader-progress-paused-banner";
+  banner.innerHTML = `
+    <span class="reader-progress-paused-text"></span>
+    <button type="button" class="btn btn-sm reader-progress-resume-btn"></button>
+  `;
+  banner.querySelector(".reader-progress-paused-text").textContent =
+    gettext("Reading progress sync is paused");
+  banner.querySelector(".reader-progress-resume-btn").textContent =
+    gettext("Resume sync");
+
+  banner.querySelector(".reader-progress-resume-btn").addEventListener("click", () => {
+    banner.remove();
+    new ReadingProgressController(contentArea, articleContent, bookmarkId, assetId, apiBase);
+  });
+
+  document.body.appendChild(banner);
+
+  // Scroll to annotation hash after annotations load
+  const hash = location.hash;
+  if (!hash || !hash.startsWith("#annotation-")) return;
+  const targetAnnId = hash.replace("#annotation-", "");
+
+  function jumpToAnnotation() {
+    if (!highlighter) return;
+    const ann = highlighter.annotations.get(targetAnnId);
+    if (!ann) return;
+    try {
+      const range = highlighter.resolveAnnotationRange(ann);
+      scrollRangeIntoReaderView(contentArea, range);
+      // Wait for scroll to finish by watching scrollTop, then flash
+      const container = getReaderScrollContainer(contentArea) || contentArea;
+      let last = container.scrollTop;
+      const poll = setInterval(() => {
+        const cur = container.scrollTop;
+        if (Math.abs(cur - last) < 1) {
+            clearInterval(poll);
+            flashAnnotationRange(range);
+        }
+        last = cur;
+      }, 100);
+    } catch {}
+  }
+
+  if (highlighter) {
+    // Poll until the target annotation is loaded, then jump
+    let elapsed = 0;
+    const poll = setInterval(() => {
+      elapsed += 200;
+      if (highlighter.annotations.has(targetAnnId)) {
+        clearInterval(poll);
+        requestAnimationFrame(() => jumpToAnnotation());
+      } else if (elapsed >= 5000) {
+        clearInterval(poll);
+        // Last resort: try resolving anyway
+        jumpToAnnotation();
+      }
+    }, 200);
   }
 }
 
@@ -1440,6 +1513,127 @@ function toSolidColor(bg) {
   return bg.replace("0.35", "0.8").replace("0.3", "0.8");
 }
 
+function getReaderScrollContainer(contentEl) {
+  return (
+    contentEl.closest("#reader-content") ||
+    document.getElementById("reader-content") ||
+    null
+  );
+}
+
+function getRangeStartRect(range) {
+  try {
+    const startRange = range.cloneRange();
+    startRange.collapse(true);
+    const caretRects = startRange.getClientRects();
+    if (caretRects.length > 0) return caretRects[0];
+  } catch {
+    // Ignore and fall back.
+  }
+  try {
+    const rects = range.getClientRects();
+    if (rects.length > 0) return rects[0];
+    const box = range.getBoundingClientRect();
+    if (box && (box.width > 0 || box.height > 0)) return box;
+  } catch {
+    // Ignore and let caller fallback.
+  }
+  return null;
+}
+
+function scrollRangeIntoReaderView(contentEl, range) {
+  const container = getReaderScrollContainer(contentEl);
+  const targetRect = getRangeStartRect(range);
+
+  if (container && targetRect) {
+    const containerRect = container.getBoundingClientRect();
+    const offsetInContainer =
+      container.scrollTop + (targetRect.top - containerRect.top);
+    // Keep target around upper-middle area for better reading continuity.
+    const desiredTop = offsetInContainer - container.clientHeight * 0.32;
+    const maxTop = Math.max(
+      0,
+      container.scrollHeight - container.clientHeight,
+    );
+    const nextTop = Math.max(0, Math.min(maxTop, desiredTop));
+    container.scrollTo({ top: nextTop, behavior: "smooth" });
+    return;
+  }
+
+  // Fallback for unexpected DOM states.
+  const node = range.startContainer;
+  const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  if (el) {
+    el.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "nearest",
+    });
+  }
+}
+
+/**
+ * Wait until scroll position stabilizes, then call callback.
+ */
+function _waitForScrollStable(el, callback) {
+  let last = -1, stable = 0;
+  const check = setInterval(() => {
+    const cur = el.scrollTop;
+    if (Math.abs(cur - last) < 1) {
+      if (++stable >= 3) { clearInterval(check); callback(); }
+    } else {
+      stable = 0;
+    }
+    last = cur;
+  }, 80);
+  // Safety: never wait more than 2s
+  setTimeout(() => { clearInterval(check); callback(); }, 2000);
+}
+
+/**
+ * Flash underline bars under each line of the annotation range.
+ * Uses getClientRects() for per-line rects.
+ */
+function flashAnnotationRange(range) {
+  // Try per-line rects first
+  const rects = Array.from(range.getClientRects()).filter(r => r.width > 0 && r.height > 0);
+  if (rects.length > 0) {
+    const seen = new Set();
+    for (const r of rects) {
+      const key = Math.round(r.bottom);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      _createFlashBar(r.left, r.bottom, r.width);
+    }
+    return;
+  }
+  // Fallback: single bounding box
+  const box = range.getBoundingClientRect();
+  if (box.width > 0 && box.height > 0) {
+    _createFlashBar(box.left, box.bottom, box.width);
+  }
+}
+
+function _createFlashBar(left, bottom, width) {
+  const color = "rgba(255,235,0,0.85)";
+  const bar = document.createElement("div");
+  bar.setAttribute("style", [
+    "position:fixed",
+    "z-index:99999",
+    "pointer-events:none",
+    "border-radius:1px",
+    "left:" + left + "px",
+    "top:" + (bottom + 1) + "px",
+    "width:" + width + "px",
+    "height:2px",
+    "background:" + color,
+    "animation:reader-annotation-flash 0.4s ease 2",
+  ].join(";"));
+  document.body.appendChild(bar);
+  bar.addEventListener("animationend", () => bar.remove());
+  setTimeout(() => { if (bar.parentNode) bar.remove(); }, 1200);
+}
+
 /**
  * Initialize the annotation highlighter with a unified popup.
  */
@@ -1458,65 +1652,6 @@ function initHighlighter(contentEl, bookmarkId, assetId, sidebar, apiBase) {
     sidebar.annotations = [...Array.from(annotations.values()), ...unresolved];
   });
 
-  function getReaderScrollContainer() {
-    return (
-      contentEl.closest("#reader-content") ||
-      document.getElementById("reader-content") ||
-      null
-    );
-  }
-
-  function getRangeStartRect(range) {
-    try {
-      const startRange = range.cloneRange();
-      startRange.collapse(true);
-      const caretRects = startRange.getClientRects();
-      if (caretRects.length > 0) return caretRects[0];
-    } catch {
-      // Ignore and fall back.
-    }
-    try {
-      const rects = range.getClientRects();
-      if (rects.length > 0) return rects[0];
-      const box = range.getBoundingClientRect();
-      if (box && (box.width > 0 || box.height > 0)) return box;
-    } catch {
-      // Ignore and let caller fallback.
-    }
-    return null;
-  }
-
-  function scrollRangeIntoReaderView(range) {
-    const container = getReaderScrollContainer();
-    const targetRect = getRangeStartRect(range);
-
-    if (container && targetRect) {
-      const containerRect = container.getBoundingClientRect();
-      const offsetInContainer =
-        container.scrollTop + (targetRect.top - containerRect.top);
-      // Keep target around upper-middle area for better reading continuity.
-      const desiredTop = offsetInContainer - container.clientHeight * 0.32;
-      const maxTop = Math.max(
-        0,
-        container.scrollHeight - container.clientHeight,
-      );
-      const nextTop = Math.max(0, Math.min(maxTop, desiredTop));
-      container.scrollTo({ top: nextTop, behavior: "smooth" });
-      return;
-    }
-
-    // Fallback for unexpected DOM states.
-    const node = range.startContainer;
-    const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
-    if (el) {
-      el.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-        inline: "nearest",
-      });
-    }
-  }
-
   // Reload asset list when assets change
   sidebar.addEventListener("reload-assets", (e) => {
     const { bookmarkId: bmId } = e.detail;
@@ -1533,7 +1668,7 @@ function initHighlighter(contentEl, bookmarkId, assetId, sidebar, apiBase) {
       try {
         const range = highlighter.resolveAnnotationRange(ann);
         // Scroll to exact range position instead of parent element center.
-        scrollRangeIntoReaderView(range);
+        scrollRangeIntoReaderView(contentEl, range);
       } catch {
         console.warn(`Could not locate annotation ${id}`);
       }
@@ -2519,6 +2654,7 @@ function initHighlighter(contentEl, bookmarkId, assetId, sidebar, apiBase) {
     });
   }
   updateMobileToolbarOffset();
+  return highlighter;
 }
 
 /**

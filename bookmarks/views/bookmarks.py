@@ -970,6 +970,7 @@ def read(request: HttpRequest, bookmark_id: int):
                     "bookmark_id": bookmark_id,
                     "asset_id": asset.id,
                     "bookmark_data": bookmark_data,
+                    "from_param": request.GET.get("from", ""),
                     "api_base_url": api_base_url,
                     "assets_base_url": reverse(
                         "linkding:assets.view", args=[0]

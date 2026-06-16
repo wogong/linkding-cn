@@ -76,6 +76,12 @@ urlpatterns = [
     path("bundles/preview", views.bundles.preview, name="bundles.preview"),
     # Tags
     path("tags", views.tags.tags_index, name="tags.index"),
+    # Highlights
+    path(
+        "bookmarks/highlights",
+        views.highlights.index,
+        name="bookmarks.highlights",
+    ),
     path("tags/new", views.tags.tag_new, name="tags.new"),
     path("tags/<int:tag_id>/edit", views.tags.tag_edit, name="tags.edit"),
     path("tags/merge", views.tags.tag_merge, name="tags.merge"),

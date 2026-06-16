@@ -568,3 +568,19 @@ msgstr "字/分钟"
 #: bookmarks/frontend/components/bulk-edit.js
 msgid "Selected(%(count)s)"
 msgstr "已选中 %(count)s 个"
+
+#: bookmarks/frontend/reader/reader.js
+msgid "Reading progress sync is paused"
+msgstr "阅读进度同步已暂停"
+
+#: bookmarks/frontend/reader/reader.js
+msgid "Resume sync"
+msgstr "恢复同步"
+
+#: bookmarks/frontend/reader/reader.js
+msgid "Copied!"
+msgstr "已复制！"
+
+#: bookmarks/frontend/reader/reader.js
+msgid "Copy failed"
+msgstr "复制失败"

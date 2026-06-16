@@ -318,6 +318,58 @@ html.reader-mode {
     color: var(--primary-color);
   }
 
+  /* ---- Annotation flash overlay (jump from highlights) ---- */
+
+  .reader-annotation-flash {
+    position: fixed;
+    z-index: calc(var(--zindex-4) + 1);
+    background: var(--primary-color);
+    opacity: 0;
+    pointer-events: none;
+    border-radius: 2px;
+    animation: reader-annotation-flash 1.2s ease 1;
+  }
+
+  @keyframes reader-annotation-flash {
+    0%   { opacity: 0; }
+    25%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ---- Progress paused banner (from highlights) ---- */
+
+  .reader-progress-paused-banner {
+    position: fixed;
+    top: calc(var(--reader-toolbar-height) + var(--unit-3));
+    left: 50%;
+    z-index: calc(var(--zindex-4) + 2);
+    translate: -50% 0;
+    display: flex;
+    align-items: center;
+    gap: var(--unit-2);
+    width: max-content;
+    max-width: calc(100vw - var(--unit-6));
+    padding: var(--unit-2) var(--unit-3);
+    font-size: var(--font-size-sm);
+    color: var(--text-color);
+    background: var(--body-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--box-shadow-lg);
+    animation: slide-down 0.15s ease 1;
+  }
+
+  .reader-progress-paused-text {
+    white-space: nowrap;
+  }
+
+  .reader-progress-resume-btn {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+    white-space: nowrap;
+  }
+
   /* ---- Settings Panel ---- */
 
   #reader-settings-panel {

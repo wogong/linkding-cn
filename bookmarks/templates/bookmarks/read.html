@@ -84,7 +84,7 @@
 <script src="{% url 'javascript-catalog' %}"></script>
 <script src="{% static 'reader.js' %}?v={{ app_version }}" type="application/javascript"></script>
 <script type="application/javascript">
-  window.renderReader({ bookmarkId: {{ bookmark_id }}, assetId: {{ asset_id }} });
+  window.renderReader({ bookmarkId: {{ bookmark_id }}, assetId: {{ asset_id }}, from: "{{ from_param }}" });
 </script>
 </body>
 </html>

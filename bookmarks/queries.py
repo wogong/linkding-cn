@@ -607,6 +607,97 @@ def _base_bookmarks_query(
     return query_set
 
 
+def query_annotations(
+    user: User,
+    search_q: str = "",
+    colors: list[str] | None = None,
+    search_scope: str = "",
+    note_filter: str = "",
+    sort: str = "-date_created",
+    group_by: str = "none",
+) -> QuerySet:
+    """查询用户的所有高亮 & 批注，支持搜索、颜色筛选、类型筛选、排序、聚合。"""
+    qs = Annotation.objects.filter(bookmark__owner=user).select_related(
+        "bookmark", "article_asset"
+    )
+
+    # 搜索关键词 + 搜索范围
+    if search_q:
+        if search_scope == "highlight":
+            qs = qs.filter(selected_text__icontains=search_q)
+        elif search_scope == "note":
+            qs = qs.filter(note_content__icontains=search_q)
+        else:
+            qs = qs.filter(
+                Q(selected_text__icontains=search_q)
+                | Q(note_content__icontains=search_q)
+            )
+
+    # 颜色筛选（多色列表）
+    if colors:
+        qs = qs.filter(color__in=colors)
+
+    # 批注筛选：off/空=不限, yes=有批注, no=无批注
+    if note_filter == "yes":
+        qs = qs.filter(note_content__gt="")
+    elif note_filter == "no":
+        qs = qs.filter(Q(note_content="") | Q(note_content__isnull=True))
+
+    # 随机排序（数据库端随机，避免加载全部 ID 到内存）
+    if sort == "random":
+        return qs.order_by("?")
+
+    # 聚合排序：根据 group_by 决定主排序和次排序
+    if group_by == "bookmark":
+        order_fields = ["bookmark__title", sort]
+    elif group_by == "domain":
+        # 按 URL 域名分组
+        from django.db.models.functions import Lower
+
+        qs = qs.annotate(_domain=Lower("bookmark__url"))
+        order_fields = ["_domain", sort]
+    elif group_by == "color":
+        order_fields = ["color", sort]
+    else:
+        order_fields = [sort]
+
+    qs = qs.order_by(*order_fields)
+    return qs
+
+
+def query_annotation_color_stats(user: User) -> dict:
+    """统计用户各颜色的标注数量。"""
+    from django.db.models import Count
+
+    stats = (
+        Annotation.objects.filter(bookmark__owner=user)
+        .values("color")
+        .annotate(count=Count("id"))
+    )
+    return {item["color"]: item["count"] for item in stats}
+
+
+def query_annotation_summary(user: User) -> dict:
+    """返回高亮 & 批注的摘要统计。"""
+    from django.db.models import Count
+
+    total_annotations = Annotation.objects.filter(bookmark__owner=user).count()
+    total_notes = Annotation.objects.filter(
+        bookmark__owner=user, note_content__gt=""
+    ).count()
+    total_bookmarks = (
+        Annotation.objects.filter(bookmark__owner=user)
+        .values("bookmark")
+        .distinct()
+        .count()
+    )
+    return {
+        "total_annotations": total_annotations,
+        "total_notes": total_notes,
+        "total_bookmarks": total_bookmarks,
+    }
+
+
 def query_bookmark_tags(
     user: User, profile: UserProfile, search: BookmarkSearch
 ) -> QuerySet:

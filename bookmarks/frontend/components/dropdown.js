@@ -1,5 +1,7 @@
 import { HeadlessElement } from "../utils/element.js";
 
+const NARROW_BREAKPOINT = 426;
+
 class Dropdown extends HeadlessElement {
   constructor() {
     super();
@@ -53,6 +55,15 @@ class Dropdown extends HeadlessElement {
       stickyAncestor.style.zIndex = "30";
     }
 
+    if (menu.classList.contains("menu-panel")) {
+      if (window.innerWidth <= NARROW_BREAKPOINT) {
+        const gap = 4;
+        const rect = this.toggle.getBoundingClientRect();
+        menu.style.top = (rect.bottom + gap) + "px";
+      }
+      return;
+    }
+
     // 水平：防止右侧溢出
     const toggleRect = this.toggle.getBoundingClientRect();
     const menuWidth = menu.offsetWidth;
@@ -74,6 +85,7 @@ class Dropdown extends HeadlessElement {
       menu.style.left = "";
       menu.style.right = "";
       menu.style.maxHeight = "";
+      menu.style.top = "";
     }
     const stickyAncestor = this.closest("[data-sticky-on]");
     if (stickyAncestor) {

@@ -44,7 +44,7 @@
               <path d="M18 9v11"></path>
             </svg>
           </button>
-          <div class="menu" tabindex="0">
+          <div class="menu menu-panel" tabindex="0">
             <form id="highlights-filter-form" method="post" action="{% url 'linkding:bookmarks.highlights' %}">
               {% csrf_token %}
               <input type="hidden" name="q" value="{{ search_q }}">
@@ -485,34 +485,6 @@
       }).then(function() { location.reload(); });
     });
   });
-
-  // --- Position filter dropdown menu on narrow screens + close on scroll ---
-  var filterDropdown = document.querySelector('.highlights-filter-dropdown');
-  if (filterDropdown) {
-    var filterMenu = filterDropdown.querySelector('.menu');
-    filterDropdown.addEventListener('click', function() {
-      requestAnimationFrame(function() {
-        if (window.innerWidth <= 426) {
-          if (filterDropdown.classList.contains('active')) {
-            var toggle = filterDropdown.querySelector('.dropdown-toggle');
-            if (toggle && filterMenu) {
-              var rect = toggle.getBoundingClientRect();
-              filterMenu.style.top = (rect.bottom + 4) + 'px';
-              filterMenu.style.maxHeight = (window.innerHeight - rect.bottom - 16) + 'px';
-            }
-          } else if (filterMenu) {
-            filterMenu.style.top = '';
-          }
-        }
-      });
-    });
-    window.addEventListener('scroll', function() {
-      if (window.innerWidth <= 426 && filterDropdown.classList.contains('active')) {
-        filterDropdown.close();
-        if (filterMenu) filterMenu.style.top = '';
-      }
-    }, { passive: true });
-  }
 
   // Close popups on outside click
   document.addEventListener('click', function() {

@@ -115,71 +115,11 @@
 
   & .dropdown {
     position: static; /* 移除dropdown的相对定位，让菜单基于search-container定位 */
-    
-    & .menu {
-      padding: var(--unit-4);
-      width: 265px;
-      min-width: 0;
-      font-size: var(--font-size-sm);
-      position: absolute;
-      top: 100%;
-      left: auto;
-      right: 0;
-      /* 滚动条样式：匹配项目统一风格，默认隐藏，hover 时显示 */
-      scrollbar-width: thin;
-      scrollbar-gutter: stable;
-      scrollbar-color: transparent transparent;
-      &::-webkit-scrollbar { width: 8px; }
-      &::-webkit-scrollbar-thumb {
-        background: transparent;
-        border-radius: 4px;
-      }
-      &:hover {
-        scrollbar-color: var(--secondary-border-color) transparent;
-      }
-      &:hover::-webkit-scrollbar-thumb {
-        background: var(--secondary-border-color);
-      }
+  }
 
-      /* 当屏幕宽度大于426px时右对齐 */
-      @media (max-width: 426px) {
-        left: 0;
-        right: auto;
-      }
-    }
-
-    & .menu .actions {
-      margin-top: var(--unit-4);
-      display: flex;
-      justify-content: space-between;
-    }
-
-    & .form-group:first-of-type {
-      margin-top: 0;
-    }
-
-    & .form-group {
-      margin-bottom: var(--unit-3);
-    }
-
-    & .radio-group {
-      & .form-label {
-        margin-bottom: var(--unit-1);
-      }
-
-      & .form-radio.form-inline {
-        margin: 0 var(--unit-2) 0 0;
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        column-gap: var(--unit-1);
-      }
-
-      & .form-icon {
-        top: 0;
-        position: relative;
-      }
-    }
+  & .menu {
+    left: 0;
+    right: 0;
   }
 
   /* 行内表单布局 */

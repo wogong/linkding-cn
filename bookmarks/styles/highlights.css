@@ -23,6 +23,15 @@
       width: 100%;
     }
 
+    & .dropdown {
+      position: static;
+    }
+
+    & .menu {
+      left: 0;
+      right: 0;
+    }
+
     & input[type="search"] {
       height: var(--control-size);
       -webkit-appearance: none;
@@ -45,91 +54,7 @@
 }
 
 /* ── Filter dropdown menu ── */
-
-.highlights-filter-dropdown {
-  .menu {
-    padding: var(--unit-4);
-    width: 300px;
-    min-width: 0;
-    font-size: var(--font-size-sm);
-    /* Narrow screen: fixed position spanning viewport, JS sets top/maxHeight */
-    @media (max-width: 426px) {
-      position: fixed !important;
-      left: var(--unit-2) !important;
-      right: var(--unit-2) !important;
-      width: auto !important;
-      min-width: 0;
-      border-radius: var(--border-radius);
-      z-index: 100;
-    }
-
-    .form-group {
-      margin-bottom: var(--unit-3);
-    }
-
-    .form-group:first-of-type {
-      margin-top: 0;
-    }
-
-    .form-label {
-      margin-bottom: var(--unit-1);
-    }
-
-    .form-radio.form-inline,
-    .form-checkbox.form-inline {
-      margin: 0 var(--unit-2) 0 0;
-      padding: 0;
-      display: inline-flex;
-      align-items: center;
-      column-gap: var(--unit-1);
-    }
-
-    .form-icon {
-      top: 0;
-      position: relative;
-    }
-
-    .radio-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0 var(--unit-2);
-
-      .form-label {
-        width: 100%;
-      }
-    }
-
-    .radio-group .form-radio.form-inline {
-      display: inline-flex;
-    }
-
-    .actions {
-      margin-top: var(--unit-3);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: var(--unit-2);
-    }
-
-    /* scrollbar for long menus */
-    max-height: min(480px, 80vh);
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-gutter: stable;
-    scrollbar-color: transparent transparent;
-    &::-webkit-scrollbar { width: 8px; }
-    &::-webkit-scrollbar-thumb {
-      background: transparent;
-      border-radius: 4px;
-    }
-    &:hover {
-      scrollbar-color: var(--secondary-border-color) transparent;
-    }
-    &:hover::-webkit-scrollbar-thumb {
-      background: var(--secondary-border-color);
-    }
-  }
-}
+/* .menu-panel base styles are in theme/menus.css */
 
 .highlights-color-dots-filter {
   display: flex;

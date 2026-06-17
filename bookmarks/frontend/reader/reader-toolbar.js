@@ -276,11 +276,7 @@ export class ReaderToolbar extends LitElement {
     this._settingsOpen = false;
     this._fontMenuOpen = false;
     this._themeNeedsReload = false;
-    this._settings = loadSettings();
-    saveSettings(this._settings);
-    applySettings(this._settings);
-    // 从服务端同步阅读速度设置
-    this._syncFromServer();
+    this._settings = {};
   }
 
   async _syncFromServer() {
@@ -307,6 +303,10 @@ export class ReaderToolbar extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    // 延迟到元素挂载后再初始化，确保 getVisualViewportWidth() 返回真实视口宽度
+    this._settings = loadSettings();
+    saveSettings(this._settings);
+    this._syncFromServer();
     this._onTitleUpdate = (e) => {
       if (e.detail.title != null) this.title = e.detail.title || "";
     };
@@ -325,6 +325,8 @@ export class ReaderToolbar extends LitElement {
     document.addEventListener("bookmark-updated", this._onTitleUpdate);
     window.addEventListener("resize", this._onViewportResize);
     window.visualViewport?.addEventListener("resize", this._onViewportResize);
+    // 挂载后触发一次，用真实视口宽度校正 auto 模式下的页面宽度
+    this._onViewportResize();
   }
 
   disconnectedCallback() {

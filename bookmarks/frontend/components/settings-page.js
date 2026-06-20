@@ -1,8 +1,6 @@
 import { Behavior, registerBehavior } from "./runtime.js";
 import { gettext } from "../utils/i18n.js";
-import { sanitizeSvgBody, hashIconSvg } from "../utils/svg.js";
-import { PRESET_ICON_NAMES } from "../icons/presets.js";
-import { getIcon } from "iconify-icon";
+import { hashIconSvg } from "../utils/svg.js";
 import {
   clearStoredSettingsDraft,
   getStoredSettingsDraft,
@@ -1482,7 +1480,6 @@ class SettingsPageBehavior extends Behavior {
     const label = labelEl ? labelEl.textContent.trim() : tag_name;
     const iconBtn = row.querySelector("[data-qt-icon]");
     const icon_name = iconBtn ? (iconBtn.dataset.qtIcon || "") : "";
-    const icon_data = iconBtn ? (iconBtn.dataset.qtIconData || "") : "";
     const posBtn = row.querySelector('[data-qt-field="display_position"]');
     const display_position = posBtn ? (posBtn.dataset.qtValue || "direct") : "direct";
     const modeBtn = row.querySelector('[data-qt-field="display_mode"]');
@@ -1495,43 +1492,12 @@ class SettingsPageBehavior extends Behavior {
       label,
       short_label: tagNames[0] ? tagNames[0][0] : "",
       icon_name,
-      icon_data,
       display_position,
       display_mode,
       enabled,
     };
   }
 
-  _getIconData(iconName) {
-    // 同步：内存缓存 → 本地注册表（预置图标）
-    if (!SettingsPageBehavior._iconCache) SettingsPageBehavior._iconCache = {};
-    if (iconName in SettingsPageBehavior._iconCache) return SettingsPageBehavior._iconCache[iconName];
-    const local = getIcon(iconName);
-    if (local) {
-      const data = { body: local.body, width: local.width || 24, height: local.height || 24 };
-      SettingsPageBehavior._iconCache[iconName] = data;
-      return data;
-    }
-    return null;
-  }
-
-  async _fetchIconData(iconName) {
-    // 先查本地
-    const local = this._getIconData(iconName);
-    if (local) return local;
-    // 从 API 获取
-    try {
-      const [prefix, name] = iconName.split(":");
-      const resp = await fetch(`https://api.iconify.design/${prefix}/${name}.json`);
-      if (!resp.ok) return null;
-      const data = await resp.json();
-      const result = { body: data.body, width: data.width || 24, height: data.height || 24 };
-      SettingsPageBehavior._iconCache[iconName] = result;
-      return result;
-    } catch {
-      return null;
-    }
-  }
 
   _renderQuickTagChips(tagsView, tagNames) {
     tagsView.replaceChildren();
@@ -1755,18 +1721,8 @@ class SettingsPageBehavior extends Behavior {
       if (iconName && iconName !== DEFAULT_ICON) {
         button.dataset.qtIcon = iconName;
         button.innerHTML = `<iconify-icon icon="${iconName}" width="16" height="16"></iconify-icon>`;
-        // 获取 SVG 数据存入 quick tag，实现离线加载
-        this._fetchIconData(iconName).then((data) => {
-          if (data) button.dataset.qtIconData = JSON.stringify(data);
-          popup.remove();
-          const form = button.closest("form");
-          this.syncBookmarkQuickTags(form);
-          this.queueSubmit(form);
-        });
-        return; // 异步完成后再提交
       } else {
         button.dataset.qtIcon = "";
-        delete button.dataset.qtIconData;
         button.innerHTML = hashIconSvg(16, "settings-qt-icon-placeholder");
       }
       popup.remove();
@@ -1775,7 +1731,9 @@ class SettingsPageBehavior extends Behavior {
       this.queueSubmit(form);
     };
 
-    const renderItem = (iconName, isDefault, iconData) => {
+    const iconDataMap = window.__ldIconData || {};
+
+    const renderItem = (iconName, isDefault) => {
       const item = document.createElement("button");
       item.type = "button";
       item.classList.add("qt-icon-picker-item");
@@ -1783,48 +1741,49 @@ class SettingsPageBehavior extends Behavior {
       if (selected) item.classList.add("is-selected");
       if (isDefault) {
         item.innerHTML = hashIconSvg(20, "action-icon");
-      } else if (iconData && iconData.body) {
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.setAttribute("width", "20");
-        svg.setAttribute("height", "20");
-        svg.setAttribute("viewBox", `0 0 ${iconData.width || 24} ${iconData.height || 24}`);
-        svg.innerHTML = sanitizeSvgBody(iconData.body);
-        item.appendChild(svg);
       } else {
-        const icon = document.createElement("iconify-icon");
-        icon.setAttribute("icon", iconName);
-        icon.setAttribute("width", "20");
-        icon.setAttribute("height", "20");
-        item.appendChild(icon);
+        const cached = iconDataMap[iconName];
+        if (cached && cached.body) {
+          const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          svg.setAttribute("width", "20");
+          svg.setAttribute("height", "20");
+          svg.setAttribute("viewBox", `0 0 ${cached.width || 24} ${cached.height || 24}`);
+          svg.innerHTML = cached.body;
+          item.appendChild(svg);
+        } else {
+          const icon = document.createElement("iconify-icon");
+          icon.setAttribute("icon", iconName);
+          icon.setAttribute("width", "20");
+          icon.setAttribute("height", "20");
+          item.appendChild(icon);
+        }
       }
       item.addEventListener("click", () => selectIcon(isDefault ? "" : iconName));
       grid.appendChild(item);
     };
 
     // 收集当前已使用的自定义图标
-    const usedIcons = new Map();
+    const usedIcons = new Set();
     const form = button.closest("form");
     if (form) {
       form.querySelectorAll("[data-qt-icon]").forEach((btn) => {
         const name = btn.dataset.qtIcon;
-        if (name && !usedIcons.has(name)) {
-          const rawData = btn.dataset.qtIconData;
-          let iconData = null;
-          if (rawData) { try { iconData = JSON.parse(rawData); } catch {} }
-          usedIcons.set(name, iconData);
-        }
+        if (name) usedIcons.add(name);
       });
     }
+
+    const presetIconNames = window.__ldPresetIconNames || [];
 
     const showPresets = () => {
       grid.innerHTML = "";
       renderItem("", true);
       // 已使用的自定义图标（非预置）
-      const usedNonPreset = [...usedIcons.entries()].filter(([name]) => !PRESET_ICON_NAMES.includes(name));
+      const usedNonPreset = [...usedIcons].filter((name) => !presetIconNames.includes(name));
       if (usedNonPreset.length) {
-        usedNonPreset.forEach(([name, iconData]) => renderItem(name, false, iconData));
+        usedNonPreset.forEach((name) => renderItem(name, false));
       }
-      PRESET_ICON_NAMES.forEach((iconName) => renderItem(iconName, false));
+      // 预置图标
+      presetIconNames.forEach((iconName) => renderItem(iconName, false));
     };
 
     const searchIcons = async (query) => {

@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from functools import lru_cache
@@ -20,6 +21,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 from django.views.i18n import LANGUAGE_QUERY_PARAMETER
+
+from bookmarks.services.icon_loader import PRESET_ICON_NAMES
 
 from bookmarks.models import (
     ApiToken,
@@ -111,6 +114,26 @@ def general(request: HttpRequest, status=200, context_overrides=None):
     version_info = get_version_info(get_ttl_hash())
 
     profile_quick_form = UserProfileQuickSettingsForm(instance=request.user_profile)
+    # 加载快捷标签 + 预置图标数据，注入前端渲染
+    from bookmarks.services.icon_loader import load_quick_tags_icon
+    icon_data_map = {}
+    # 快捷标签使用的图标
+    for item in profile_quick_form.bookmark_quick_tag_items:
+        icon_name = item.get("icon_name")
+        if icon_name:
+            data = load_quick_tags_icon(icon_name)
+            if data:
+                icon_data_map[icon_name] = data
+    # 预置图标（首次从 API 获取，后续从文件缓存）
+    for icon_name in PRESET_ICON_NAMES:
+        if icon_name not in icon_data_map:
+            data = load_quick_tags_icon(icon_name)
+            if data:
+                icon_data_map[icon_name] = data
+    quick_tag_icon_data_json = (
+        json.dumps(icon_data_map, ensure_ascii=False)
+        if icon_data_map else None
+    )
     custom_css_form = UserProfileCustomCssForm(instance=request.user_profile)
     auto_tagging_rules_form = UserProfileAutoTaggingRulesForm(
         instance=request.user_profile
@@ -162,6 +185,8 @@ def general(request: HttpRequest, status=200, context_overrides=None):
             "settings_general_url": reverse("linkding:settings.general"),
             "enable_refresh_favicons": enable_refresh_favicons,
             "has_snapshot_support": has_snapshot_support,
+            "preset_icon_names_json": json.dumps(PRESET_ICON_NAMES, ensure_ascii=False),
+            "quick_tag_icon_data_json": quick_tag_icon_data_json,
             "success_message": success_message,
             "error_message": error_message,
             "version_info": version_info,
@@ -334,6 +359,11 @@ def save(request: HttpRequest):
     }
 
     if form_id == "profile_quick":
+        # 记录修改前的图标名称，用于后续清理
+        old_icon_names = {
+            qt.get("icon_name") for qt in profile.get_bookmark_quick_tags()
+            if qt.get("icon_name")
+        }
         form = UserProfileQuickSettingsForm(
             _build_profile_quick_form_data(profile, request.POST),
             instance=profile,
@@ -360,6 +390,13 @@ def save(request: HttpRequest):
     saved_instance = form.save()
     if form_id == "profile_quick":
         _schedule_profile_side_effects(request, profile_before, saved_instance)
+        # 清理不再使用的图标缓存文件
+        new_icon_names = {
+            qt.get("icon_name") for qt in saved_instance.get_bookmark_quick_tags()
+            if qt.get("icon_name")
+        }
+        from bookmarks.services.icon_loader import cleanup_unused_icons
+        cleanup_unused_icons(new_icon_names, old_icon_names)
 
     return _build_form_success_response(request, form_id)
 

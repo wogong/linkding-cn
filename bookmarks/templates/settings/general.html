@@ -1088,6 +1088,12 @@ reddit.com/r/Music music reddit</pre>
               </div>
             </div>
 
+            {% if quick_tag_icon_data_json %}
+            <script>
+              window.__ldIconData = {{ quick_tag_icon_data_json|safe }};
+            </script>
+            {% endif %}
+
             {# === 快捷标签配置面板 === #}
             <div class="settings-card-stack" data-toolbar-config-panel="quick_tags">
               <div class="settings-stack settings-modules-stack">
@@ -1185,6 +1191,10 @@ reddit.com/r/Music music reddit</pre>
             </div>
           </form>
         </section>
+
+    <script>
+      window.__ldPresetIconNames = {{ preset_icon_names_json|safe }};
+    </script>
 
         <section id="settings-sharing" class="settings-section" aria-labelledby="settings-sharing-heading">
           <div class="settings-section-heading">

@@ -301,6 +301,19 @@ LD_ENABLE_REFRESH_FAVICONS = os.getenv("LD_ENABLE_REFRESH_FAVICONS", True) in (
     "1",
 )
 
+# Quick tags icon cache
+LD_ICON_FOLDER = os.path.join(BASE_DIR, "data", "icons")
+LD_DEFAULT_PRESET_ICON_NAMES = [
+    "tabler:tags", "tabler:folder", "tabler:bookmark", "tabler:star",
+    "tabler:heart", "tabler:flag", "tabler:pin", "tabler:clock",
+    "tabler:bolt", "tabler:flame", "tabler:leaf", "tabler:world",
+    "tabler:code", "tabler:camera", "tabler:music", "tabler:tool",
+    "tabler:palette", "tabler:mood-happy",
+]
+LD_PRESET_ICON_NAMES = [
+    n.strip() for n in os.getenv("LD_PRESET_ICON_NAMES", "").split(",") if n.strip()
+] or LD_DEFAULT_PRESET_ICON_NAMES
+
 # Previews settings
 LD_PREVIEW_FOLDER = os.path.join(BASE_DIR, "data", "previews")
 LD_PREVIEW_MAX_SIZE = int(os.getenv("LD_PREVIEW_MAX_SIZE", 5242880))

@@ -1138,27 +1138,6 @@ class UserProfile(models.Model):
             short_label = tag_names[0][0] if tag_names else ""
 
         icon_name = (qt.get("icon_name") or "").strip()
-        # 图标 SVG 数据（用于离线渲染）
-        raw_icon_data = qt.get("icon_data") or ""
-        if isinstance(raw_icon_data, dict):
-            icon_data = raw_icon_data
-        elif isinstance(raw_icon_data, str) and raw_icon_data:
-            try:
-                icon_data = json.loads(raw_icon_data)
-            except (TypeError, ValueError):
-                icon_data = {}
-        else:
-            icon_data = {}
-        # 只保留必要字段，净化 SVG body 防 XSS
-        if icon_data and "body" in icon_data:
-            from bookmarks.utils import sanitize_svg_body
-            icon_data = {
-                "body": sanitize_svg_body(str(icon_data["body"])),
-                "width": int(icon_data.get("width", 24)),
-                "height": int(icon_data.get("height", 24)),
-            }
-        else:
-            icon_data = {}
         display_position = qt.get("display_position", "direct")
         if display_position not in ("direct", "submenu"):
             display_position = "direct"
@@ -1173,7 +1152,6 @@ class UserProfile(models.Model):
             "label": label,
             "short_label": short_label,
             "icon_name": icon_name,
-            "icon_data": icon_data,
             "display_position": display_position,
             "display_mode": display_mode,
             "enabled": enabled,
@@ -1727,10 +1705,20 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
     def bookmark_quick_tag_items(self) -> list[dict]:
         if self.is_bound:
             try:
-                return self.clean_bookmark_quick_tags()
+                items = self.clean_bookmark_quick_tags()
             except Exception:
                 return []
-        return self.instance.get_bookmark_quick_tags()
+        else:
+            items = self.instance.get_bookmark_quick_tags()
+        # 为每个快捷标签加载图标 SVG 数据
+        from bookmarks.services.icon_loader import load_quick_tags_icon
+        for item in items:
+            icon_name = item.get("icon_name")
+            if icon_name:
+                item["icon_data"] = load_quick_tags_icon(icon_name)
+            else:
+                item["icon_data"] = None
+        return items
 
     def clean_bookmark_quick_tags(self):
         raw_value = self.cleaned_data.get("bookmark_quick_tags", "[]")

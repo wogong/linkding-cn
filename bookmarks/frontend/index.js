@@ -1,4 +1,6 @@
 import "@hotwired/turbo";
+import "iconify-icon";
+import "./icons/presets.js";
 import "./components/runtime.js";
 import "./components/bookmark-page.js";
 import "./components/bulk-edit.js";

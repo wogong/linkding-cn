@@ -1,4 +1,5 @@
 import { Behavior, registerBehavior } from "./runtime.js";
+import { sanitizeSvgBody } from "../utils/svg.js";
 
 // ==========================================
 // 书签列表
@@ -146,6 +147,18 @@ class BookmarkItem extends Behavior {
       btn.addEventListener("click", this.onQuickEdit);
     });
 
+    // 初始化快捷标签按钮
+    this.onQuickTagClick = this.onQuickTagClick.bind(this);
+    this.onQuickTagMenuTrigger = this.onQuickTagMenuTrigger.bind(this);
+    this.quickTagBtns = element.querySelectorAll(".quick-tag-btn");
+    this.quickTagBtns.forEach((btn) => {
+      btn.addEventListener("click", this.onQuickTagClick);
+    });
+    this.quickTagMenuTrigger = element.querySelector(".quick-tag-menu-trigger");
+    if (this.quickTagMenuTrigger) {
+      this.quickTagMenuTrigger.addEventListener("click", this.onQuickTagMenuTrigger);
+    }
+
     // 初始化 Edit Action
     this.editAction = element.querySelector(".edit-action");
     if (this.editAction) {
@@ -173,6 +186,14 @@ class BookmarkItem extends Behavior {
       btn.removeEventListener("mousedown", this.onQuickEditMouseDown);
       btn.removeEventListener("click", this.onQuickEdit);
     });
+
+    this.quickTagBtns.forEach((btn) => {
+      btn.removeEventListener("click", this.onQuickTagClick);
+    });
+    if (this.quickTagMenuTrigger) {
+      this.quickTagMenuTrigger.removeEventListener("click", this.onQuickTagMenuTrigger);
+    }
+    this._closeQuickTagMenu();
 
     if (this.notesEditor) {
       this.notesEditor.removeEventListener("blur", this.onNotesBlur);
@@ -699,6 +720,203 @@ class BookmarkItem extends Behavior {
     }
   }
 
+  // ==========================================
+  // 快捷标签 Toggle
+  // ==========================================
+
+  onQuickTagClick(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const btn = event.currentTarget;
+    const tagName = btn.dataset.quickTagName;
+    if (!tagName) return;
+
+    const currentTags = this._readCurrentTagNames();
+    const quickTagNames = tagName.split(/\s+/).filter(Boolean);
+    const isActive = btn.classList.contains("active");
+
+    let newTags;
+    if (isActive) {
+      newTags = currentTags.filter((t) => !quickTagNames.includes(t));
+      btn.classList.remove("active");
+    } else {
+      const missing = quickTagNames.filter((t) => !currentTags.includes(t));
+      newTags = [...currentTags, ...missing];
+      btn.classList.add("active");
+    }
+
+    // 先更新 DOM（即时反馈）
+    const tagsContainer = this._getOrCreateTagsContainer();
+    this._updateTagsDisplay(tagsContainer, newTags);
+
+    // 再调 API，失败时回滚
+    patchBookmark(this.bookmarkId, { tag_names: newTags }).catch((error) => {
+      console.error("Failed to toggle quick tag:", error);
+      btn.classList.toggle("active");
+      const restoreContainer = this._getOrCreateTagsContainer();
+      this._updateTagsDisplay(restoreContainer, currentTags);
+    });
+  }
+
+  _readCurrentTagNames() {
+    const tagsContainer = this.element.querySelector(".tags");
+    if (!tagsContainer) return [];
+    return Array.from(tagsContainer.querySelectorAll("a"))
+      .map((a) => a.textContent.replace(/^#/, "").trim())
+      .filter(Boolean);
+  }
+
+  onQuickTagMenuTrigger(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const wrapper = this.quickTagMenuTrigger.closest(".quick-tag-menu-wrapper");
+    if (!wrapper) return;
+
+    const existing = document.querySelector(".quick-tag-menu-panel");
+    if (existing) {
+      const isOwnMenu = this.element.contains(existing) || existing._owner === this;
+      this._closeQuickTagMenu();
+      if (isOwnMenu) return;
+    }
+
+    // 从模板数据构建子菜单
+    const panel = document.createElement("div");
+    panel.classList.add("quick-tag-menu-panel");
+
+    // 获取所有 submenu quick tags 的数据（从 trigger 的 data 属性或 DOM 中）
+    const list = this.element.closest(".bookmark-list");
+    if (!list) return;
+
+    // 从页面中获取 submenu quick tags 数据
+    const quickTagsData = this._getSubmenuQuickTagsData();
+    if (quickTagsData.length === 0) return;
+
+    const currentTags = this._readCurrentTagNames();
+
+    quickTagsData.forEach((qt) => {
+      const allPresent = qt.tagNames.every((t) => currentTags.includes(t));
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.classList.add("btn", "btn-link", "btn-sm", "quick-tag-btn");
+      if (allPresent) btn.classList.add("active");
+      btn.dataset.quickTagName = qt.tagName;
+      btn.title = qt.tagNames.map(t => "#" + t).join(" ");
+
+      // icon（优先内联 SVG，否则走 iconify-icon 组件）
+      const labelEl = document.createElement("span");
+      labelEl.textContent = qt.label;
+      if (qt.iconData && qt.iconData.body) {
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("class", "action-icon");
+        svg.setAttribute("width", "16");
+        svg.setAttribute("height", "16");
+        svg.setAttribute("viewBox", `0 0 ${qt.iconData.width || 24} ${qt.iconData.height || 24}`);
+        svg.innerHTML = sanitizeSvgBody(qt.iconData.body);
+        btn.append(svg, labelEl);
+      } else {
+        const iconEl = document.createElement("iconify-icon");
+        iconEl.setAttribute("icon", qt.iconName);
+        iconEl.setAttribute("width", "16");
+        iconEl.setAttribute("height", "16");
+        btn.append(iconEl, labelEl);
+      }
+
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this._toggleQuickTagFromMenu(btn, qt);
+      });
+      panel.appendChild(btn);
+    });
+
+    panel._owner = this;
+    wrapper.appendChild(panel);
+
+    // 右侧不足时左移
+    const panelWidth = panel.offsetWidth;
+    const viewportWidth = document.documentElement.clientWidth;
+    const wrapperRight = wrapper.getBoundingClientRect().right;
+    if (wrapperRight + panelWidth > viewportWidth - 8) {
+      panel.style.left = `${viewportWidth - wrapperRight - panelWidth - 8}px`;
+    }
+
+    // 点击外部关闭
+    this._onMenuDocClick = (e) => {
+      if (!panel.contains(e.target) && !this.quickTagMenuTrigger.contains(e.target)) {
+        this._closeQuickTagMenu();
+      }
+    };
+    setTimeout(() => document.addEventListener("click", this._onMenuDocClick), 0);
+  }
+
+  _getSubmenuQuickTagsData() {
+    // 从页面的 script 标签或 data 属性中获取 submenu quick tags 数据
+    // 使用一个全局注入点
+    if (!window.__ldQuickTagsSubmenu) {
+      // 尝试从 DOM 中解析
+      const trigger = this.element.querySelector(".quick-tag-menu-trigger");
+      if (!trigger) return [];
+      const dataAttr = trigger.dataset.quickTagsSubmenu;
+      if (dataAttr) {
+        try {
+          window.__ldQuickTagsSubmenu = JSON.parse(dataAttr);
+        } catch {
+          return [];
+        }
+      }
+    }
+    return window.__ldQuickTagsSubmenu || [];
+  }
+
+  _toggleQuickTagFromMenu(btn, qt) {
+    const currentTags = this._readCurrentTagNames();
+    const isActive = btn.classList.contains("active");
+
+    let newTags;
+    if (isActive) {
+      newTags = currentTags.filter((t) => !qt.tagNames.includes(t));
+      btn.classList.remove("active");
+    } else {
+      const missing = qt.tagNames.filter((t) => !currentTags.includes(t));
+      newTags = [...currentTags, ...missing];
+      btn.classList.add("active");
+    }
+
+    // 同步 direct 按钮状态（基于实际标签状态）
+    const nowAllPresent = qt.tagNames.every((t) => newTags.includes(t));
+    this.quickTagBtns.forEach((directBtn) => {
+      if (directBtn.dataset.quickTagName === qt.tagName) {
+        directBtn.classList.toggle("active", nowAllPresent);
+      }
+    });
+
+    // 先更新 DOM（即时反馈）
+    const tagsContainer = this._getOrCreateTagsContainer();
+    this._updateTagsDisplay(tagsContainer, newTags);
+
+    // 再调 API，失败时回滚
+    patchBookmark(this.bookmarkId, { tag_names: newTags }).catch((error) => {
+      console.error("Failed to toggle quick tag from menu:", error);
+      btn.classList.toggle("active");
+      this.quickTagBtns.forEach((directBtn) => {
+        if (directBtn.dataset.quickTagName === qt.tagName) {
+          directBtn.classList.toggle("active");
+        }
+      });
+      const restoreContainer = this._getOrCreateTagsContainer();
+      this._updateTagsDisplay(restoreContainer, currentTags);
+    });
+  }
+
+  _closeQuickTagMenu() {
+    if (this._onMenuDocClick) {
+      document.removeEventListener("click", this._onMenuDocClick);
+      this._onMenuDocClick = null;
+    }
+    document.querySelectorAll(".quick-tag-menu-panel").forEach((el) => el.remove());
+  }
+
   _updateTagsDisplay(tagsContainer, tagNames) {
     if (!tagsContainer) return;
 
@@ -882,6 +1100,11 @@ class BookmarkItem extends Behavior {
   }
 }
 registerBehavior("ld-bookmark-item", BookmarkItem);
+
+// Turbo 导航时清理全局缓存
+document.addEventListener("turbo:before-render", () => {
+  delete window.__ldQuickTagsSubmenu;
+});
 
 // ==========================================
 // 展开折叠按钮

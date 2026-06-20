@@ -584,3 +584,55 @@ msgstr "已复制！"
 #: bookmarks/frontend/reader/reader.js
 msgid "Copy failed"
 msgstr "复制失败"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "Display position"
+msgstr "显示位置"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "Display mode"
+msgstr "显示模式"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "Pick icon"
+msgstr "选择图标"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "Click to edit name"
+msgstr "点击编辑名称"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "Name"
+msgstr "名称"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "Search for more icons"
+msgstr "搜索更多图标"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "direct"
+msgstr "直接"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "submenu"
+msgstr "子菜单"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "icon"
+msgstr "图标"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "text"
+msgstr "文字"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "Drag to reorder"
+msgstr "拖拽排序"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "Enter tags"
+msgstr "输入标签"
+
+#: bookmarks/frontend/components/settings-page.js
+msgid "tag1 tag2"
+msgstr "标签1 标签2"

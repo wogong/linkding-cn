@@ -575,3 +575,22 @@ def get_sidebar_domain_filter_value(url: str, custom_domain_root: str = "") -> s
     return build_domain_filter_value_with_aliases(
         matching_roots[-1], include_subdomains=True, config=config
     )
+
+
+# SVG 净化：移除 XSS 向量，保留合法 SVG 元素
+_DANGEROUS_TAGS = re.compile(
+    r"<\s*/?\s*(script|iframe|object|embed|form|input|style|link|meta)\b[^>]*>",
+    re.IGNORECASE,
+)
+_EVENT_ATTRS = re.compile(r"\bon\w+\s*=", re.IGNORECASE)
+_JS_PROTOCOL = re.compile(r"javascript\s*:", re.IGNORECASE)
+
+
+def sanitize_svg_body(svg_body: str) -> str:
+    """清理 SVG body，移除 <script>、on* 事件处理器、javascript: 协议。"""
+    if not isinstance(svg_body, str):
+        return ""
+    svg_body = _DANGEROUS_TAGS.sub("", svg_body)
+    svg_body = _EVENT_ATTRS.sub("", svg_body)
+    svg_body = _JS_PROTOCOL.sub("", svg_body)
+    return svg_body

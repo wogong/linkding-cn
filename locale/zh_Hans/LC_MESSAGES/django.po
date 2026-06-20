@@ -2975,3 +2975,48 @@ msgstr "颜色"
 #, python-format
 msgid "%(total)s highlights, %(notes)s annotations, across %(bms)s bookmarks"
 msgstr "%(total)s 条高亮，%(notes)s 条批注，来自 %(bms)s 个书签"
+
+#: bookmarks/templates/settings/general.html
+msgid "Quick tags"
+msgstr "快捷标签"
+
+#: bookmarks/templates/settings/general.html
+msgid "Quick tags allow adding one or more specified tags to a bookmark with a single click."
+msgstr "快捷标签用于快速为书签添加指定的一个或多个标签。"
+
+#: bookmarks/templates/settings/general.html
+msgid "Quick tags can be displayed directly on the bookmark action bar, or collected in a quick tags submenu."
+msgstr "快捷标签可被\"直接\"显示在书签动作栏上，或收纳在快捷标签的\"子菜单\"里。"
+
+#: bookmarks/templates/settings/general.html
+msgid "When displayed directly, quick tags can be shown as icons or text."
+msgstr "快捷标签直接显示时，可选择以\"图标\"或者\"文字\"形式展示。"
+
+#: bookmarks/templates/settings/general.html
+msgid "You can search with English keywords to find more relevant icons."
+msgstr "图标支持搜索英文关键词获得更多相关图标。"
+
+#: bookmarks/templates/settings/general.html
+msgid "Click to toggle"
+msgstr "点击切换"
+
+
+#: bookmarks/templates/settings/general.html
+msgid "direct"
+msgstr "直接"
+
+#: bookmarks/templates/settings/general.html
+msgid "submenu"
+msgstr "子菜单"
+
+#: bookmarks/templates/settings/general.html
+msgid "icon"
+msgstr "图标"
+
+#: bookmarks/templates/settings/general.html
+msgid "text"
+msgstr "文字"
+
+#: bookmarks/templates/settings/general.html
+msgid "tag1 tag2"
+msgstr "标签1 标签2"

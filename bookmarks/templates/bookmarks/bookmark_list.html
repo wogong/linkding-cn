@@ -200,10 +200,42 @@
                     {% endif %}
                   {% endif %}
                 {% endfor %}
+                {# 快捷标签 #}
+                {% if bookmark_list.has_quick_tags %}
+                  {% if bookmark_list.has_visible_quick_edits or bookmark_list.has_visible_actions %}
+                    <span>|</span>
+                  {% endif %}
+                  {% for qt in bookmark_list.quick_tags_direct %}
+                    <button type="button" class="btn btn-link btn-sm quick-tag-btn{% if qt|qt_all_present:bookmark_item.tag_names_set %} active{% endif %}"
+                            data-quick-tag-name="{{ qt.tag_names|join:' ' }}"
+                            title="{% for tn in qt.tag_names %}#{{ tn }}{% if not forloop.last %} {% endif %}{% endfor %}">
+                      {% if qt.display_mode == "icon" %}
+                        {% if qt.icon_data %}
+                          <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 {{ qt.icon_data.width }} {{ qt.icon_data.height }}">{{ qt.icon_data.body|sanitize_svg }}</svg>
+                        {% elif qt.icon_name %}
+                          <iconify-icon icon="{{ qt.icon_name }}" width="16" height="16"></iconify-icon>
+                        {% else %}
+                          <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+                        {% endif %}
+                      {% else %}
+                        {% if qt.label %}{{ qt.label }}{% else %}{% translate "Unnamed" %}{% endif %}
+                      {% endif %}
+                    </button>
+                  {% endfor %}
+                  {% if bookmark_list.quick_tags_submenu %}
+                    <span class="quick-tag-menu-wrapper">
+                      <button type="button" class="btn btn-link btn-sm quick-tag-menu-trigger" title="{% translate 'Quick tags' %}">
+                        <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="13" cy="8" r="1.2"/></svg>
+                      </button>
+                    </span>
+                  {% endif %}
+                {% endif %}
                 {# 书签状态 #}
-                {% if bookmark_list.has_visible_quick_edits and bookmark_list.has_visible_statuses %}
+                {% if bookmark_list.has_quick_tags and bookmark_list.has_visible_statuses %}
                   <span>|</span>
-                {% elif bookmark_list.has_visible_actions and not bookmark_list.has_visible_quick_edits and bookmark_list.has_visible_statuses %}
+                {% elif not bookmark_list.has_quick_tags and bookmark_list.has_visible_quick_edits and bookmark_list.has_visible_statuses %}
+                  <span>|</span>
+                {% elif not bookmark_list.has_quick_tags and bookmark_list.has_visible_actions and not bookmark_list.has_visible_quick_edits and bookmark_list.has_visible_statuses %}
                   <span>|</span>
                 {% endif %}
                 {% for status in bookmark_list.status_list %}
@@ -281,5 +313,13 @@
     <div class="bookmark-pagination" data-sticky-on="{{ request.user_profile.sticky_pagination|yesno:'true,false' }}">
       {% pagination bookmark_list.bookmarks_page %}
     </div>
+
+    {% if bookmark_list.quick_tags_submenu_json %}
+    <script>
+      (function() {
+        try { window.__ldQuickTagsSubmenu = JSON.parse('{{ bookmark_list.quick_tags_submenu_json|escapejs }}'); } catch(e) {}
+      })();
+    </script>
+    {% endif %}
   </section>
 {% endif %}

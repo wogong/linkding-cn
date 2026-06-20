@@ -1,6 +1,10 @@
 import calendar
+import json
+import logging
 import re
+import urllib.request
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 
 from django.conf import settings
@@ -155,6 +159,7 @@ class BookmarkItem:
         self.description = bookmark.resolved_description
         self.notes = bookmark.notes
         self.tag_names = bookmark.tag_names
+        self.tag_names_set = set(bookmark.tag_names)
         self.tags = [AddTagItem(context, tag) for tag in bookmark.tags.all()]
         self.tags.sort(key=lambda item: item.name)
         if bookmark.latest_snapshot_id:
@@ -1292,6 +1297,41 @@ class BookmarkListContext:
             for item in user_profile.get_bookmark_quick_edits()
         ]
         self.has_visible_quick_edits = any(item["enabled"] for item in self.quick_edit_list)
+        quick_tags = user_profile.get_bookmark_quick_tags()
+        self.quick_tags_direct = [
+            {**qt, "index": i}
+            for i, qt in enumerate(quick_tags)
+            if qt["enabled"] and qt["tag_names"] and qt["display_position"] == "direct"
+        ]
+        self.quick_tags_submenu = [
+            {**qt, "index": i}
+            for i, qt in enumerate(quick_tags)
+            if qt["enabled"] and qt["tag_names"] and qt["display_position"] == "submenu"
+        ]
+        self.has_quick_tags = bool(self.quick_tags_direct or self.quick_tags_submenu)
+        # JSON 数据供前端 JS 使用
+        if self.quick_tags_submenu:
+            submenu_data = [
+                {
+                    "tagName": " ".join(qt["tag_names"]),
+                    "tagNames": qt["tag_names"],
+                    "label": qt["label"] or "Unnamed",
+                    "shortLabel": qt["short_label"],
+                    "iconName": qt["icon_name"] or "tabler:hash",
+                    "iconData": qt.get("icon_data") or None,
+                    "displayMode": qt["display_mode"],
+                }
+                for qt in self.quick_tags_submenu
+            ]
+            self.quick_tags_submenu_json = json.dumps(submenu_data, ensure_ascii=False)
+        else:
+            self.quick_tags_submenu_json = None
+        # 补填缺失的图标 SVG 数据（一次性，之后不再需要网络请求）
+        missing_icons = {qt["icon_name"] for qt in quick_tags if qt.get("icon_name") and not qt.get("icon_data")}
+        if missing_icons:
+            fetched = self._fetch_missing_icon_data(missing_icons)
+            if fetched:
+                self._persist_icon_data(user_profile, quick_tags, fetched)
         self.sharing_enabled = user_profile.enable_sharing or user_profile.enable_public_sharing
         self.show_favicons = user_profile.enable_favicons
         self.show_preview_images = user_profile.enable_preview_images
@@ -1322,6 +1362,56 @@ class BookmarkListContext:
             if query_string == ""
             else base_action_url + "?" + query_string
         )
+
+    @staticmethod
+    def _fetch_single_icon(icon_name: str) -> tuple[str, dict | None]:
+        """获取单个图标数据，返回 (icon_name, data_or_None)"""
+        if ":" not in icon_name:
+            return icon_name, None
+        try:
+            prefix, name = icon_name.split(":", 1)
+            url = f"https://api.iconify.design/{prefix}/{name}.json"
+            with urllib.request.urlopen(url, timeout=3) as resp:
+                data = json.loads(resp.read())
+                if "body" in data:
+                    return icon_name, {
+                        "body": data["body"],
+                        "width": data.get("width", 24),
+                        "height": data.get("height", 24),
+                    }
+        except Exception as exc:
+            logging.debug("Failed to fetch icon %s: %s", icon_name, exc)
+        return icon_name, None
+
+    @staticmethod
+    def _fetch_missing_icon_data(icon_names: set) -> dict:
+        """从 Iconify API 并行获取缺失的图标 SVG 数据"""
+        result = {}
+        if not icon_names:
+            return result
+        with ThreadPoolExecutor(max_workers=min(len(icon_names), 4)) as pool:
+            futures = {pool.submit(BookmarkListContext._fetch_single_icon, n): n for n in icon_names}
+            for future in as_completed(futures):
+                icon_name, data = future.result()
+                if data:
+                    result[icon_name] = data
+        return result
+
+    @staticmethod
+    def _persist_icon_data(user_profile, quick_tags, fetched):
+        """将获取到的 SVG 数据写回数据库"""
+        updated = False
+        for qt in quick_tags:
+            name = qt.get("icon_name")
+            if name and not qt.get("icon_data") and name in fetched:
+                qt["icon_data"] = fetched[name]
+                updated = True
+        if updated:
+            try:
+                user_profile.bookmark_quick_tags = quick_tags
+                user_profile.save(update_fields=["bookmark_quick_tags"])
+            except Exception as exc:
+                logging.warning("Failed to persist icon data: %s", exc)
 
 
 class ActiveBookmarkListContext(BookmarkListContext):

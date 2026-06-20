@@ -1056,6 +1056,7 @@ class UserProfile(models.Model):
     collapse_side_panel = models.BooleanField(default=False, null=False)
     hide_bundles = models.BooleanField(default=False, null=False)
     reader_settings = models.JSONField(default=dict, null=False)
+    bookmark_quick_tags = models.JSONField(default=list, blank=True, null=False)
 
     # Summary display preferences
     SUM_MODE_CALENDAR = "calendar"
@@ -1087,6 +1088,68 @@ class UserProfile(models.Model):
         default=DOMAIN_VIEW_ICON,
     )
     domain_compact_mode = models.BooleanField(default=True, null=False)
+
+    @classmethod
+    def normalize_quick_tag(cls, qt: dict) -> dict:
+        tag_name = (qt.get("tag_name") or "").strip()
+        tag_names = [sanitize_tag_name(t) for t in tag_name.split() if t.strip()]
+        tag_names = list(dict.fromkeys(tag_names))
+
+        label = (qt.get("label") or "").strip()
+        short_label = (qt.get("short_label") or "").strip()
+        if not short_label:
+            short_label = tag_names[0][0] if tag_names else ""
+
+        icon_name = (qt.get("icon_name") or "").strip()
+        # 图标 SVG 数据（用于离线渲染）
+        raw_icon_data = qt.get("icon_data") or ""
+        if isinstance(raw_icon_data, dict):
+            icon_data = raw_icon_data
+        elif isinstance(raw_icon_data, str) and raw_icon_data:
+            try:
+                icon_data = json.loads(raw_icon_data)
+            except (TypeError, ValueError):
+                icon_data = {}
+        else:
+            icon_data = {}
+        # 只保留必要字段，净化 SVG body 防 XSS
+        if icon_data and "body" in icon_data:
+            from bookmarks.utils import sanitize_svg_body
+            icon_data = {
+                "body": sanitize_svg_body(str(icon_data["body"])),
+                "width": int(icon_data.get("width", 24)),
+                "height": int(icon_data.get("height", 24)),
+            }
+        else:
+            icon_data = {}
+        display_position = qt.get("display_position", "direct")
+        if display_position not in ("direct", "submenu"):
+            display_position = "direct"
+        display_mode = qt.get("display_mode", "icon")
+        if display_mode not in ("text", "icon"):
+            display_mode = "text"
+        enabled = bool(qt.get("enabled", True))
+
+        return {
+            "tag_name": tag_name,
+            "tag_names": tag_names,
+            "label": label,
+            "short_label": short_label,
+            "icon_name": icon_name,
+            "icon_data": icon_data,
+            "display_position": display_position,
+            "display_mode": display_mode,
+            "enabled": enabled,
+        }
+
+    @classmethod
+    def normalize_bookmark_quick_tags(cls, quick_tags: list | None) -> list[dict]:
+        if not isinstance(quick_tags, list):
+            return []
+        return [cls.normalize_quick_tag(qt) for qt in quick_tags if isinstance(qt, dict)]
+
+    def get_bookmark_quick_tags(self) -> list[dict]:
+        return self.normalize_bookmark_quick_tags(self.bookmark_quick_tags)
 
     def save(self, *args, **kwargs):
         if self.custom_css:
@@ -1325,6 +1388,7 @@ class UserProfileForm(forms.ModelForm):
             "bookmark_actions",
             "bookmark_statuses",
             "bookmark_quick_edits",
+            "bookmark_quick_tags",
             "bookmark_action_display_mode",
             "bookmark_status_display_mode",
             "bookmark_quick_edit_display_mode",
@@ -1361,6 +1425,7 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
     bookmark_actions = forms.CharField()
     bookmark_statuses = forms.CharField()
     bookmark_quick_edits = forms.CharField()
+    bookmark_quick_tags = forms.CharField(required=False)
 
     class Meta:
         model = UserProfile
@@ -1416,6 +1481,9 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             )
             self.fields["bookmark_quick_edits"].initial = json.dumps(
                 self.instance.get_bookmark_quick_edits()
+            )
+            self.fields["bookmark_quick_tags"].initial = json.dumps(
+                self.instance.get_bookmark_quick_tags()
             )
 
     @property
@@ -1536,6 +1604,26 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
 
         return UserProfile.normalize_bookmark_quick_edits(parsed_value)
 
+    @property
+    def bookmark_quick_tag_items(self) -> list[dict]:
+        if self.is_bound:
+            try:
+                return self.clean_bookmark_quick_tags()
+            except Exception:
+                return []
+        return self.instance.get_bookmark_quick_tags()
+
+    def clean_bookmark_quick_tags(self):
+        raw_value = self.cleaned_data.get("bookmark_quick_tags", "[]")
+        if not raw_value:
+            return []
+        try:
+            parsed_value = json.loads(raw_value)
+        except (TypeError, ValueError):
+            raise forms.ValidationError(_("Invalid bookmark quick tags configuration.")) from None
+
+        return UserProfile.normalize_bookmark_quick_tags(parsed_value)
+
     def save(self, commit=True):
         profile = super().save(commit=False)
         profile.collapse_side_panel = not self.cleaned_data["show_sidebar"]
@@ -1564,6 +1652,7 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
 
         profile.bookmark_statuses = self.cleaned_data["bookmark_statuses"]
         profile.bookmark_quick_edits = self.cleaned_data["bookmark_quick_edits"]
+        profile.bookmark_quick_tags = self.cleaned_data.get("bookmark_quick_tags", [])
 
         if commit:
             profile.save()

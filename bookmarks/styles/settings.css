@@ -103,6 +103,10 @@
     order: 40;
   }
 
+  .settings-content > #settings-bookmark-toolbar {
+    order: 45;
+  }
+
   .settings-content > #settings-sharing {
     order: 50;
   }
@@ -262,6 +266,14 @@
     gap: var(--unit-4);
     align-items: center;
     padding: 0;
+
+    &.settings-row-card {
+      min-height: 32px;
+      padding: var(--unit-2) var(--unit-3);
+      border: var(--border-width) solid var(--settings-surface-border);
+      border-radius: var(--border-radius);
+      background: var(--body-color-contrast);
+    }
 
     &.settings-row-top {
       align-items: center;

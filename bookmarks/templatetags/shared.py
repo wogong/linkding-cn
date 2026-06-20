@@ -106,6 +106,26 @@ def qt_all_present(qt, tag_names_set):
     return all(tn in tag_names_set for tn in qt.get("tag_names", []))
 
 
+@register.filter(name="toolbar_has_prev_visible")
+def toolbar_has_prev_visible(toolbar_items, current_index):
+    """检查 toolbar_items 中 current_index 之前是否有任何 has_content=True 的模块。
+    跳过 date 模块：其 has_content 是全局设置，实际渲染取决于 per-bookmark 的 display_date，
+    由模板层单独处理。
+    """
+    from bookmarks.models import UserProfile
+
+    return any(
+        item["has_content"] and item["key"] != UserProfile.TOOLBAR_MODULE_DATE
+        for item in toolbar_items[:current_index]
+    )
+
+
+@register.filter(name="toolbar_any_visible")
+def toolbar_any_visible(toolbar_items):
+    """检查 toolbar_items 中是否有任何 has_content=True 的模块"""
+    return any(item["has_content"] for item in toolbar_items)
+
+
 @register.filter(name="sanitize_svg")
 def sanitize_svg(svg_body):
     """清理 SVG body 中的 XSS 向量，返回 mark_safe 的安全字符串。"""

@@ -284,7 +284,8 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         return template.render(context)
 
     def setup_date_format_test(
-        self, date_display_setting: str, web_archive_url: str = ""
+        self, date_display_setting: str, web_archive_url: str = "",
+        date_route: str = "",
     ):
         bookmark = self.setup_bookmark()
         bookmark.date_added = timezone.now() - relativedelta(days=8)
@@ -292,6 +293,8 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         bookmark.save()
         user = self.get_or_create_test_user()
         user.profile.bookmark_date_display = date_display_setting
+        if date_route:
+            user.profile.bookmark_date_route = date_route
         user.profile.save()
         return bookmark
 
@@ -539,6 +542,7 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         bookmark = self.setup_date_format_test(
             UserProfile.BOOKMARK_DATE_DISPLAY_ABSOLUTE,
             "https://web.archive.org/web/20210811214511/https://wanikani.com/",
+            date_route=UserProfile.BOOKMARK_DATE_ROUTE_WEB_ARCHIVE,
         )
         html = self.render_template()
         formatted_date = humanize_absolute_date_short(bookmark.date_added)
@@ -551,6 +555,7 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         bookmark = self.setup_date_format_test(
             UserProfile.BOOKMARK_DATE_DISPLAY_RELATIVE,
             "https://web.archive.org/web/20210811214511/https://wanikani.com/",
+            date_route=UserProfile.BOOKMARK_DATE_ROUTE_WEB_ARCHIVE,
         )
         html = self.render_template()
 
@@ -559,6 +564,7 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
     def test_should_render_generated_web_archive_link_without_saved_snapshot_url(self):
         user = self.get_or_create_test_user()
         user.profile.bookmark_date_display = UserProfile.BOOKMARK_DATE_DISPLAY_ABSOLUTE
+        user.profile.bookmark_date_route = UserProfile.BOOKMARK_DATE_ROUTE_WEB_ARCHIVE
         user.profile.save()
 
         date_added = timezone.datetime(2023, 8, 11, 21, 45, 11, tzinfo=datetime.UTC)
@@ -592,6 +598,9 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         self.assertBookmarksLink(html, bookmark, link_target="_self")
 
     def test_web_archive_link_target_should_be_blank_by_default(self):
+        profile = self.get_or_create_test_user().profile
+        profile.bookmark_date_route = UserProfile.BOOKMARK_DATE_ROUTE_WEB_ARCHIVE
+        profile.save()
         bookmark = self.setup_bookmark()
         bookmark.date_added = timezone.now() - relativedelta(days=8)
         bookmark.web_archive_snapshot_url = "https://example.com"
@@ -606,6 +615,7 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
     def test_web_archive_link_target_should_respect_user_profile(self):
         profile = self.get_or_create_test_user().profile
         profile.bookmark_link_target = UserProfile.BOOKMARK_LINK_TARGET_SELF
+        profile.bookmark_date_route = UserProfile.BOOKMARK_DATE_ROUTE_WEB_ARCHIVE
         profile.save()
 
         bookmark = self.setup_bookmark()
@@ -636,10 +646,10 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         self.assertInHTML(
             f"""
             <a href="{snapshot_url}"
+               class="date-link date-link-exists"
                title="View latest snapshot" target="_blank" rel="noopener">
                 {formatted_date}
             </a>
-            <span class="hide-sm">|</span>
             """,
             html,
         )
@@ -1081,6 +1091,7 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         profile = self.get_or_create_test_user().profile
         profile.enable_sharing = True
         profile.enable_public_sharing = True
+        profile.bookmark_date_route = UserProfile.BOOKMARK_DATE_ROUTE_WEB_ARCHIVE
         profile.save()
 
         bookmark = self.setup_bookmark()
@@ -1202,6 +1213,9 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         self.assertEqual(10, len(bookmarks))
 
     def test_no_actions_rendered_when_is_preview(self):
+        profile = self.get_or_create_test_user().profile
+        profile.bookmark_date_route = UserProfile.BOOKMARK_DATE_ROUTE_WEB_ARCHIVE
+        profile.save()
         bookmark = self.setup_bookmark()
         bookmark.date_added = timezone.now() - relativedelta(days=8)
         bookmark.web_archive_snapshot_url = "https://example.com"

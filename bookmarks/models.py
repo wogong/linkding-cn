@@ -846,6 +846,16 @@ class UserProfile(models.Model):
         (BOOKMARK_DATE_DISPLAY_RELATIVE, _("Relative")),
         (BOOKMARK_DATE_DISPLAY_ABSOLUTE, _("Absolute")),
     ]
+    BOOKMARK_DATE_ROUTE_DISABLED = "disabled"
+    BOOKMARK_DATE_ROUTE_SNAPSHOT = "snapshot"
+    BOOKMARK_DATE_ROUTE_READER = "reader"
+    BOOKMARK_DATE_ROUTE_WEB_ARCHIVE = "web_archive"
+    BOOKMARK_DATE_ROUTE_CHOICES = [
+        (BOOKMARK_DATE_ROUTE_DISABLED, _("Disabled")),
+        (BOOKMARK_DATE_ROUTE_SNAPSHOT, _("Latest snapshot")),
+        (BOOKMARK_DATE_ROUTE_READER, _("Reader mode")),
+        (BOOKMARK_DATE_ROUTE_WEB_ARCHIVE, _("Internet Archive")),
+    ]
     BOOKMARK_DESCRIPTION_DISPLAY_INLINE = "inline"
     BOOKMARK_DESCRIPTION_DISPLAY_SEPARATE = "separate"
     BOOKMARK_DESCRIPTION_DISPLAY_CHOICES = [
@@ -885,6 +895,26 @@ class UserProfile(models.Model):
         SIDEBAR_MODULE_BUNDLES: _("Filters"),
         SIDEBAR_MODULE_DOMAINS: _("Domains"),
         SIDEBAR_MODULE_TAGS: _("Tags"),
+    }
+
+    TOOLBAR_MODULE_DATE = "date"
+    TOOLBAR_MODULE_ACTIONS = "actions"
+    TOOLBAR_MODULE_QUICK_EDITS = "quick_edits"
+    TOOLBAR_MODULE_QUICK_TAGS = "quick_tags"
+    TOOLBAR_MODULE_STATUSES = "statuses"
+    TOOLBAR_MODULE_KEYS = [
+        TOOLBAR_MODULE_DATE,
+        TOOLBAR_MODULE_ACTIONS,
+        TOOLBAR_MODULE_QUICK_EDITS,
+        TOOLBAR_MODULE_QUICK_TAGS,
+        TOOLBAR_MODULE_STATUSES,
+    ]
+    TOOLBAR_MODULE_LABELS = {
+        TOOLBAR_MODULE_DATE: _("Bookmark date"),
+        TOOLBAR_MODULE_ACTIONS: _("Bookmark actions"),
+        TOOLBAR_MODULE_QUICK_EDITS: _("Quick edit"),
+        TOOLBAR_MODULE_QUICK_TAGS: _("Quick tags"),
+        TOOLBAR_MODULE_STATUSES: _("Bookmark status"),
     }
 
     ACTION_READ = "read"
@@ -965,6 +995,12 @@ class UserProfile(models.Model):
         choices=BOOKMARK_DATE_DISPLAY_CHOICES,
         blank=False,
         default=BOOKMARK_DATE_DISPLAY_RELATIVE,
+    )
+    bookmark_date_route = models.CharField(
+        max_length=12,
+        choices=BOOKMARK_DATE_ROUTE_CHOICES,
+        blank=False,
+        default=BOOKMARK_DATE_ROUTE_SNAPSHOT,
     )
     bookmark_description_display = models.CharField(
         max_length=10,
@@ -1057,6 +1093,7 @@ class UserProfile(models.Model):
     hide_bundles = models.BooleanField(default=False, null=False)
     reader_settings = models.JSONField(default=dict, null=False)
     bookmark_quick_tags = models.JSONField(default=list, blank=True, null=False)
+    bookmark_toolbar_modules = models.JSONField(default=list, blank=True, null=False)
 
     # Summary display preferences
     SUM_MODE_CALENDAR = "calendar"
@@ -1219,6 +1256,53 @@ class UserProfile(models.Model):
         ]
 
     @classmethod
+    def default_bookmark_toolbar_modules(cls) -> list[dict]:
+        return [{"key": key, "enabled": True} for key in cls.TOOLBAR_MODULE_KEYS]
+
+    @classmethod
+    def normalize_bookmark_toolbar_modules(
+        cls, toolbar_modules: list | None
+    ) -> list[dict]:
+        if not isinstance(toolbar_modules, list) or len(toolbar_modules) == 0:
+            return cls.default_bookmark_toolbar_modules()
+
+        normalized = []
+        seen = set()
+        defaults = {key: True for key in cls.TOOLBAR_MODULE_KEYS}
+
+        for item in toolbar_modules:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("key")
+            if key not in defaults or key in seen:
+                continue
+            normalized.append(
+                {
+                    "key": key,
+                    "enabled": bool(item.get("enabled", defaults[key])),
+                }
+            )
+            seen.add(key)
+
+        for key in cls.TOOLBAR_MODULE_KEYS:
+            if key not in seen:
+                normalized.append({"key": key, "enabled": defaults[key]})
+
+        return normalized
+
+    def get_bookmark_toolbar_modules(self) -> list[dict]:
+        return self.normalize_bookmark_toolbar_modules(self.bookmark_toolbar_modules)
+
+    def get_bookmark_toolbar_module_items(self) -> list[dict]:
+        return [
+            {
+                **item,
+                "label": self.TOOLBAR_MODULE_LABELS[item["key"]],
+            }
+            for item in self.get_bookmark_toolbar_modules()
+        ]
+
+    @classmethod
     def default_bookmark_actions(cls) -> list[dict]:
         return [{"key": key, "enabled": True} for key in cls.ACTION_KEYS]
 
@@ -1367,6 +1451,7 @@ class UserProfileForm(forms.ModelForm):
         fields = [
             "theme",
             "bookmark_date_display",
+            "bookmark_date_route",
             "bookmark_description_display",
             "bookmark_description_max_lines",
             "bookmark_link_target",
@@ -1389,6 +1474,7 @@ class UserProfileForm(forms.ModelForm):
             "bookmark_statuses",
             "bookmark_quick_edits",
             "bookmark_quick_tags",
+            "bookmark_toolbar_modules",
             "bookmark_action_display_mode",
             "bookmark_status_display_mode",
             "bookmark_quick_edit_display_mode",
@@ -1426,12 +1512,14 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
     bookmark_statuses = forms.CharField()
     bookmark_quick_edits = forms.CharField()
     bookmark_quick_tags = forms.CharField(required=False)
+    bookmark_toolbar_modules = forms.CharField()
 
     class Meta:
         model = UserProfile
         fields = [
             "theme",
             "bookmark_date_display",
+            "bookmark_date_route",
             "bookmark_description_display",
             "bookmark_description_max_lines",
             "bookmark_link_target",
@@ -1485,6 +1573,9 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             self.fields["bookmark_quick_tags"].initial = json.dumps(
                 self.instance.get_bookmark_quick_tags()
             )
+            self.fields["bookmark_toolbar_modules"].initial = json.dumps(
+                self.instance.get_bookmark_toolbar_modules()
+            )
 
     @property
     def sidebar_module_items(self) -> list[dict]:
@@ -1519,6 +1610,34 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             parsed_value,
             bundles_enabled=not self.instance.hide_bundles,
         )
+
+    @property
+    def bookmark_toolbar_module_items(self) -> list[dict]:
+        if self.is_bound:
+            modules = self.data.get("bookmark_toolbar_modules")
+            try:
+                parsed_modules = json.loads(modules) if modules else []
+            except (TypeError, ValueError):
+                parsed_modules = []
+            normalized = UserProfile.normalize_bookmark_toolbar_modules(parsed_modules)
+            return [
+                {
+                    **item,
+                    "label": UserProfile.TOOLBAR_MODULE_LABELS[item["key"]],
+                }
+                for item in normalized
+            ]
+
+        return self.instance.get_bookmark_toolbar_module_items()
+
+    def clean_bookmark_toolbar_modules(self):
+        raw_value = self.cleaned_data["bookmark_toolbar_modules"]
+        try:
+            parsed_value = json.loads(raw_value)
+        except (TypeError, ValueError):
+            raise forms.ValidationError(_("Invalid toolbar configuration.")) from None
+
+        return UserProfile.normalize_bookmark_toolbar_modules(parsed_value)
 
     @property
     def bookmark_action_items(self) -> list[dict]:
@@ -1641,6 +1760,7 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             profile.default_mark_shared = False
 
         profile.sidebar_modules = self.cleaned_data["sidebar_modules"]
+        profile.bookmark_toolbar_modules = self.cleaned_data["bookmark_toolbar_modules"]
 
         # Sync bookmark actions to JSON field and legacy boolean fields
         actions = self.cleaned_data["bookmark_actions"]

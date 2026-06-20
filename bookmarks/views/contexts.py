@@ -162,6 +162,14 @@ class BookmarkItem:
         self.tag_names_set = set(bookmark.tag_names)
         self.tags = [AddTagItem(context, tag) for tag in bookmark.tags.all()]
         self.tags.sort(key=lambda item: item.name)
+        self.has_snapshot = bool(bookmark.latest_snapshot_id)
+        self.has_article = bool(bookmark.latest_article_id)
+        self.web_archive_url = bookmark.web_archive_snapshot_url or ""
+        self.web_archive_fallback_url = (
+            bookmark.web_archive_snapshot_url
+            or generate_fallback_webarchive_url(bookmark.url, bookmark.date_added)
+        )
+        self.reader_url = reverse("linkding:bookmarks.read", args=[bookmark.id])
         if bookmark.latest_snapshot_id:
             self.snapshot_url = reverse(
                 "linkding:assets.view", args=[bookmark.latest_snapshot_id]
@@ -1264,6 +1272,7 @@ class BookmarkListContext:
 
         self.link_target = user_profile.bookmark_link_target
         self.date_display = user_profile.bookmark_date_display
+        self.date_route = user_profile.bookmark_date_route
         self.description_display = user_profile.bookmark_description_display
         self.description_max_lines = user_profile.bookmark_description_max_lines
         self.show_url = user_profile.display_url
@@ -1332,6 +1341,22 @@ class BookmarkListContext:
             fetched = self._fetch_missing_icon_data(missing_icons)
             if fetched:
                 self._persist_icon_data(user_profile, quick_tags, fetched)
+        # 工具栏模块顺序（用户可拖拽自定义），含各模块是否有可见内容的标记
+        self.has_date_display = user_profile.bookmark_date_display != UserProfile.BOOKMARK_DATE_DISPLAY_HIDDEN
+        self.toolbar_items = [
+            {
+                "key": module["key"],
+                "has_content": {
+                    UserProfile.TOOLBAR_MODULE_DATE: self.has_date_display,
+                    UserProfile.TOOLBAR_MODULE_ACTIONS: self.has_visible_actions,
+                    UserProfile.TOOLBAR_MODULE_QUICK_EDITS: self.has_visible_quick_edits,
+                    UserProfile.TOOLBAR_MODULE_QUICK_TAGS: self.has_quick_tags,
+                    UserProfile.TOOLBAR_MODULE_STATUSES: self.has_visible_statuses,
+                }.get(module["key"], False),
+            }
+            for module in user_profile.get_bookmark_toolbar_modules()
+            if module["enabled"]
+        ]
         self.sharing_enabled = user_profile.enable_sharing or user_profile.enable_public_sharing
         self.show_favicons = user_profile.enable_favicons
         self.show_preview_images = user_profile.enable_preview_images

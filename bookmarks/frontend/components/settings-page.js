@@ -112,8 +112,8 @@ class SettingsPageBehavior extends Behavior {
     this.sidebarModuleForms = Array.from(
       element.querySelectorAll("[data-sidebar-modules-form]"),
     );
-    this.bookmarkActionsForms = Array.from(
-      element.querySelectorAll("[data-bookmark-actions-form]"),
+    this.bookmarkToolbarForms = Array.from(
+      element.querySelectorAll("[data-bookmark-toolbar-form]"),
     );
     this.directoryClickHandlers = new Map();
     this.panelToggleButtons = Array.from(
@@ -215,8 +215,28 @@ class SettingsPageBehavior extends Behavior {
       this.syncSidebarModules(form);  // 初始同步
     });
 
-    // 书签动作拖拽排序
-    this.bookmarkActionsForms.forEach((form) => {
+    // 书签工具栏拖拽排序（工具栏模块 + 各配置面板）
+    this.bookmarkToolbarForms.forEach((form) => {
+      // 工具栏模块排序
+      const toolbarList = form.querySelector("[data-bookmark-toolbar-list]");
+      if (toolbarList) {
+        const sortable = Sortable.create(toolbarList, {
+          handle: ".settings-module-handle",
+          animation: 150,
+          ghostClass: "is-dragging",
+          swapThreshold: 0.65,
+          onEnd: () => {
+            this.syncBookmarkToolbarModules(form);
+            this.syncToolbarConfigPanels(form);
+            this.queueSubmit(form);
+          },
+        });
+        this.sortableInstances.push(sortable);
+      }
+      this.syncBookmarkToolbarModules(form);
+      this.syncToolbarConfigPanels(form);
+
+      // 书签动作排序
       const actionsList = form.querySelector("[data-bookmark-actions-list]");
       if (actionsList) {
         const sortable = Sortable.create(actionsList, {
@@ -281,7 +301,6 @@ class SettingsPageBehavior extends Behavior {
         this.sortableInstances.push(sortable);
         this.syncBookmarkQuickTags(form);
       }
-
     });
 
     this.initializeQuickTags();
@@ -476,7 +495,9 @@ class SettingsPageBehavior extends Behavior {
       this.syncSidebarModules(form);
     }
 
-    if (form.matches("[data-bookmark-actions-form]")) {
+    if (form.matches("[data-bookmark-toolbar-form]")) {
+      this.syncBookmarkToolbarModules(form);
+      this.syncToolbarConfigPanels(form);
       this.syncBookmarkActions(form);
       this.syncBookmarkStatuses(form);
       this.syncBookmarkQuickEdits(form);
@@ -522,7 +543,8 @@ class SettingsPageBehavior extends Behavior {
       this.syncSidebarModules(form);
     }
 
-    if (form.matches("[data-bookmark-actions-form]")) {
+    if (form.matches("[data-bookmark-toolbar-form]")) {
+      this.syncBookmarkToolbarModules(form);
       this.syncBookmarkActions(form);
       this.syncBookmarkStatuses(form);
       this.syncBookmarkQuickEdits(form);
@@ -1329,6 +1351,69 @@ class SettingsPageBehavior extends Behavior {
     if (hiddenInput) {
       hiddenInput.value = JSON.stringify(items);
     }
+  }
+
+  // 工具栏模块：将可拖拽顺序和启用状态序列化为隐藏字段。
+  syncBookmarkToolbarModules(form) {
+    const hiddenInput = form.querySelector('[name="bookmark_toolbar_modules"]');
+    const items = Array.from(
+      form.querySelectorAll("[data-bookmark-toolbar-list] .settings-module-item"),
+    ).map((item) => ({
+      key: item.dataset.toolbarModuleKey,
+      enabled: Boolean(item.querySelector("[data-toolbar-module-enabled]")?.checked),
+    }));
+
+    if (hiddenInput) {
+      hiddenInput.value = JSON.stringify(items);
+    }
+  }
+
+  // 配置面板：跟随工具栏模块的顺序和启用状态。
+  syncToolbarConfigPanels(form) {
+    const modules = Array.from(
+      form.querySelectorAll("[data-bookmark-toolbar-list] .settings-module-item"),
+    ).map((el) => ({
+      key: el.dataset.toolbarModuleKey,
+      enabled: Boolean(el.querySelector("[data-toolbar-module-enabled]")?.checked),
+    }));
+
+    const configCard = form.querySelector("[data-toolbar-config-card]");
+    if (!configCard) return;
+
+    // 按工具栏顺序重排配置面板
+    for (const mod of modules) {
+      const panel = configCard.querySelector(
+        `[data-toolbar-config-panel="${mod.key}"]`,
+      );
+      if (panel) {
+        panel.style.display = mod.enabled ? "" : "none";
+        configCard.appendChild(panel);
+      }
+    }
+
+    // 日期模块禁用时，同步设置 bookmark_date_display 为 hidden
+    const dateMod = modules.find((m) => m.key === "date");
+    if (dateMod) {
+      const hiddenRadio = form.querySelector(
+        '[name="bookmark_date_display"][value="hidden"]',
+      );
+      const currentChecked = form.querySelector(
+        '[name="bookmark_date_display"]:checked',
+      );
+      if (!dateMod.enabled && hiddenRadio) {
+        hiddenRadio.checked = true;
+      } else if (dateMod.enabled && currentChecked?.value === "hidden") {
+        // 重新启用时恢复为 relative
+        const relative = form.querySelector(
+          '[name="bookmark_date_display"][value="relative"]',
+        );
+        if (relative) relative.checked = true;
+      }
+    }
+
+    // 全部禁用时隐藏整个配置卡片
+    const anyEnabled = modules.some((m) => m.enabled);
+    configCard.style.display = anyEnabled ? "" : "none";
   }
 
   // 书签动作：将可拖拽顺序和启用状态序列化为隐藏字段。

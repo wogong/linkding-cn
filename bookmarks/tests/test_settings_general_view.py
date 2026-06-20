@@ -141,6 +141,7 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
             "settings-sidebar",
             "settings-search",
             "settings-bookmarks",
+            "settings-bookmark-toolbar",
             "settings-sharing",
             "settings-user",
             "settings-import-export",
@@ -162,6 +163,7 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
                 "settings-sidebar",
                 "settings-search",
                 "settings-bookmarks",
+                "settings-bookmark-toolbar",
                 "settings-sharing",
                 "settings-user",
                 "settings-import-export",
@@ -203,10 +205,10 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
         date_format_labels = [
             option.get_text(strip=True)
             for option in soup.select(
-                '[aria-labelledby="settings-bookmark-date-label"] .settings-segmented-option span'
+                '[data-toolbar-config-panel="date"] .settings-segmented-option span'
             )
         ]
-        self.assertEqual(date_format_labels, ["Hidden", "Relative", "Absolute"])
+        self.assertEqual(date_format_labels, ["Relative", "Absolute"])
 
         landing_page_labels = [
             option.get_text(strip=True)

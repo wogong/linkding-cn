@@ -476,6 +476,22 @@ li[ld-bookmark-item] {
       color: green;
     }
 
+    & .date-link-exists {
+      color: var(--success-color);
+    }
+
+    & .toolbar-sep {
+      display: inline-flex;
+      align-items: center;
+      color: var(--bookmark-actions-color);
+      vertical-align: unset;
+      line-height: inherit;
+    }
+
+    & .toolbar-sep:last-child {
+      display: none;
+    }
+
     & .action-icon,
     & iconify-icon {
       width: 16px;

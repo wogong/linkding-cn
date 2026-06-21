@@ -17,12 +17,14 @@
       <div class="search-container">
         <form method="get" action="{% url 'linkding:bookmarks.highlights' %}">
           <input type="hidden" name="colors" value="{{ colors_raw }}">
-          <input type="hidden" name="scope" value="{{ search_scope }}">
           <input type="hidden" name="note_filter" value="{{ note_filter }}">
           <input type="hidden" name="sort" value="{{ sort }}">
           <input type="hidden" name="group_by" value="{{ group_by }}">
+          <input type="hidden" name="date_filter_by" value="{{ date_filter_by }}">
+          <input type="hidden" name="date_filter_start" value="{{ date_filter_start }}">
+          <input type="hidden" name="date_filter_end" value="{{ date_filter_end }}">
           <input type="search" name="q" class="form-input"
-                 placeholder="{% translate 'Search for words' %}"
+                 placeholder="{% translate 'Search highlights and annotations...' %}"
                  value="{{ search_q }}" />
           <input type="submit" value="{% translate 'Search' %}" class="d-none">
         </form>
@@ -70,17 +72,6 @@
                 </select>
               </div>
 
-              {# 搜索范围 #}
-              <div class="form-group radio-group" role="radiogroup">
-                <label class="form-label{% if search_scope %} text-bold{% endif %}">{% translate "Search scope" %}</label>
-                {% for value, label in scope_choices %}
-                  <label class="form-radio form-inline">
-                    <input type="radio" name="scope" value="{{ value }}" {% if search_scope == value %}checked{% endif %}>
-                    <i class="form-icon"></i> {{ label }}
-                  </label>
-                {% endfor %}
-              </div>
-
               {# 批注筛选 #}
               <div class="form-group radio-group" role="radiogroup">
                 <label class="form-label{% if note_filter %} text-bold{% endif %}">{% translate "Annotation filter" %}</label>
@@ -106,6 +97,31 @@
                 </div>
               </div>
 
+              {# 日期筛选 #}
+              <div class="form-group radio-group" role="radiogroup">
+                <label class="form-label{% if date_filter_by %} text-bold{% endif %}">{% translate "Date filter" %}</label>
+                {% for value, label in date_filter_choices %}
+                  <label class="form-radio form-inline">
+                    <input type="radio" name="date_filter_by" value="{{ value }}" {% if date_filter_by == value %}checked{% endif %}>
+                    <i class="form-icon"></i> {{ label }}
+                  </label>
+                {% endfor %}
+              </div>
+              <div id="date-filter-fields" class="form-group" style="display: {% if date_filter_by %}block{% else %}none{% endif %}">
+                <div class="form-group">
+                  <div class="form-row-inline">
+                    <label for="date-filter-start" class="form-label-inline">{% translate "Start date" %}</label>
+                    <input type="date" id="date-filter-start" name="date_filter_start" class="form-input input-sm" value="{{ date_filter_start }}">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <div class="form-row-inline">
+                    <label for="date-filter-end" class="form-label-inline">{% translate "End date" %}</label>
+                    <input type="date" id="date-filter-end" name="date_filter_end" class="form-input input-sm" value="{{ date_filter_end }}">
+                  </div>
+                </div>
+              </div>
+
               <div class="actions">
                 {% if request.user.is_authenticated %}
                   <button type="submit" class="btn btn-sm" name="save">{% translate "Save as default" %}</button>
@@ -121,8 +137,10 @@
       <form class="highlights-inline-filters" method="get" action="{% url 'linkding:bookmarks.highlights' %}">
         <input type="hidden" name="q" value="{{ search_q }}">
         <input type="hidden" name="colors" value="{{ colors_raw }}">
-        <input type="hidden" name="scope" value="{{ search_scope }}">
         <input type="hidden" name="note_filter" value="{{ note_filter }}">
+        <input type="hidden" name="date_filter_by" value="{{ date_filter_by }}">
+        <input type="hidden" name="date_filter_start" value="{{ date_filter_start }}">
+        <input type="hidden" name="date_filter_end" value="{{ date_filter_end }}">
         <div class="highlights-inline-sort">
           <label class="form-label text-assistive" for="inline-sort">{% translate "Sort by" %}</label>
           <div class="input-group">
@@ -164,7 +182,7 @@
 
       {# Random sort button #}
       <a class="btn" title="{% translate 'Random sort' %}"
-         href="{% url 'linkding:bookmarks.highlights' %}?{% if search_q %}q={{ search_q|urlencode }}&{% endif %}{% if colors_raw %}colors={{ colors_raw|urlencode }}&{% endif %}{% if search_scope %}scope={{ search_scope }}&{% endif %}{% if note_filter %}note_filter={{ note_filter }}&{% endif %}sort=random{% if group_by != 'none' %}&group_by={{ group_by }}{% endif %}">
+         href="{% url 'linkding:bookmarks.highlights' %}?{% if search_q %}q={{ search_q|urlencode }}&{% endif %}{% if colors_raw %}colors={{ colors_raw|urlencode }}&{% endif %}{% if note_filter %}note_filter={{ note_filter }}&{% endif %}sort=random{% if group_by != 'none' %}&group_by={{ group_by }}{% endif %}{% if date_filter_by %}&date_filter_by={{ date_filter_by }}{% endif %}{% if date_filter_start %}&date_filter_start={{ date_filter_start }}{% endif %}{% if date_filter_end %}&date_filter_end={{ date_filter_end }}{% endif %}">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" stroke-width="2"
              stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
           <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
@@ -234,7 +252,7 @@
       {# ── Annotation list ── #}
       {% if not annotations_page.object_list %}
         <div class="empty">
-          {% if search_q or colors or search_scope or note_filter %}
+          {% if search_q or colors or note_filter or date_filter_by %}
             <p class="empty-title h5">{% translate "No highlights match your filters" %}</p>
             <p class="empty-subtitle"><a href="{% url 'linkding:bookmarks.highlights' %}">{% translate "Clear filters" %}</a></p>
           {% else %}
@@ -799,6 +817,17 @@
         mainForm.requestSubmit(bulkExecuteBtn);
       };
       document.body.appendChild(popup);
+    });
+  }
+
+  // --- Date filter UI: show/hide date range inputs ---
+  var dateFilterRadios = document.querySelectorAll('input[name="date_filter_by"]');
+  var dateFilterFields = document.getElementById('date-filter-fields');
+  if (dateFilterRadios.length && dateFilterFields) {
+    dateFilterRadios.forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        dateFilterFields.style.display = radio.value ? 'block' : 'none';
+      });
     });
   }
 

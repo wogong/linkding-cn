@@ -30,16 +30,18 @@ GROUP_CHOICES = [
     ("color", _("Color")),
 ]
 
-SCOPE_CHOICES = [
-    ("", _("All")),
-    ("highlight", _("Highlights")),
-    ("note", _("Annotations")),
-]
-
 NOTE_FILTER_CHOICES = [
     ("", _("Off")),
     ("yes", _("Has")),
     ("no", _("Missing")),
+]
+
+DATE_FILTER_CHOICES = [
+    ("", _("Off")),
+    ("bookmark_added", _("Bookmark added")),
+    ("bookmark_modified", _("Bookmark modified")),
+    ("highlight_created", _("Highlight created")),
+    ("highlight_modified", _("Highlight modified")),
 ]
 
 COLOR_CSS_SOLID = {
@@ -54,12 +56,14 @@ COLOR_LABELS = dict(Annotation.COLOR_CHOICES)
 DEFAULT_FILTERS = {
     "sort": "date_created",
     "group_by": "none",
-    "scope": "",
     "note_filter": "",
     "colors": "",
+    "date_filter_by": "",
+    "date_filter_start": "",
+    "date_filter_end": "",
 }
 
-PREFERENCE_KEYS = ["sort", "group_by", "scope", "note_filter", "colors"]
+PREFERENCE_KEYS = ["sort", "group_by", "note_filter", "colors", "date_filter_by"]
 
 
 def _group_annotations(annotations, group_by):
@@ -97,31 +101,38 @@ def _parse_raw_filters(query_dict):
     search_q = query_dict.get("q", "").strip()
     colors_raw = query_dict.get("colors", "").strip()
     colors = [c.strip() for c in colors_raw.split(",") if c.strip()] if colors_raw else []
-    search_scope = query_dict.get("scope", "").strip()
     note_filter = query_dict.get("note_filter", "").strip()
     sort = query_dict.get("sort", "date_created").strip()
     group_by = query_dict.get("group_by", "none").strip()
     page_number = query_dict.get("page", "1")
+    date_filter_by = query_dict.get("date_filter_by", "").strip()
+    date_filter_start = query_dict.get("date_filter_start", "").strip()
+    date_filter_end = query_dict.get("date_filter_end", "").strip()
     return {
         "search_q": search_q,
         "colors": colors,
-        "search_scope": search_scope,
         "note_filter": note_filter,
         "sort": sort,
         "group_by": group_by,
         "page_number": page_number,
+        "date_filter_by": date_filter_by,
+        "date_filter_start": date_filter_start,
+        "date_filter_end": date_filter_end,
     }
 
 
 def _merge_with_prefs(query_dict, prefs):
     """Merge URL params with saved preferences. URL params take precedence when key is present."""
     merged = {"q": query_dict.get("q", "")}
-    for key in ["colors", "scope", "note_filter", "sort", "group_by"]:
+    for key in ["colors", "note_filter", "sort", "group_by", "date_filter_by"]:
         if key in query_dict:
             merged[key] = query_dict[key]
         elif key in prefs:
             merged[key] = prefs[key]
+    # 日期范围参数不保存到偏好，每次都从 URL 读取
     merged["page"] = query_dict.get("page", "1")
+    merged["date_filter_start"] = query_dict.get("date_filter_start", "")
+    merged["date_filter_end"] = query_dict.get("date_filter_end", "")
     return merged
 
 
@@ -140,9 +151,9 @@ def _filters_to_prefs(f):
     return {
         "sort": f["sort"],
         "group_by": f["group_by"],
-        "scope": f["search_scope"],
         "note_filter": f["note_filter"],
         "colors": ",".join(f["colors"]),
+        "date_filter_by": f["date_filter_by"],
     }
 
 
@@ -153,14 +164,18 @@ def _filters_to_query_params(f):
         params["q"] = f["search_q"]
     if f["colors"]:
         params["colors"] = ",".join(f["colors"])
-    if f["search_scope"]:
-        params["scope"] = f["search_scope"]
     if f["note_filter"]:
         params["note_filter"] = f["note_filter"]
     if f["sort"] and f["sort"] != "date_created":
         params["sort"] = f["sort"]
     if f["group_by"] and f["group_by"] != "none":
         params["group_by"] = f["group_by"]
+    if f["date_filter_by"]:
+        params["date_filter_by"] = f["date_filter_by"]
+    if f["date_filter_start"]:
+        params["date_filter_start"] = f["date_filter_start"]
+    if f["date_filter_end"]:
+        params["date_filter_end"] = f["date_filter_end"]
     return params
 
 
@@ -191,10 +206,12 @@ def _render_list(request, f, prefs=None, page_size=PAGE_SIZE):
         user=request.user,
         search_q=f["search_q"],
         colors=f["colors"] or None,
-        search_scope=f["search_scope"],
         note_filter=f["note_filter"],
         sort=orm_sort,
         group_by=f["group_by"],
+        date_filter_by=f["date_filter_by"],
+        date_filter_start=f["date_filter_start"],
+        date_filter_end=f["date_filter_end"],
     )
 
     paginator = Paginator(annotations, page_size)
@@ -226,10 +243,12 @@ def _render_list(request, f, prefs=None, page_size=PAGE_SIZE):
     has_modified_filters = (
         f["search_q"] != ""
         or ",".join(f["colors"]) != effective_prefs.get("colors", "")
-        or f["search_scope"] != effective_prefs.get("scope", "")
         or f["note_filter"] != effective_prefs.get("note_filter", "")
         or f["sort"] != effective_prefs.get("sort", "date_created")
         or f["group_by"] != effective_prefs.get("group_by", "none")
+        or f["date_filter_by"] != effective_prefs.get("date_filter_by", "")
+        or f["date_filter_start"] != ""
+        or f["date_filter_end"] != ""
     )
 
     context = {
@@ -239,16 +258,18 @@ def _render_list(request, f, prefs=None, page_size=PAGE_SIZE):
         "search_q": f["search_q"],
         "colors": f["colors"],
         "colors_raw": ",".join(f["colors"]),
-        "search_scope": f["search_scope"],
         "note_filter": f["note_filter"],
         "sort": f["sort"],
         "group_by": f["group_by"],
+        "date_filter_by": f["date_filter_by"],
+        "date_filter_start": f["date_filter_start"],
+        "date_filter_end": f["date_filter_end"],
         "summary": summary,
         "color_stats": color_stats,
         "sort_choices": SORT_CHOICES,
         "group_choices": GROUP_CHOICES,
-        "scope_choices": SCOPE_CHOICES,
         "note_filter_choices": NOTE_FILTER_CHOICES,
+        "date_filter_choices": DATE_FILTER_CHOICES,
         "color_choices": Annotation.COLOR_CHOICES,
         "color_css_solid": COLOR_CSS_SOLID,
         "color_labels": COLOR_LABELS,
@@ -273,10 +294,12 @@ def _handle_apply(request):
     params = urllib.parse.urlencode({
         "q": f["search_q"],
         "colors": ",".join(f["colors"]),
-        "scope": f["search_scope"],
         "note_filter": f["note_filter"],
         "sort": f["sort"],
         "group_by": f["group_by"],
+        "date_filter_by": f["date_filter_by"],
+        "date_filter_start": f["date_filter_start"],
+        "date_filter_end": f["date_filter_end"],
     })
     return HttpResponseRedirect(base_url + "?" + params)
 
@@ -344,10 +367,12 @@ def _action_bulk(request):
             user=request.user,
             search_q=f["search_q"],
             colors=f["colors"] or None,
-            search_scope=f["search_scope"],
             note_filter=f["note_filter"],
             sort=orm_sort,
             group_by="none",
+            date_filter_by=f["date_filter_by"],
+            date_filter_start=f["date_filter_start"],
+            date_filter_end=f["date_filter_end"],
         )
         annotation_ids = list(qs.values_list("id", flat=True))
 

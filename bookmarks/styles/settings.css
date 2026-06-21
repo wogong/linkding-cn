@@ -566,6 +566,7 @@
     }
   }
 
+  /* Legacy settings-help styles - used in settings page */
   .settings-help {
     position: relative;
     display: inline-flex;

@@ -101,6 +101,18 @@ def _build_term_search_condition(term: str, profile: UserProfile) -> Q:
     return conditions
 
 
+def _parse_date(value):
+    """解析日期字符串为 date 对象。"""
+    if isinstance(value, datetime.date):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            return datetime.datetime.strptime(value, "%Y-%m-%d").date()
+        except Exception:
+            return None
+    return None
+
+
 def _build_domain_group_condition(raw_group: str) -> Q:
     parts = [p.strip().lower() for p in raw_group.split("|")]
     parts = [p for p in parts if p]
@@ -183,6 +195,33 @@ def _field_term_expression_to_q(field_name: str, term: str) -> Q:
         return Q(url__icontains=term)
     if field_name == "domain":
         return _build_domain_group_condition(term)
+    if field_name == "hl":
+        return Q(annotations__selected_text__icontains=term)
+    if field_name == "ann":
+        return Q(annotations__note_content__icontains=term)
+    return Q()
+
+
+def _annotation_field_term_expression_to_q(field_name: str, term: str) -> Q:
+    """将搜索字段转换为 Annotation 模型的 Q 对象"""
+    if field_name == "title":
+        return Q(bookmark__title__icontains=term)
+    if field_name == "desc":
+        return Q(bookmark__description__icontains=term)
+    if field_name == "notes":
+        return Q(bookmark__notes__icontains=term)
+    if field_name == "url":
+        return Q(bookmark__url__icontains=term)
+    if field_name == "domain":
+        # domain 搜索书签的 URL，通过子查询匹配
+        bookmark_ids = Bookmark.objects.filter(
+            _build_domain_group_condition(term)
+        ).values_list("id", flat=True)
+        return Q(bookmark_id__in=bookmark_ids)
+    if field_name == "hl":
+        return Q(selected_text__icontains=term)
+    if field_name == "ann":
+        return Q(note_content__icontains=term)
     return Q()
 
 
@@ -235,6 +274,41 @@ def _convert_ast_to_q_object(ast_node: SearchExpression, profile: UserProfile) -
         return Q()
 
 
+def _convert_annotation_ast_to_q_object(ast_node: SearchExpression, profile: UserProfile) -> Q:
+    """将搜索 AST 转换为 Annotation 模型的 Q 对象"""
+    if isinstance(ast_node, TermExpression):
+        # 默认搜高亮文本和批注内容
+        return Q(selected_text__icontains=ast_node.term) | Q(note_content__icontains=ast_node.term)
+
+    elif isinstance(ast_node, FieldTermExpression):
+        return _annotation_field_term_expression_to_q(ast_node.field, ast_node.term)
+
+    elif isinstance(ast_node, TagExpression):
+        # 通过 bookmark__ 跨表查询标签
+        return Q(bookmark__tags__name__iexact=ast_node.tag)
+
+    elif isinstance(ast_node, SpecialKeywordExpression):
+        # 对于 Annotation，!unread 和 !untagged 不适用，返回空 Q
+        return Q()
+
+    elif isinstance(ast_node, AndExpression):
+        left_q = _convert_annotation_ast_to_q_object(ast_node.left, profile)
+        right_q = _convert_annotation_ast_to_q_object(ast_node.right, profile)
+        return left_q & right_q
+
+    elif isinstance(ast_node, OrExpression):
+        left_q = _convert_annotation_ast_to_q_object(ast_node.left, profile)
+        right_q = _convert_annotation_ast_to_q_object(ast_node.right, profile)
+        return left_q | right_q
+
+    elif isinstance(ast_node, NotExpression):
+        operand_q = _convert_annotation_ast_to_q_object(ast_node.operand, profile)
+        return ~operand_q
+
+    else:
+        return Q()
+
+
 def _filter_search_query(
     query_set: QuerySet, query_string: str, profile: UserProfile
 ) -> QuerySet:
@@ -247,6 +321,22 @@ def _filter_search_query(
             query_set = query_set.filter(search_query)
     except SearchQueryParseError:
         # If the query cannot be parsed, return zero results
+        return query_set.none()
+
+    return query_set
+
+
+def _filter_annotation_search_query(
+    query_set: QuerySet, query_string: str, profile: UserProfile
+) -> QuerySet:
+    """为 Annotation 模型过滤搜索查询"""
+
+    try:
+        ast = parse_search_query(query_string)
+        if ast:
+            search_query = _convert_annotation_ast_to_q_object(ast, profile)
+            query_set = query_set.filter(search_query)
+    except SearchQueryParseError:
         return query_set.none()
 
     return query_set
@@ -438,16 +528,6 @@ def _apply_filters(
         query_set = _filter_bundle(query_set, search.bundle)
 
     # 日期筛选逻辑
-    def _parse_date(value):
-        if isinstance(value, datetime.date):
-            return value
-        if isinstance(value, str) and value:
-            try:
-                return datetime.datetime.strptime(value, "%Y-%m-%d").date()
-            except Exception:
-                return None
-        return None
-
     if search.date_filter_by in ("added", "modified", "deleted"):
         field_map = {
             "added": "date_added",
@@ -611,27 +691,25 @@ def query_annotations(
     user: User,
     search_q: str = "",
     colors: list[str] | None = None,
-    search_scope: str = "",
     note_filter: str = "",
     sort: str = "-date_created",
     group_by: str = "none",
+    date_filter_by: str = "",
+    date_filter_start: str = "",
+    date_filter_end: str = "",
 ) -> QuerySet:
     """查询用户的所有高亮 & 批注，支持搜索、颜色筛选、类型筛选、排序、聚合。"""
     qs = Annotation.objects.filter(bookmark__owner=user).select_related(
         "bookmark", "article_asset"
     )
 
-    # 搜索关键词 + 搜索范围
+    # 搜索关键词（使用搜索引擎解析器）
     if search_q:
-        if search_scope == "highlight":
-            qs = qs.filter(selected_text__icontains=search_q)
-        elif search_scope == "note":
-            qs = qs.filter(note_content__icontains=search_q)
-        else:
-            qs = qs.filter(
-                Q(selected_text__icontains=search_q)
-                | Q(note_content__icontains=search_q)
-            )
+        try:
+            profile = UserProfile.objects.get(user=user)
+        except UserProfile.DoesNotExist:
+            profile = UserProfile(user=user)
+        qs = _filter_annotation_search_query(qs, search_q, profile)
 
     # 颜色筛选（多色列表）
     if colors:
@@ -642,6 +720,41 @@ def query_annotations(
         qs = qs.filter(note_content__gt="")
     elif note_filter == "no":
         qs = qs.filter(Q(note_content="") | Q(note_content__isnull=True))
+
+    # 日期筛选
+    if date_filter_by in ("bookmark_added", "bookmark_modified", "highlight_created", "highlight_modified"):
+        start = _parse_date(date_filter_start)
+        end = _parse_date(date_filter_end)
+
+        if date_filter_by == "bookmark_added":
+            field = "bookmark__date_added"
+            if start:
+                qs = qs.filter(**{f"{field}__gte": start})
+            if end:
+                end = end + datetime.timedelta(days=1)
+                qs = qs.filter(**{f"{field}__lt": end})
+
+        elif date_filter_by == "bookmark_modified":
+            field = "bookmark__date_modified"
+            if start:
+                qs = qs.filter(**{f"{field}__gte": start})
+            if end:
+                end = end + datetime.timedelta(days=1)
+                qs = qs.filter(**{f"{field}__lt": end})
+
+        elif date_filter_by == "highlight_created":
+            if start:
+                qs = qs.filter(date_created__date__gte=start)
+            if end:
+                end = end + datetime.timedelta(days=1)
+                qs = qs.filter(date_created__lt=end)
+
+        elif date_filter_by == "highlight_modified":
+            if start:
+                qs = qs.filter(date_modified__date__gte=start)
+            if end:
+                end = end + datetime.timedelta(days=1)
+                qs = qs.filter(date_modified__lt=end)
 
     # 随机排序（数据库端随机，避免加载全部 ID 到内存）
     if sort == "random":
@@ -793,7 +906,7 @@ def get_shared_tags_for_query(
 
 
 def parse_query_string(query_string):
-    """解析查询字符串为不同组件.
+    r"""解析查询字符串为不同组件.
 
     语法说明:
     - Field terms:

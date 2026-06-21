@@ -937,7 +937,12 @@ def replace_field_terms(
 
     for term in new_terms:
         if term:
-            filtered_tokens.append(f"{field_name}:({term})")
+            # 包含空格或会被 tokenizer 断词的特殊字符时用引号
+            if any(c in term for c in ' ()#!"'):
+                escaped = term.replace("\\", "\\\\").replace('"', '\\"')
+                filtered_tokens.append(f'{field_name}:"{escaped}"')
+            else:
+                filtered_tokens.append(f"{field_name}:{term}")
 
     return " ".join(filtered_tokens).strip()
 
@@ -986,14 +991,35 @@ def _tokenize_query_string(query_string):
 
 
 def _extract_field_token(query_string, start_pos, field_prefix):
-    """提取field_term."""
+    """提取field_term，支持 field:(content) 和 field:keyword / field:"phrase" 两种语法。"""
     if not query_string.startswith(field_prefix, start_pos):
         return None
 
     prefix_end = start_pos + len(field_prefix)
 
-    # 检查是否跟着非转义 '('
-    if prefix_end >= len(query_string) or query_string[prefix_end] != "(":
+    if prefix_end >= len(query_string):
+        return None
+
+    # 新语法：field:"phrase" 或 field:'phrase'
+    if query_string[prefix_end] in ('"', "'"):
+        quote_char = query_string[prefix_end]
+        i = prefix_end + 1
+        while i < len(query_string):
+            if query_string[i] == "\\" and i + 1 < len(query_string):
+                i += 2
+                continue
+            if query_string[i] == quote_char:
+                return query_string[start_pos:i + 1]
+            i += 1
+        return None
+
+    # 新语法：field:keyword（读到空格为止）
+    if query_string[prefix_end] != "(":
+        i = prefix_end
+        while i < len(query_string) and not query_string[i].isspace():
+            i += 1
+        if i > prefix_end:
+            return query_string[start_pos:i]
         return None
 
     # 查找闭合的 ')'
@@ -1078,7 +1104,7 @@ def _is_field_term(token):
 
 
 def _extract_field_content(token):
-    """提取字段名称和内容."""
+    """提取字段名称和内容，支持 field:(content) 和 field:keyword / field:"phrase" 两种语法。"""
     field_prefixes = ("title:", "desc:", "notes:", "url:", "domain:")
 
     for prefix in field_prefixes:
@@ -1086,18 +1112,28 @@ def _extract_field_content(token):
             field_name = prefix[:-1]  # Remove trailing ':'
             content_part = token[len(prefix) :]
 
-            # Check if content starts with unescaped '('
-            # If it starts with '\(', it's escaped and should be treated as plain text
+            # 新语法：field:"phrase" 或 field:'phrase'
+            if content_part and content_part[0] in ('"', "'"):
+                quote_char = content_part[0]
+                if content_part[-1] == quote_char and len(content_part) > 1:
+                    content = content_part[1:-1]
+                    # 反转义引号和反斜杠
+                    content = content.replace(f"\\{quote_char}", quote_char).replace("\\\\", "\\")
+                    return field_name, content
+                return None, None
+
+            # 新语法：field:keyword
+            if content_part and not content_part.startswith("("):
+                return field_name, content_part
+
+            # 旧语法：field:(content)
             if content_part.startswith("\\("):
                 return None, None
 
-            if not content_part.startswith("("):
-                return None, None
-
-            # Extract content between parentheses
-            content = _extract_parenthesized_content(content_part)
-            if content is not None:
-                return field_name, content
+            if content_part.startswith("("):
+                content = _extract_parenthesized_content(content_part)
+                if content is not None:
+                    return field_name, content
 
     return None, None
 

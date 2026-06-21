@@ -23,6 +23,7 @@
           <input type="hidden" name="date_filter_by" value="{{ date_filter_by }}">
           <input type="hidden" name="date_filter_start" value="{{ date_filter_start }}">
           <input type="hidden" name="date_filter_end" value="{{ date_filter_end }}">
+          <input type="hidden" name="bookmark_id" value="{{ bookmark_id }}">
           <input type="search" name="q" class="form-input"
                  placeholder="{% translate 'Search highlights and annotations...' %}"
                  value="{{ search_q }}" />
@@ -51,6 +52,7 @@
               {% csrf_token %}
               <input type="hidden" name="q" value="{{ search_q }}">
               <input type="hidden" name="colors" value="{{ colors_raw }}" data-colors-hidden>
+              <input type="hidden" name="bookmark_id" value="{{ bookmark_id }}">
 
               {# 排序依据 #}
               <div class="form-group">
@@ -141,6 +143,7 @@
         <input type="hidden" name="date_filter_by" value="{{ date_filter_by }}">
         <input type="hidden" name="date_filter_start" value="{{ date_filter_start }}">
         <input type="hidden" name="date_filter_end" value="{{ date_filter_end }}">
+        <input type="hidden" name="bookmark_id" value="{{ bookmark_id }}">
         <div class="highlights-inline-sort">
           <label class="form-label text-assistive" for="inline-sort">{% translate "Sort by" %}</label>
           <div class="input-group">
@@ -182,7 +185,7 @@
 
       {# Random sort button #}
       <a class="btn" title="{% translate 'Random sort' %}"
-         href="{% url 'linkding:bookmarks.highlights' %}?{% if search_q %}q={{ search_q|urlencode }}&{% endif %}{% if colors_raw %}colors={{ colors_raw|urlencode }}&{% endif %}{% if note_filter %}note_filter={{ note_filter }}&{% endif %}sort=random{% if group_by != 'none' %}&group_by={{ group_by }}{% endif %}{% if date_filter_by %}&date_filter_by={{ date_filter_by }}{% endif %}{% if date_filter_start %}&date_filter_start={{ date_filter_start }}{% endif %}{% if date_filter_end %}&date_filter_end={{ date_filter_end }}{% endif %}">
+         href="{% url 'linkding:bookmarks.highlights' %}?{% if search_q %}q={{ search_q|urlencode }}&{% endif %}{% if colors_raw %}colors={{ colors_raw|urlencode }}&{% endif %}{% if note_filter %}note_filter={{ note_filter }}&{% endif %}sort=random{% if group_by != 'none' %}&group_by={{ group_by }}{% endif %}{% if date_filter_by %}&date_filter_by={{ date_filter_by }}{% endif %}{% if date_filter_start %}&date_filter_start={{ date_filter_start }}{% endif %}{% if date_filter_end %}&date_filter_end={{ date_filter_end }}{% endif %}{% if bookmark_id %}&bookmark_id={{ bookmark_id }}{% endif %}">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" stroke-width="2"
              stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
           <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>

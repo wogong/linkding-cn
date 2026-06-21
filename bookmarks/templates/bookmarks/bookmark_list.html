@@ -102,6 +102,12 @@
                        title="{% translate 'View snapshot on the Internet Archive Wayback Machine' %}"
                        target="{{ bookmark_list.link_target }}"
                        rel="noopener">{{ bookmark_item.display_date }}</a>
+                  {% elif bookmark_list.date_route == "highlights" %}
+                    <a href="{% url 'linkding:bookmarks.highlights' %}?bookmark_id={{ bookmark_item.id }}&group_by=bookmark"
+                       class="date-link{% if bookmark_item.has_highlights %} date-link-exists{% endif %}"
+                       title="{% translate 'View highlights & annotations' %}"
+                       target="{{ bookmark_list.link_target }}"
+                       >{{ bookmark_item.display_date }}</a>
                   {% endif %}
                   <span class="toolbar-sep">|</span>
 
@@ -123,6 +129,13 @@
                           {% if bookmark_list.action_display_mode == "icon" %}
                             <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><use xlink:href="#ld-icon-view"></use></svg>
                           {% else %}{% translate "View" %}{% endif %}
+                        </a>
+                      {% elif action.key == "highlight" %}
+                        <a href="{% url 'linkding:bookmarks.highlights' %}?bookmark_id={{ bookmark_item.id }}" class="highlight-action"
+                          {% if bookmark_list.action_display_mode == "icon" %}title="{% translate 'Highlights' %}"{% endif %}>
+                          {% if bookmark_list.action_display_mode == "icon" %}
+                            <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><use xlink:href="#ld-icon-highlight"></use></svg>
+                          {% else %}{% translate "Highlights" %}{% endif %}
                         </a>
                       {% elif action.key == "edit" and bookmark_item.is_editable and not bookmark_list.is_trash_page %}
                         <a href="{% url 'linkding:bookmarks.edit' bookmark_item.id %}?return_url={{ bookmark_list.return_url|urlencode }}" class="edit-action"

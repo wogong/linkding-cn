@@ -190,6 +190,7 @@ class BookmarkItem:
         self.shared = bookmark.shared
         self.owner = bookmark.owner
         self.details_url = context.details(bookmark.id)
+        self.has_highlights = getattr(bookmark, 'annotation_count', 0) > 0
 
         css_classes = []
         if bookmark.unread:
@@ -1256,6 +1257,18 @@ class BookmarkListContext:
         bookmarks_page = paginator.get_page(page_number)
         # Prefetch related objects, this avoids n+1 queries when accessing fields in templates
         models.prefetch_related_objects(bookmarks_page.object_list, "owner", "tags")
+
+        # 仅当日期路由为高亮时，才计算当前页面书签的高亮计数
+        if user_profile.bookmark_date_route == UserProfile.BOOKMARK_DATE_ROUTE_HIGHLIGHTS and bookmarks_page.object_list:
+            from django.db.models import Count
+            bookmark_ids = [b.id for b in bookmarks_page.object_list]
+            annotation_counts = dict(
+                Bookmark.objects.filter(id__in=bookmark_ids)
+                .annotate(cnt=Count('annotations', distinct=True))
+                .values_list('id', 'cnt')
+            )
+            for bookmark in bookmarks_page.object_list:
+                bookmark.annotation_count = annotation_counts.get(bookmark.id, 0)
 
         self.items = [
             BookmarkItem(request_context, bookmark, user, user_profile)

@@ -104,8 +104,25 @@
   gap: var(--unit-1);
 }
 
+.detail-annotation-summary .annotation-link {
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--unit-1);
+  line-height: 1;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 .detail-annotation-summary .annotation-icon {
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .detail-label {

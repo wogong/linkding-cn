@@ -850,11 +850,13 @@ class UserProfile(models.Model):
     BOOKMARK_DATE_ROUTE_SNAPSHOT = "snapshot"
     BOOKMARK_DATE_ROUTE_READER = "reader"
     BOOKMARK_DATE_ROUTE_WEB_ARCHIVE = "web_archive"
+    BOOKMARK_DATE_ROUTE_HIGHLIGHTS = "highlights"
     BOOKMARK_DATE_ROUTE_CHOICES = [
         (BOOKMARK_DATE_ROUTE_DISABLED, _("Disabled")),
         (BOOKMARK_DATE_ROUTE_SNAPSHOT, _("Latest snapshot")),
         (BOOKMARK_DATE_ROUTE_READER, _("Reader mode")),
         (BOOKMARK_DATE_ROUTE_WEB_ARCHIVE, _("Internet Archive")),
+        (BOOKMARK_DATE_ROUTE_HIGHLIGHTS, _("Highlights & Annotations")),
     ]
     BOOKMARK_DESCRIPTION_DISPLAY_INLINE = "inline"
     BOOKMARK_DESCRIPTION_DISPLAY_SEPARATE = "separate"
@@ -919,13 +921,15 @@ class UserProfile(models.Model):
 
     ACTION_READ = "read"
     ACTION_VIEW = "view"
+    ACTION_HIGHLIGHT = "highlight"
     ACTION_EDIT = "edit"
     ACTION_ARCHIVE = "archive"
     ACTION_REMOVE = "remove"
-    ACTION_KEYS = [ACTION_READ, ACTION_VIEW, ACTION_EDIT, ACTION_ARCHIVE, ACTION_REMOVE]
+    ACTION_KEYS = [ACTION_READ, ACTION_VIEW, ACTION_HIGHLIGHT, ACTION_EDIT, ACTION_ARCHIVE, ACTION_REMOVE]
     ACTION_LABELS = {
         ACTION_READ: pgettext_lazy("bookmark action", "Read"),
         ACTION_VIEW: _("View"),
+        ACTION_HIGHLIGHT: _("Highlights"),
         ACTION_EDIT: _("Edit"),
         ACTION_ARCHIVE: _("Archive"),
         ACTION_REMOVE: _("Remove"),
@@ -933,6 +937,7 @@ class UserProfile(models.Model):
     ACTION_ICONS = {
         ACTION_READ: "ld-icon-unread",
         ACTION_VIEW: "ld-icon-view",
+        ACTION_HIGHLIGHT: "ld-icon-highlight",
         ACTION_EDIT: "ld-icon-edit",
         ACTION_ARCHIVE: "ld-icon-archive",
         ACTION_REMOVE: "ld-icon-remove",
@@ -1282,7 +1287,10 @@ class UserProfile(models.Model):
 
     @classmethod
     def default_bookmark_actions(cls) -> list[dict]:
-        return [{"key": key, "enabled": True} for key in cls.ACTION_KEYS]
+        # 高亮动作默认关闭
+        defaults = {key: True for key in cls.ACTION_KEYS}
+        defaults[cls.ACTION_HIGHLIGHT] = False
+        return [{"key": key, "enabled": defaults[key]} for key in cls.ACTION_KEYS]
 
     @classmethod
     def normalize_bookmark_actions(cls, bookmark_actions: list | None) -> list[dict]:
@@ -1290,6 +1298,7 @@ class UserProfile(models.Model):
             return cls.default_bookmark_actions()
 
         defaults = {key: True for key in cls.ACTION_KEYS}
+        defaults[cls.ACTION_HIGHLIGHT] = False
         normalized = []
         seen = set()
 

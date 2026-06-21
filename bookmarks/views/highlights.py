@@ -108,6 +108,7 @@ def _parse_raw_filters(query_dict):
     date_filter_by = query_dict.get("date_filter_by", "").strip()
     date_filter_start = query_dict.get("date_filter_start", "").strip()
     date_filter_end = query_dict.get("date_filter_end", "").strip()
+    bookmark_id = query_dict.get("bookmark_id", "").strip()
     return {
         "search_q": search_q,
         "colors": colors,
@@ -118,6 +119,7 @@ def _parse_raw_filters(query_dict):
         "date_filter_by": date_filter_by,
         "date_filter_start": date_filter_start,
         "date_filter_end": date_filter_end,
+        "bookmark_id": bookmark_id,
     }
 
 
@@ -129,10 +131,11 @@ def _merge_with_prefs(query_dict, prefs):
             merged[key] = query_dict[key]
         elif key in prefs:
             merged[key] = prefs[key]
-    # 日期范围参数不保存到偏好，每次都从 URL 读取
+    # 日期范围和书签 ID 不保存到偏好，每次都从 URL 读取
     merged["page"] = query_dict.get("page", "1")
     merged["date_filter_start"] = query_dict.get("date_filter_start", "")
     merged["date_filter_end"] = query_dict.get("date_filter_end", "")
+    merged["bookmark_id"] = query_dict.get("bookmark_id", "")
     return merged
 
 
@@ -172,6 +175,8 @@ def _filters_to_query_params(f):
         params["group_by"] = f["group_by"]
     if f["date_filter_by"]:
         params["date_filter_by"] = f["date_filter_by"]
+    if f["bookmark_id"]:
+        params["bookmark_id"] = f["bookmark_id"]
     if f["date_filter_start"]:
         params["date_filter_start"] = f["date_filter_start"]
     if f["date_filter_end"]:
@@ -202,6 +207,14 @@ def index(request: HttpRequest):
 def _render_list(request, f, prefs=None, page_size=PAGE_SIZE):
     orm_sort = _sort_to_orm(f["sort"])
 
+    # 安全转换 bookmark_id
+    bookmark_id = None
+    if f["bookmark_id"]:
+        try:
+            bookmark_id = int(f["bookmark_id"])
+        except ValueError:
+            pass
+
     annotations = queries.query_annotations(
         user=request.user,
         search_q=f["search_q"],
@@ -212,6 +225,7 @@ def _render_list(request, f, prefs=None, page_size=PAGE_SIZE):
         date_filter_by=f["date_filter_by"],
         date_filter_start=f["date_filter_start"],
         date_filter_end=f["date_filter_end"],
+        bookmark_id=bookmark_id,
     )
 
     paginator = Paginator(annotations, page_size)
@@ -249,6 +263,7 @@ def _render_list(request, f, prefs=None, page_size=PAGE_SIZE):
         or f["date_filter_by"] != effective_prefs.get("date_filter_by", "")
         or f["date_filter_start"] != ""
         or f["date_filter_end"] != ""
+        or f["bookmark_id"] != ""
     )
 
     context = {
@@ -264,6 +279,7 @@ def _render_list(request, f, prefs=None, page_size=PAGE_SIZE):
         "date_filter_by": f["date_filter_by"],
         "date_filter_start": f["date_filter_start"],
         "date_filter_end": f["date_filter_end"],
+        "bookmark_id": f["bookmark_id"],
         "summary": summary,
         "color_stats": color_stats,
         "sort_choices": SORT_CHOICES,
@@ -300,6 +316,7 @@ def _handle_apply(request):
         "date_filter_by": f["date_filter_by"],
         "date_filter_start": f["date_filter_start"],
         "date_filter_end": f["date_filter_end"],
+        "bookmark_id": f["bookmark_id"],
     })
     return HttpResponseRedirect(base_url + "?" + params)
 

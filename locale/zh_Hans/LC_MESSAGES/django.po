@@ -1071,6 +1071,18 @@ msgstr "Linkding"
 msgid "Highlights & Annotations"
 msgstr "高亮与批注"
 
+#: bookmarks/templates/bookmarks/bookmark_list.html:108
+msgid "View highlights & annotations"
+msgstr "查看高亮与批注"
+
+#: bookmarks/templates/bookmarks/details/modal.html:121
+msgid "View highlights"
+msgstr "查看高亮"
+
+#: bookmarks/templates/bookmarks/details/modal.html:133
+msgid "View annotations"
+msgstr "查看批注"
+
 #: bookmarks/templates/bookmarks/highlights/index.html:25
 msgid "Search for words"
 msgstr "搜索关键词"
@@ -2823,8 +2835,15 @@ msgstr[1] "新增高亮 %(count)s 个"
 #, python-format
 msgid "%(count)s annotation"
 msgid_plural "%(count)s annotations"
-msgstr[0] "新增批注 %(count)s 个"
-msgstr[1] "新增批注 %(count)s 个"
+msgstr[0] "%(count)s 条批注"
+msgstr[1] "%(count)s 条批注"
+
+#: bookmarks/templates/bookmarks/details/modal.html:131
+#, python-format
+msgid "%(counter)s annotation"
+msgid_plural "%(counter)s annotations"
+msgstr[0] "%(counter)s 条批注"
+msgstr[1] "%(counter)s 条批注"
 
 #: bookmarks/views/contexts.py:1176 bookmarks/views/contexts.py:1196
 #, python-brace-format

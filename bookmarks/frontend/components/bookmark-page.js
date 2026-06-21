@@ -1,5 +1,6 @@
 import { Behavior, registerBehavior } from "./runtime.js";
 import { sanitizeSvgBody } from "../utils/svg.js";
+import { handleBookmarkAction } from "../utils/bookmark-action.js";
 
 // ==========================================
 // 书签列表
@@ -29,6 +30,7 @@ async function patchBookmark(bookmarkId, data) {
 
   return response;
 }
+
 
 function autoResizeTextarea(textarea) {
   textarea.style.height = "auto";
@@ -177,6 +179,9 @@ class BookmarkItem extends Behavior {
 
     // 初始化描述浮窗
     this.initDescriptionToggle();
+
+    // 初始化 action 按钮（分享、已读、归档、删除等）
+    this._initActionButtons();
   }
 
   destroy() {
@@ -1124,6 +1129,71 @@ class BookmarkItem extends Behavior {
         );
       }
     });
+  }
+
+  // ==========================================
+  // Action 按钮（分享、已读、归档、删除）
+  // 采用乐观更新：先改 DOM，再发 API，失败回滚
+  // ==========================================
+
+  _initActionButtons() {
+    const actionButtons = this.element.querySelectorAll("button[data-action]");
+    actionButtons.forEach((button) => {
+      if (!button.dataset.action) return;
+
+      if (button.hasAttribute("ld-confirm-button")) {
+        button._onConfirm = () => this._executeAction(button, button.dataset.action);
+      } else {
+        button.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this._executeAction(button, button.dataset.action);
+        });
+      }
+    });
+  }
+
+  async _executeAction(button, action) {
+    const isShare = action === "share" || action === "unshare";
+    const isRead = action === "mark_as_read" || action === "mark_as_unread";
+
+    handleBookmarkAction({
+      bookmarkId: this.bookmarkId,
+      action,
+      onOptimistic: () => {
+        if (isShare) this._toggleShareButton(button, action === "share");
+        if (isRead) this._toggleReadButton(button, action === "mark_as_read");
+      },
+      onRollback: () => {
+        if (isShare) this._toggleShareButton(button, action !== "share");
+        if (isRead) this._toggleReadButton(button, action !== "mark_as_read");
+      },
+    });
+  }
+
+  // ---- 图标替换 ----
+
+  _setIcon(button, href) {
+    const oldUse = button.querySelector("svg.action-icon use");
+    if (oldUse) {
+      const newUse = document.createElementNS("http://www.w3.org/2000/svg", "use");
+      newUse.setAttribute("href", href);
+      oldUse.replaceWith(newUse);
+    }
+  }
+
+  _toggleShareButton(button, isShared) {
+    this._setIcon(button, isShared ? "#ld-icon-share" : "#ld-icon-share-x");
+    button.name = isShared ? "unshare" : "share";
+    button.dataset.action = isShared ? "unshare" : "share";
+    button.title = isShared ? gettext("Shared") : gettext("Share");
+  }
+
+  _toggleReadButton(button, isRead) {
+    this._setIcon(button, isRead ? "#ld-icon-read-check" : "#ld-icon-unread-x");
+    button.dataset.action = isRead ? "mark_as_unread" : "mark_as_read";
+    button.title = isRead ? gettext("Mark as unread") : gettext("Mark as read");
+    this.element.classList.toggle("unread", !isRead);
   }
 }
 registerBehavior("ld-bookmark-item", BookmarkItem);

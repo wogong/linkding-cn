@@ -123,6 +123,7 @@ class ConfirmButtonBehavior extends Behavior {
 
     const popup = document.createElement("ld-confirm-popup");
     popup._button = this.element;
+    popup._onConfirm = this.element._onConfirm || null;
     document.body.appendChild(popup);
   }
 }

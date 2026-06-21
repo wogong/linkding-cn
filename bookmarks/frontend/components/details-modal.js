@@ -1,4 +1,5 @@
 import { setAfterPageLoadFocusTarget } from "../utils/focus.js";
+import { handleBookmarkAction } from "../utils/bookmark-action.js";
 import { Modal } from "./modal.js";
 
 function getCSRFToken() {
@@ -147,6 +148,14 @@ class DetailsModal extends Modal {
         this._actionForm?.requestSubmit();
       }
     });
+
+    // ---- trash / restore 按钮（API 局部处理） ----
+    this.querySelectorAll("button[data-action]").forEach((btn) => {
+      const action = btn.dataset.action;
+      if (action === "trash" || action === "restore") {
+        btn._onConfirm = () => this._executeAction(btn.dataset.action);
+      }
+    });
   }
 
   // ---- textarea 自动高度 ----
@@ -181,37 +190,124 @@ class DetailsModal extends Modal {
     }
   }
 
-  // ---- 状态 chip 切换（API 局部刷新） ----
+  // ---- 状态 chip 切换 ----
 
   async _toggleChip(btn) {
     const field = btn.dataset.chipField;
     const currentValue = btn.dataset.chipValue === "true";
     const newValue = !currentValue;
+    const actionMap = { is_archived: newValue ? "archive" : "unarchive", shared: newValue ? "share" : "unshare", unread: newValue ? "mark_as_unread" : "mark_as_read" };
+    const action = actionMap[field];
+    if (!action) return;
 
-    try {
-      const r = await fetch(`${this.apiBase}bookmarks/${this.bookmarkId}/`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "X-CSRFToken": getCSRFToken() },
-        body: JSON.stringify({ [field]: newValue }),
-      });
-      if (!r.ok) return;
+    handleBookmarkAction({
+      bookmarkId: this.bookmarkId,
+      action,
+      onOptimistic: () => {
+        this._applyChipState(btn, field, newValue);
+        this._syncListItemField(field, newValue);
+      },
+      onRollback: () => {
+        this._applyChipState(btn, field, currentValue);
+        this._syncListItemField(field, currentValue);
+      },
+    });
+  }
 
-      // 更新本地数据
-      this._data[field] = newValue;
+  _applyChipState(btn, field, value) {
+    btn.dataset.chipValue = String(value);
+    const active = field === "unread" ? !value : value;
+    btn.classList.toggle("active", active);
+    const iconHref = active ? btn.dataset.chipActiveIcon : btn.dataset.chipInactiveIcon;
+    const text = active ? btn.dataset.chipActiveText : btn.dataset.chipInactiveText;
+    this._replaceUse(btn.querySelector("svg use"), iconHref);
+    btn.querySelector("span").textContent = text;
+  }
 
-      // 更新 chip UI
-      btn.dataset.chipValue = String(newValue);
-      btn.classList.toggle("active", field === "unread" ? !newValue : newValue);
-      const iconHref = newValue ? btn.dataset.chipActiveIcon : btn.dataset.chipInactiveIcon;
-      const text = newValue ? btn.dataset.chipActiveText : btn.dataset.chipInactiveText;
-      btn.querySelector("svg use").setAttribute("xlink:href", iconHref);
-      btn.querySelector("span").textContent = text;
+  // 同步列表项（直接操作 DOM，不触发全局刷新）
+  _replaceUse(oldUse, href) {
+    if (!oldUse) return;
+    const newUse = document.createElementNS("http://www.w3.org/2000/svg", "use");
+    newUse.setAttribute("href", href);
+    oldUse.replaceWith(newUse);
+  }
 
-      // 同步列表
-      this._refreshBookmarkList();
-    } catch (err) {
-      console.error("Toggle chip failed:", err);
+  _syncListItemField(field, value) {
+    const item = document.querySelector(`li[data-bookmark-id="${this.bookmarkId}"]`);
+    if (!item) return;
+
+    switch (field) {
+      case "unread": {
+        item.classList.toggle("unread", value);
+        const btn = item.querySelector('button[data-action="mark_as_read"], button[data-action="mark_as_unread"]');
+        if (btn) {
+          this._replaceUse(btn.querySelector("svg.action-icon use"), value ? "#ld-icon-unread-x" : "#ld-icon-read-check");
+          btn.dataset.action = value ? "mark_as_read" : "mark_as_unread";
+        }
+        break;
+      }
+      case "shared": {
+        const btn = item.querySelector('button[data-action="share"], button[data-action="unshare"]');
+        if (btn) {
+          this._replaceUse(btn.querySelector("svg.action-icon use"), value ? "#ld-icon-share" : "#ld-icon-share-x");
+          btn.dataset.action = value ? "unshare" : "share";
+          btn.name = value ? "unshare" : "share";
+        }
+        break;
+      }
+      case "title": {
+        const titleSpan = item.querySelector(".title-link span");
+        if (titleSpan) titleSpan.textContent = value || "";
+        break;
+      }
+      case "url": {
+        const prevUrl = this._data._prevUrl;
+        if (prevUrl) {
+          item.querySelectorAll("a[href]").forEach(a => {
+            if (a.getAttribute("href") === prevUrl) a.setAttribute("href", value);
+          });
+        }
+        const urlDisplay = item.querySelector(".url-display");
+        if (urlDisplay) urlDisplay.textContent = value;
+        break;
+      }
+      case "description": {
+        const descText = item.querySelector(".description-text");
+        if (descText) descText.textContent = value || "";
+        break;
+      }
+      case "tag_names": {
+        const tags = Array.isArray(value) ? value : [];
+        const tagsContainer = item.querySelector(".tags");
+        if (!tagsContainer) break;
+        if (tags.length === 0) {
+          tagsContainer.remove();
+        } else {
+          tagsContainer.replaceChildren();
+          tags.forEach((tag, i) => {
+            if (i > 0) tagsContainer.appendChild(document.createTextNode(" "));
+            const link = document.createElement("a");
+            link.href = `?q=%23${encodeURIComponent(tag)}`;
+            link.textContent = `#${tag}`;
+            tagsContainer.appendChild(link);
+          });
+        }
+        break;
+      }
     }
+  }
+
+  // ---- trash / restore 操作 ----
+
+  async _executeAction(action) {
+    handleBookmarkAction({
+      bookmarkId: this.bookmarkId,
+      action,
+      onOptimistic: () => {
+        this.clearInert();
+        this.remove();
+      },
+    });
   }
 
   // ---- form 辅助 ----
@@ -273,9 +369,11 @@ class DetailsModal extends Modal {
     input.removeEventListener("blur", input._onBlur);
 
     if (newUrl && newUrl !== this._data.url) {
-      this._patchBookmark("url", newUrl).then(() => this._refreshBookmarkList());
+      this._patchBookmark("url", newUrl);
     } else if (this._metadataRefreshed) {
-      this._refreshBookmarkList();
+      // 元数据已通过 _patchBookmarkQuiet 保存，同步列表项
+      this._syncListItemField("title", this._data.title);
+      this._syncListItemField("description", this._data.description);
       this._metadataRefreshed = false;
     }
   }
@@ -290,11 +388,11 @@ class DetailsModal extends Modal {
     input.removeEventListener("blur", input._onBlur);
 
     if (this._metadataRefreshed) {
-      this._refreshBookmarkList();
+      this._syncListItemField("title", this._data.title);
+      this._syncListItemField("description", this._data.description);
       this._metadataRefreshed = false;
     }
   }
-
   // ---- 重新抓取元数据（条件性更新，与编辑页面逻辑一致） ----
 
   async _refreshMetadata() {
@@ -344,7 +442,7 @@ class DetailsModal extends Modal {
     }
   }
 
-  // ---- API PATCH（带页面刷新） ----
+  // ---- API PATCH（静默保存 + 局部同步列表项） ----
 
   async _patchBookmark(field, value) {
     const current = this._data[field];
@@ -358,6 +456,9 @@ class DetailsModal extends Modal {
       if (newValue === (current || "")) return;
     }
 
+    // URL 变更前记录旧值，用于定位列表中的链接
+    if (field === "url") this._data._prevUrl = this._data.url;
+
     this._data[field] = newValue;
 
     try {
@@ -369,7 +470,7 @@ class DetailsModal extends Modal {
       if (r.ok) {
         const data = await r.json();
         this._data = { ...this._data, ...data };
-        this._refreshBookmarkList();
+        this._syncListItemField(field, newValue);
       }
     } catch (err) {
       console.error("Save failed:", err);
@@ -393,30 +494,6 @@ class DetailsModal extends Modal {
     }
   }
 
-  async _refreshBookmarkList() {
-    try {
-      const r = await fetch(window.location.href, {
-        headers: {
-          Accept: "text/vnd.turbo-stream.html, text/html",
-          "X-Linkding-Bookmark-Page-Stream": "1",
-        },
-      });
-      if (r.ok) {
-        const html = await r.text();
-        if (html.includes("<turbo-stream")) {
-          Turbo.renderStreamMessage(html);
-          // Turbo morph 后重新应用 textarea 高度
-          requestAnimationFrame(() => {
-            this.querySelectorAll(".detail-textarea").forEach((el) => this._autoResize(el));
-            const titleEl = this.querySelector(".bookmark-title-input");
-            if (titleEl) this._autoResize(titleEl);
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Refresh list failed:", err);
-    }
-  }
 
   // ---- 标签（显示态 ↔ 编辑态，编辑态动态创建 ld-tag-autocomplete） ----
 

@@ -293,7 +293,7 @@
           {# 右侧：根据 is_deleted 显示不同按钮 #}
           {% if details.bookmark.is_deleted %}
             <button ld-confirm-button ld-confirm-question="{% translate 'Restore bookmark?' %}"
-                    class="detail-action-btn" type="submit" name="restore" value="{{ details.bookmark.id }}" title="{% translate 'Restore' %}">
+                    class="detail-action-btn" type="submit" name="restore" value="{{ details.bookmark.id }}" data-action="restore" title="{% translate 'Restore' %}">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-restore"></use></svg>
             </button>
             <button ld-confirm-button ld-confirm-danger ld-confirm-question="{% translate 'Permanently delete? This cannot be undone.' %}"
@@ -302,7 +302,7 @@
             </button>
           {% else %}
             <button ld-confirm-button ld-confirm-danger ld-confirm-question="{% translate 'Move to trash?' %}"
-                    class="detail-action-btn detail-action-delete" type="submit" name="trash" value="{{ details.bookmark.id }}" title="{% translate 'Move to trash' %}">
+                    class="detail-action-btn detail-action-delete" type="submit" name="trash" value="{{ details.bookmark.id }}" data-action="trash" title="{% translate 'Move to trash' %}">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><use xlink:href="#ld-icon-remove"></use></svg>
             </button>
           {% endif %}

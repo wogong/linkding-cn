@@ -957,15 +957,8 @@ class SettingsPageBehavior extends Behavior {
       input.disabled = false;
     }
 
-    if (modulesRow instanceof HTMLElement) {
-      modulesRow
-        .querySelectorAll('[data-module-enabled], .settings-module-handle')
-        .forEach((control) => {
-          if (control instanceof HTMLInputElement || control instanceof HTMLButtonElement) {
-            control.disabled = !visible;
-          }
-        });
-    }
+    // Modules remain editable even when sidebar is collapsed,
+    // because the sidebar can still be opened via the drawer button.
 
   }
 
@@ -1338,7 +1331,9 @@ class SettingsPageBehavior extends Behavior {
 
   // 侧栏模块：将可拖拽顺序和启用状态序列化为隐藏字段。
   syncSidebarModules(form) {
-    const hiddenInput = form.querySelector('[name="sidebar_modules"]');
+    // Scope to THIS form — avoids cross-contamination when both
+    // bookmarks and highlights sidebar forms exist on the same page.
+    const hiddenInput = form.querySelector('input[name$="_sidebar_modules"]');
     const items = Array.from(
       form.querySelectorAll("[data-sidebar-modules-list] .settings-module-item"),
     ).map((item) => ({

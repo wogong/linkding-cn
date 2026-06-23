@@ -45,6 +45,7 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
                 {"key": "bundles", "enabled": True},
                 {"key": "domains", "enabled": True},
                 {"key": "tags", "enabled": True},
+                {"key": "colors", "enabled": True},
             ]
         return json.dumps(modules)
 
@@ -143,6 +144,7 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
             "settings-bookmarks",
             "settings-bookmark-toolbar",
             "settings-sharing",
+            "settings-highlights",
             "settings-user",
             "settings-import-export",
             "settings-about",
@@ -165,6 +167,7 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
                 "settings-bookmarks",
                 "settings-bookmark-toolbar",
                 "settings-sharing",
+                "settings-highlights",
                 "settings-user",
                 "settings-import-export",
                 "settings-about",
@@ -455,7 +458,7 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
         self.assertFalse(self.user.profile.enable_automatic_html_snapshots)
         self.assertTrue(self.user.profile.sticky_header_controls)
         self.assertTrue(self.user.profile.sticky_pagination)
-        self.assertTrue(self.user.profile.collapse_side_panel)
+        self.assertFalse(self.user.profile.show_sidebar)
         self.assertTrue(self.user.profile.enable_sharing)
         self.assertTrue(self.user.profile.enable_public_sharing)
         self.assertTrue(self.user.profile.default_mark_shared)
@@ -466,6 +469,7 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
                 {"key": "summary", "enabled": True},
                 {"key": "bundles", "enabled": False},
                 {"key": "tags", "enabled": True},
+                {"key": "colors", "enabled": True},
             ],
         )
 
@@ -488,7 +492,7 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
         self.assertEqual(response.status_code, 200)
 
         profile.refresh_from_db()
-        self.assertTrue(profile.collapse_side_panel)
+        self.assertFalse(profile.show_sidebar)
         self.assertTrue(profile.sticky_side_panel)
 
     def test_html_profile_quick_save_redirects_on_success(self):

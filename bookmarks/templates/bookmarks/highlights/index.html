@@ -1,17 +1,19 @@
 {% extends "bookmarks/layout.html" %}
 {% load i18n static shared pagination %}
 
+{% block title %}{% translate "Highlights - Linkding" %}{% endblock %}
+
 {% block content %}
-<div class="highlights-page crud-page" ld-highlights-bulk-edit>
+<div class="highlights-page crud-page grid columns-md-1 {% if not show_sidebar %}collapse-sidebar{% endif %}" ld-highlights-bulk-edit>
 
   {# ── Header ── #}
-  <main aria-labelledby="main-heading">
+  <main class="main col-2" aria-labelledby="main-heading">
     <div class="crud-header">
       <h1 id="main-heading">{% translate "Highlights & Annotations" %}</h1>
     </div>
 
     {# ── Toolbar: search + filter + bulk toggle + random ── #}
-    <div class="highlights-sticky-header" data-sticky-on="{{ request.user_profile.sticky_header_controls|yesno:'true,false' }}">
+    <div class="highlights-sticky-header" data-sticky-on="{{ sticky_header_controls|yesno:'true,false' }}">
     <div class="highlights-toolbar">
       {# Search input + filter dropdown (merged, like bookmark list) #}
       <div class="search-container">
@@ -136,7 +138,7 @@
       </div>
 
       {# Inline Sort by + Group by (visible when space allows) #}
-      <form class="highlights-inline-filters" method="get" action="{% url 'linkding:bookmarks.highlights' %}">
+      <form class="highlights-inline-filters ml-2" method="get" action="{% url 'linkding:bookmarks.highlights' %}">
         <input type="hidden" name="q" value="{{ search_q }}">
         <input type="hidden" name="colors" value="{{ colors_raw }}">
         <input type="hidden" name="note_filter" value="{{ note_filter }}">
@@ -157,7 +159,7 @@
             </select>
           </div>
         </div>
-        <div class="highlights-inline-group">
+        <div class="highlights-inline-group ml-2">
           <label class="form-label text-assistive" for="inline-group">{% translate "Group by" %}</label>
           <div class="input-group">
             <span class="input-group-addon text-secondary">
@@ -173,7 +175,7 @@
       </form>
 
       {# Bulk edit toggle #}
-      <button class="btn highlights-bulk-toggle" title="{% translate 'Bulk edit' %}">
+      <button class="btn highlights-bulk-toggle ml-2" title="{% translate 'Bulk edit' %}">
         <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
@@ -184,7 +186,7 @@
       </button>
 
       {# Random sort button #}
-      <a class="btn" title="{% translate 'Random sort' %}"
+      <a class="btn ml-2" title="{% translate 'Random sort' %}"
          href="{% url 'linkding:bookmarks.highlights' %}?{% if search_q %}q={{ search_q|urlencode }}&{% endif %}{% if colors_raw %}colors={{ colors_raw|urlencode }}&{% endif %}{% if note_filter %}note_filter={{ note_filter }}&{% endif %}sort=random{% if group_by != 'none' %}&group_by={{ group_by }}{% endif %}{% if date_filter_by %}&date_filter_by={{ date_filter_by }}{% endif %}{% if date_filter_start %}&date_filter_start={{ date_filter_start }}{% endif %}{% if date_filter_end %}&date_filter_end={{ date_filter_end }}{% endif %}{% if bookmark_id %}&bookmark_id={{ bookmark_id }}{% endif %}">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" stroke-width="2"
              stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -195,6 +197,7 @@
           <path d="M21 7h-3a5 5 0 0 0 -5 5a5 5 0 0 0 5 5h3"></path>
         </svg>
       </a>
+      {% sidebar_toggle %}
     </div>
 
     {# ── Search summary ── #}
@@ -379,11 +382,16 @@
 
     {# Pagination #}
     {% if annotations_page.object_list %}
-      <div class="highlights-pagination"{% if request.user_profile.sticky_pagination %} data-sticky-on="true"{% endif %}>
+      <div class="highlights-pagination"{% if sticky_pagination %} data-sticky-on="true"{% endif %}>
         {% pagination annotations_page %}
       </div>
     {% endif %}
   </main>
+
+  {# Sidebar #}
+  <div class="scrollbar sidebar col-1 hide-md{% if sticky_pagination %} paginate-sticky{% endif %}" data-sticky-on="{{ sticky_side_panel|yesno:'true,false' }}">
+    {% include 'bookmarks/highlights/sidebar/index.html' %}
+  </div>
 </div>
 
 {# ── Inline JS for interactions ── #}

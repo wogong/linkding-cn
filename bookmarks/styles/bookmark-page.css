@@ -10,7 +10,8 @@
 }
 
 /* Bookmark page grid */
-.bookmarks-page {
+.bookmarks-page,
+.highlights-page {
   &.grid {
     grid-gap: var(--unit-9);
   }

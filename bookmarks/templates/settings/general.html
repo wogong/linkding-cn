@@ -174,7 +174,7 @@
           <form action="{% url 'linkding:settings.save' %}" method="post" class="settings-card" data-settings-save-mode="instant">
             {% csrf_token %}
             <input type="hidden" name="form_id" value="profile_quick">
-            <input type="hidden" name="form_fields" value="items_per_page,highlights_per_page,sticky_header_controls,sticky_pagination">
+            <input type="hidden" name="form_fields" value="items_per_page,sticky_header_controls,sticky_pagination">
             <div class="settings-row">
               <div class="settings-copy">
                 <label for="{{ profile_quick_form.items_per_page.id_for_label }}" class="settings-label">{% translate "Bookmarks per page" %}</label>
@@ -185,18 +185,6 @@
               <div class="settings-control">
                 {% formfield profile_quick_form.items_per_page class="form-input settings-number-input settings-number-input-compact" min="10" %}
                 <div class="settings-field-errors" data-field-error-for="items_per_page"></div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-copy">
-                <label for="{{ profile_quick_form.highlights_per_page.id_for_label }}" class="settings-label">{% translate "Highlights per page" %}</label>
-                <div class="form-input-hint">
-                  {% translate "Choose how many highlights are shown on each page of the highlights page." %}
-                </div>
-              </div>
-              <div class="settings-control">
-                {% formfield profile_quick_form.highlights_per_page class="form-input settings-number-input settings-number-input-compact" min="1" %}
-                <div class="settings-field-errors" data-field-error-for="highlights_per_page"></div>
               </div>
             </div>
             <div class="settings-row">
@@ -317,7 +305,7 @@
                 <i class="form-icon"></i>
               </label>
             </div>
-            <div class="settings-row{% if request.user_profile.collapse_side_panel %} is-hidden{% endif %}" data-setting-row="sticky_side_panel"{% if request.user_profile.collapse_side_panel %} hidden aria-hidden="true"{% endif %}>
+            <div class="settings-row{% if not request.user_profile.show_sidebar %} is-hidden{% endif %}" data-setting-row="sticky_side_panel"{% if not request.user_profile.show_sidebar %} hidden aria-hidden="true"{% endif %}>
               <div class="settings-copy">
                 <label for="{{ profile_quick_form.sticky_side_panel.id_for_label }}" class="settings-label">{% translate "Sidebar follows" %}</label>
                 <div class="form-input-hint">
@@ -1245,6 +1233,143 @@ reddit.com/r/Music music reddit</pre>
           </form>
         </section>
 
+        <section id="settings-highlights" class="settings-section" aria-labelledby="settings-highlights-heading">
+          <div class="settings-section-heading">
+            <h2 id="settings-highlights-heading">{% translate "Highlights" %}</h2>
+          </div>
+
+          {# ── Per page + sticky ── #}
+          <form action="{% url 'linkding:settings.save' %}" method="post" class="settings-card settings-card-stack" data-settings-save-mode="instant">
+            {% csrf_token %}
+            <input type="hidden" name="form_id" value="profile_quick">
+            <input type="hidden" name="form_fields" value="highlights_per_page,highlights_sticky_header_controls,highlights_sticky_pagination,highlights_sticky_side_panel">
+            <div class="settings-row">
+              <div class="settings-copy">
+                <label for="{{ profile_quick_form.highlights_per_page.id_for_label }}" class="settings-label">{% translate "Highlights per page" %}</label>
+                <div class="form-input-hint">
+                  {% translate "Choose how many highlights are shown on each page." %}
+                </div>
+              </div>
+              <div class="settings-control">
+                {% formfield profile_quick_form.highlights_per_page class="form-input settings-number-input settings-number-input-compact" min="1" %}
+                <div class="settings-field-errors" data-field-error-for="highlights_per_page"></div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-copy">
+                <label for="{{ profile_quick_form.highlights_sticky_header_controls.id_for_label }}" class="settings-label">{% translate "Search bar follows" %}</label>
+                <div class="form-input-hint">
+                  {% translate "Keep the search and action controls pinned to the top while you scroll." %}
+                </div>
+              </div>
+              <label for="{{ profile_quick_form.highlights_sticky_header_controls.id_for_label }}" class="form-switch settings-switch">
+                {{ profile_quick_form.highlights_sticky_header_controls }}
+                <i class="form-icon"></i>
+              </label>
+            </div>
+            <div class="settings-row">
+              <div class="settings-copy">
+                <label for="{{ profile_quick_form.highlights_sticky_pagination.id_for_label }}" class="settings-label">{% translate "Paginator follows" %}</label>
+                <div class="form-input-hint">
+                  {% translate "Keep pagination controls pinned to the bottom while you scroll." %}
+                </div>
+              </div>
+              <label for="{{ profile_quick_form.highlights_sticky_pagination.id_for_label }}" class="form-switch settings-switch">
+                {{ profile_quick_form.highlights_sticky_pagination }}
+                <i class="form-icon"></i>
+              </label>
+            </div>
+            <div class="settings-row">
+              <div class="settings-copy">
+                <label for="{{ profile_quick_form.highlights_sticky_side_panel.id_for_label }}" class="settings-label">{% translate "Sidebar follows" %}</label>
+                <div class="form-input-hint">
+                  {% translate "Keep the sidebar visible while scrolling on wider screens." %}
+                </div>
+              </div>
+              <label for="{{ profile_quick_form.highlights_sticky_side_panel.id_for_label }}" class="form-switch settings-switch">
+                {{ profile_quick_form.highlights_sticky_side_panel }}
+                <i class="form-icon"></i>
+              </label>
+            </div>
+          </form>
+
+          {# ── Sidebar ── #}
+          <form action="{% url 'linkding:settings.save' %}" method="post" class="settings-card settings-card-stack" data-settings-save-mode="instant" data-sidebar-modules-form>
+            {% csrf_token %}
+            <input type="hidden" name="form_id" value="profile_quick">
+            <input type="hidden" name="form_fields" value="show_highlights_sidebar,highlights_sidebar_modules">
+            {{ profile_quick_form.highlights_sidebar_modules.as_hidden }}
+
+            <div class="settings-row">
+              <div class="settings-copy">
+                <label for="id_show_highlights_sidebar" class="settings-label">{% translate "Show sidebar" %}</label>
+                <div class="form-input-hint">
+                  {% translate "Turn this off to collapse the highlights sidebar by default." %}
+                </div>
+              </div>
+              <label for="id_show_highlights_sidebar" class="form-switch settings-switch">
+                <input type="checkbox" name="show_highlights_sidebar" id="id_show_highlights_sidebar"
+                       {% if request.user_profile.show_highlights_sidebar %}checked{% endif %}>
+                <i class="form-icon"></i>
+              </label>
+            </div>
+
+            <div class="settings-card-stack" data-setting-row="highlights_sidebar_modules">
+              <div class="settings-stack settings-modules-stack">
+                <div class="settings-stack-header">
+                  <div>
+                    <label class="settings-label">{% translate "Sidebar modules" %}</label>
+                    <div class="form-input-hint">
+                      {% translate "Drag to reorder modules and toggle whether they are shown in the highlights sidebar." %}
+                    </div>
+                  </div>
+                  <div class="settings-stack-actions">
+                    <button type="button"
+                            class="settings-panel-toggle"
+                            data-settings-panel-toggle
+                            data-settings-panel-expanded-label="{% translate 'Collapse' %}"
+                            data-settings-panel-collapsed-label="{% translate 'Expand' %}"
+                            aria-controls="settings-highlights-sidebar-modules-panel"
+                            aria-label="{% translate 'Expand' %}"
+                            aria-expanded="false">
+                      <span class="text-assistive" data-settings-panel-toggle-label>
+                        {% translate "Expand" %}
+                      </span>
+                      <svg viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M6 4l4 4l-4 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div id="settings-highlights-sidebar-modules-panel" data-settings-panel-body hidden>
+                  <ul class="settings-modules-list" data-sidebar-modules-list>
+                    {% for item in profile_quick_form.highlights_sidebar_module_items %}
+                      <li class="settings-module-item" data-module-key="{{ item.key }}">
+                        <button type="button" class="settings-module-handle" aria-label="{% translate 'Drag to reorder' %}">
+                          <svg viewBox="0 0 16 16" aria-hidden="true">
+                            <circle cx="5" cy="3" r="1.2" fill="currentColor"></circle>
+                            <circle cx="11" cy="3" r="1.2" fill="currentColor"></circle>
+                            <circle cx="5" cy="8" r="1.2" fill="currentColor"></circle>
+                            <circle cx="11" cy="8" r="1.2" fill="currentColor"></circle>
+                            <circle cx="5" cy="13" r="1.2" fill="currentColor"></circle>
+                            <circle cx="11" cy="13" r="1.2" fill="currentColor"></circle>
+                          </svg>
+                        </button>
+                        <div class="settings-module-name">{{ item.label }}</div>
+                        <label class="form-switch settings-switch">
+                          <input type="checkbox" data-module-enabled {% if item.enabled %}checked{% endif %}>
+                          <i class="form-icon"></i>
+                        </label>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                  <div class="settings-field-errors" data-field-error-for="highlights_sidebar_modules"></div>
+                </div>
+              </div>
+            </div>
+          </form>
+        </section>
+
         <section id="settings-user" class="settings-section" aria-labelledby="settings-user-heading">
           <div class="settings-section-heading">
             <h2 id="settings-user-heading">{% translate "User & Visitors" %}</h2>
@@ -1421,6 +1546,7 @@ reddit.com/r/Music music reddit</pre>
         <button type="button" class="settings-directory-link" data-settings-section-target="settings-bookmarks" aria-controls="settings-bookmarks">{% translate "Bookmarks" %}</button>
         <button type="button" class="settings-directory-link" data-settings-section-target="settings-bookmark-toolbar" aria-controls="settings-bookmark-toolbar">{% translate "Bookmark toolbar" %}</button>
         <button type="button" class="settings-directory-link" data-settings-section-target="settings-sharing" aria-controls="settings-sharing">{% translate "Sharing" %}</button>
+        <button type="button" class="settings-directory-link" data-settings-section-target="settings-highlights" aria-controls="settings-highlights">{% translate "Highlights" %}</button>
         <button type="button" class="settings-directory-link" data-settings-section-target="settings-user" aria-controls="settings-user">{% translate "User & Visitors" %}</button>
         <button type="button" class="settings-directory-link" data-settings-section-target="settings-import-export" aria-controls="settings-import-export">{% translate "Import & Export" %}</button>
         <button type="button" class="settings-directory-link" data-settings-section-target="settings-about" aria-controls="settings-about">{% translate "About" %}</button>

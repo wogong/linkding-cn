@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta
 from django.conf import settings
 from django.core.paginator import Paginator
 from django.db import models
+from django.db.models import Count
 from django.db.models.functions import TruncDate
 from django.http import Http404, QueryDict
 from django.urls import reverse
@@ -1379,7 +1380,7 @@ class BookmarkListContext:
         self.show_favicons = user_profile.enable_favicons
         self.show_preview_images = user_profile.enable_preview_images
         self.show_notes = user_profile.permanent_notes
-        self.collapse_side_panel = user_profile.collapse_side_panel
+        self.show_sidebar = user_profile.show_sidebar
         self.is_preview = False
         self.snapshot_feature_enabled = settings.LD_ENABLE_SNAPSHOTS
 
@@ -1832,22 +1833,27 @@ class DomainsContext:
     request_context = RequestContext
     TOP_ROOT_LIMIT = 10
 
-    def __init__(self, request: HttpRequest, search: BookmarkSearch) -> None:
-        request_context = self.request_context(request)
-        config = utils.parse_domain_roots(request.user_profile.custom_domain_root)
+    def _init_toggle_state(self, request, view_mode_action="toggle_domain_view_mode",
+                           compact_mode_action="toggle_domain_compact_mode"):
+        """Initialize view mode / compact mode state and toggle labels."""
         self.view_mode = self._parse_view_mode(request)
         self.is_icon_mode = self.view_mode == "icon"
         self.is_compact_mode = self._parse_compact_mode(request)
         self.toggle_view_mode_label = (
             _("Full mode") if self.is_icon_mode else _("Icon mode")
         )
-        self.toggle_view_mode_action = "toggle_domain_view_mode"
+        self.toggle_view_mode_action = view_mode_action
         self.toggle_view_mode_value = "full" if self.is_icon_mode else "icon"
         self.toggle_compact_mode_label = (
             _("All domains") if self.is_compact_mode else _("Only important domains")
         )
-        self.toggle_compact_mode_action = "toggle_domain_compact_mode"
+        self.toggle_compact_mode_action = compact_mode_action
         self.toggle_compact_mode_value = "0" if self.is_compact_mode else "1"
+
+    def __init__(self, request: HttpRequest, search: BookmarkSearch) -> None:
+        request_context = self.request_context(request)
+        config = utils.parse_domain_roots(request.user_profile.custom_domain_root)
+        self._init_toggle_state(request)
 
         parsed_query = queries.parse_query_string(search.q)
         selected_domain_terms = [
@@ -2238,3 +2244,167 @@ class BundlesContext:
             (bundle for bundle in self.bundles if bundle.id == selected_bundle_id),
             None,
         )
+
+
+# ── Highlight-specific sidebar contexts ──────────────────────────────
+
+
+class HighlightRequestContext(RequestContext):
+    """RequestContext for the highlights page — uses highlights URL."""
+
+    index_view = "linkding:bookmarks.highlights"
+    action_view = "linkding:bookmarks.highlights"
+
+    def __init__(self, request: HttpRequest):
+        super().__init__(request)
+        # Remove non-highlight params that might linger from bookmarks page
+        for key in ("details", "bundle", "shared", "unread", "tagged"):
+            self.query_params.pop(key, None)
+
+
+def _get_filtered_annotation_qs(request, search, with_related=False):
+    """Build a filtered annotation queryset from HighlightSearch."""
+    return queries.query_annotations(
+        user=request.user,
+        search_q=search.q,
+        colors=search.colors_list or None,
+        note_filter=search.note_filter,
+        sort="-date_created",
+        group_by="none",
+        date_filter_by=search.date_filter_by,
+        date_filter_start=search.date_filter_start,
+        date_filter_end=search.date_filter_end,
+        bookmark_id=search.bookmark_id_int,
+        with_related=with_related,
+    )
+
+
+def _replace_node_counts_with_highlights(nodes, hostname_hl_counts):
+    """Recursively replace DomainTreeNode.total with highlight counts."""
+    for node in nodes:
+        node.total = hostname_hl_counts.get(node.hostname, 0)
+        _replace_node_counts_with_highlights(
+            node.children.values(), hostname_hl_counts
+        )
+
+
+class HighlightDomainsContext(DomainsContext):
+    """DomainsContext for highlights: filtered by current search, shows highlight counts."""
+
+    @staticmethod
+    def _parse_view_mode(request: HttpRequest) -> str:
+        return request.user_profile.highlights_domain_view_mode
+
+    @staticmethod
+    def _parse_compact_mode(request: HttpRequest) -> bool:
+        return request.user_profile.highlights_domain_compact_mode
+
+    def __init__(self, request: HttpRequest, search) -> None:
+        config = utils.parse_domain_roots(request.user_profile.custom_domain_root)
+        self._init_toggle_state(
+            request,
+            view_mode_action="hl_toggle_domain_view_mode",
+            compact_mode_action="hl_toggle_domain_compact_mode",
+        )
+
+        # Query filtered annotations to get bookmarks and highlight counts
+        # with_related=True needed for bookmark__favicon_file
+        qs = _get_filtered_annotation_qs(request, search, with_related=True)
+        bm_hl_counts = (
+            qs.values("bookmark__url", "bookmark__favicon_file")
+            .annotate(hl_count=Count("id"))
+        )
+
+        # Build hostname → highlight count mapping
+        hostname_hl_counts = {}
+        for row in bm_hl_counts:
+            hostname = utils.extract_hostname(row["bookmark__url"])
+            if hostname:
+                hostname_hl_counts[hostname] = hostname_hl_counts.get(hostname, 0) + row["hl_count"]
+
+        # Build domain tree from filtered bookmarks
+        bookmarks = [
+            {"url": row["bookmark__url"], "favicon_file": row["bookmark__favicon_file"]}
+            for row in bm_hl_counts
+        ]
+        bookmarks.sort(key=lambda b: b["url"])
+        root_nodes = self._build_domain_tree(bookmarks, config)
+
+        # Replace bookmark counts with highlight counts
+        _replace_node_counts_with_highlights(root_nodes, hostname_hl_counts)
+
+        if self.is_compact_mode:
+            root_nodes = self._compact_root_nodes(root_nodes)
+
+        request_context = HighlightRequestContext(request)
+
+        # Parse selected domains from search query for DomainItem.is_selected
+        parsed_query = queries.parse_query_string(search.q or "")
+        selected_domain_terms = [
+            utils.canonicalize_domain_filter_value(value)
+            for value in parsed_query["field_terms"]["domain"]
+            if value
+        ]
+
+        self.roots = self._build_items(root_nodes, request_context, search.q or "", selected_domain_terms)
+        self.items = self._flatten_items(self.roots)
+        self.is_empty = len(self.items) == 0
+
+
+class HighlightTagCloudContext:
+    """TagCloudContext for highlights: filtered by current search, shows highlight counts."""
+
+    def __init__(self, request: HttpRequest, search) -> None:
+        user_profile = request.user_profile
+        self.request = request
+        self.search = search
+        self.tag_grouping = user_profile.highlights_tag_grouping
+
+        # Query filtered annotations grouped by tag
+        qs = _get_filtered_annotation_qs(request, search)
+        tag_hl_counts = (
+            qs.filter(bookmark__tags__isnull=False)
+            .values("bookmark__tags__name")
+            .annotate(hl_count=Count("id"))
+            .order_by()
+        )
+        tag_count_map = {row["bookmark__tags__name"].lower(): row["hl_count"] for row in tag_hl_counts}
+
+        # Build tag objects from the tag names
+        tag_names = list(tag_count_map.keys())
+        tags = list(Tag.objects.filter(name__in=tag_names, bookmark__owner=request.user).distinct())
+        unique_tags = utils.unique(tags, key=lambda x: str.lower(x.name))
+
+        request_context = HighlightRequestContext(request)
+
+        # Determine selected tags (from search query) — show at top, exclude from cloud
+        selected_tag_names = extract_tag_names_from_query(search.q or "", user_profile)
+        selected_tag_names_lower = [name.lower() for name in selected_tag_names]
+        all_tags_for_selected = list(
+            Tag.objects.filter(name__in=selected_tag_names_lower, bookmark__owner=request.user).distinct()
+        )
+        unique_selected_tags = utils.unique(all_tags_for_selected, key=lambda x: str.lower(x.name))
+        self.selected_tags = [RemoveTagItem(request_context, tag) for tag in unique_selected_tags]
+        self.has_selected_tags = len(self.selected_tags) > 0
+
+        # Build groups from UNSELECTED tags only
+        unselected_tags = set(unique_tags).symmetric_difference(unique_selected_tags)
+        groups = TagGroup.create_tag_groups(request_context, self.tag_grouping, unselected_tags)
+
+        # Post-process: set highlight counts on tag items
+        for group in groups:
+            for tag_item in group.tags:
+                tag_item.count = tag_count_map.get(tag_item.name.lower(), 0)
+
+        self.tags = unique_tags
+        self.groups = groups
+
+        if self.tag_grouping == UserProfile.TAG_GROUPING_ALPHABETICAL:
+            self.toggle_tag_grouping_value = UserProfile.TAG_GROUPING_DISABLED
+            self.toggle_tag_grouping_label = _("Disable grouping")
+        else:
+            self.toggle_tag_grouping_value = UserProfile.TAG_GROUPING_ALPHABETICAL
+            self.toggle_tag_grouping_label = _("Group alphabetically")
+
+    def get_selected_tags(self):
+        return []

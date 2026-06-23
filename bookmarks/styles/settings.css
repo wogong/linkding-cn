@@ -111,6 +111,10 @@
     order: 50;
   }
 
+  .settings-content > #settings-highlights {
+    order: 55;
+  }
+
   .settings-content > #settings-user {
     order: 60;
   }

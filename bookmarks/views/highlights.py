@@ -11,8 +11,13 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from bookmarks import queries
-from bookmarks.models import Annotation
+from bookmarks.models import Annotation, UserProfile
 from bookmarks.type_defs import HttpRequest
+from bookmarks.views import turbo
+from bookmarks.views.contexts import (
+    HighlightDomainsContext,
+    HighlightTagCloudContext,
+)
 
 PAGE_SIZE = 50  # fallback, actual value from user_profile.highlights_per_page
 
@@ -53,6 +58,15 @@ COLOR_CSS_SOLID = {
     "primary": "var(--primary-color)",
 }
 COLOR_LABELS = dict(Annotation.COLOR_CHOICES)
+# Sort tiebreak order for colors with equal count
+COLOR_PRIORITY = {"yellow": 0, "green": 1, "blue": 2, "pink": 3, "primary": 4}
+
+# Sidebar module templates for highlights page
+HIGHLIGHTS_SIDEBAR_MODULE_TEMPLATES = {
+    UserProfile.SIDEBAR_MODULE_COLORS: "bookmarks/highlights/sidebar/modules/colors/index.html",
+    UserProfile.SIDEBAR_MODULE_DOMAINS: "bookmarks/highlights/sidebar/modules/domains/index.html",
+    UserProfile.SIDEBAR_MODULE_TAGS: "bookmarks/highlights/sidebar/modules/tags/index.html",
+}
 
 
 class HighlightSearch:
@@ -279,9 +293,41 @@ def _group_annotations(annotations, group_by):
     return [(g["label"], g.get("color_key"), g.get("bookmark_id"), g["annotations"]) for g in groups.values()]
 
 
+_HIGHLIGHTS_MODULE_WRAPPER_IDS = {
+    UserProfile.SIDEBAR_MODULE_COLORS: "hl-colors-container",
+    UserProfile.SIDEBAR_MODULE_DOMAINS: "hl-domains-container",
+    UserProfile.SIDEBAR_MODULE_TAGS: "hl-tags-container",
+}
+
+
+def _build_highlights_sidebar_modules(request: HttpRequest, context: dict) -> list[dict]:
+    """Build sidebar modules for the highlights page using independent settings."""
+    available = {
+        UserProfile.SIDEBAR_MODULE_COLORS: True,
+        UserProfile.SIDEBAR_MODULE_DOMAINS: context.get("domains") is not None,
+        UserProfile.SIDEBAR_MODULE_TAGS: context.get("tag_cloud") is not None,
+    }
+
+    modules = []
+    for item in request.user_profile.get_highlights_sidebar_modules():
+        key = item["key"]
+        if not item["enabled"] or not available.get(key):
+            continue
+        modules.append({
+            "key": key,
+            "template_name": HIGHLIGHTS_SIDEBAR_MODULE_TEMPLATES[key],
+            "wrapper_id": _HIGHLIGHTS_MODULE_WRAPPER_IDS.get(key),
+        })
+
+    return modules
+
+
 @login_required
 def index(request: HttpRequest):
     if request.method == "POST":
+        # Preference toggle actions (sidebar module settings)
+        if "pref_action" in request.POST:
+            return _handle_preference_toggle(request)
         # Filter form actions (save / apply)
         if "save" in request.POST:
             return _handle_save(request)
@@ -322,17 +368,40 @@ def _render_list(request, search: HighlightSearch, prefs=None, page_size=PAGE_SI
         total_bookmarks=DbCount("bookmark", distinct=True),
     )
 
-    filtered_stats = annotations.values("color").annotate(count=DbCount("id"))
-    filtered_color_map = {item["color"]: item["count"] for item in filtered_stats}
+    # Color stats: current list counts WITHOUT color filter
+    # with_related=False avoids JOINs that break values().annotate() grouping
+    color_stats_qs = queries.query_annotations(
+        user=request.user,
+        search_q=search.q,
+        note_filter=search.note_filter,
+        bookmark_id=search.bookmark_id_int,
+        date_filter_by=search.date_filter_by,
+        date_filter_start=search.date_filter_start,
+        date_filter_end=search.date_filter_end,
+        # colors intentionally omitted
+        with_related=False,
+    )
+    color_count_map = {
+        item["color"]: item["count"]
+        for item in color_stats_qs.values("color").annotate(count=DbCount("id"))
+    }
+    color_total = sum(color_count_map.values())
+
+    # Sort by count descending; tiebreak: yellow, green, blue, pink, primary
     color_stats = []
     for color_key, color_label in Annotation.COLOR_CHOICES:
         color_stats.append({
             "key": color_key,
             "label": color_label,
-            "count": filtered_color_map.get(color_key, 0),
+            "count": color_count_map.get(color_key, 0),
             "css_color": COLOR_CSS_SOLID.get(color_key, "var(--primary-color)"),
             "selected": color_key in search.colors_list,
         })
+    color_stats.sort(key=lambda s: (-s["count"], COLOR_PRIORITY.get(s["key"], 99)))
+
+    # Build sidebar contexts (filtered by current search)
+    domains = HighlightDomainsContext(request, search)
+    tag_cloud = HighlightTagCloudContext(request, search)
 
     context = {
         "page_title": _("Highlights & Annotations - Linkding"),
@@ -350,6 +419,7 @@ def _render_list(request, search: HighlightSearch, prefs=None, page_size=PAGE_SI
         "bookmark_id": search.bookmark_id,
         "summary": summary,
         "color_stats": color_stats,
+        "color_total": color_total,
         "sort_choices": SORT_CHOICES,
         "group_choices": GROUP_CHOICES,
         "note_filter_choices": NOTE_FILTER_CHOICES,
@@ -359,7 +429,15 @@ def _render_list(request, search: HighlightSearch, prefs=None, page_size=PAGE_SI
         "color_labels": COLOR_LABELS,
         "query_string": search.query_string,
         "has_modified_filters": search.has_modifications_vs_prefs(prefs),
+        # Sidebar
+        "domains": domains,
+        "tag_cloud": tag_cloud,
+        "show_sidebar": request.user_profile.show_highlights_sidebar,
+        "sticky_header_controls": request.user_profile.highlights_sticky_header_controls,
+        "sticky_side_panel": request.user_profile.highlights_sticky_side_panel,
+        "sticky_pagination": request.user_profile.highlights_sticky_pagination,
     }
+    context["sidebar_modules"] = _build_highlights_sidebar_modules(request, context)
     return render(request, "bookmarks/highlights/index.html", context)
 
 
@@ -369,6 +447,54 @@ def _handle_save(request):
     request.user_profile.highlights_search_preferences = search.preferences_dict
     request.user_profile.save()
     return HttpResponseRedirect(reverse("linkding:bookmarks.highlights"))
+
+
+def _handle_preference_toggle(request: HttpRequest):
+    """Handle sidebar preference toggle actions (highlight-specific).
+
+    Returns a Turbo Stream response that updates only the affected sidebar module,
+    avoiding a full page reload (and drawer flicker).
+    """
+    action = request.POST.get("pref_action", "")
+    profile = request.user_profile
+
+    field = None
+    if action == "hl_toggle_domain_view_mode":
+        profile.highlights_domain_view_mode = request.POST["value"]
+        field = "highlights_domain_view_mode"
+    elif action == "hl_toggle_domain_compact_mode":
+        profile.highlights_domain_compact_mode = request.POST["value"] == "1"
+        field = "highlights_domain_compact_mode"
+    elif action == "hl_toggle_tag_grouping":
+        profile.highlights_tag_grouping = request.POST["value"]
+        field = "highlights_tag_grouping"
+    else:
+        return HttpResponseRedirect(reverse("linkding:bookmarks.highlights"))
+
+    profile.save(update_fields=[field])
+
+    # Rebuild search from current GET params (preserves filters)
+    search = HighlightSearch.from_request(
+        request, preferences=profile.highlights_search_preferences or {}
+    )
+
+    # Return Turbo Stream updating only the affected module
+    if action in ("hl_toggle_domain_view_mode", "hl_toggle_domain_compact_mode"):
+        domains = HighlightDomainsContext(request, search)
+        return turbo.update(
+            request,
+            "hl-domains-container",
+            HIGHLIGHTS_SIDEBAR_MODULE_TEMPLATES[UserProfile.SIDEBAR_MODULE_DOMAINS],
+            {"domains": domains},
+        )
+    elif action == "hl_toggle_tag_grouping":
+        tag_cloud = HighlightTagCloudContext(request, search)
+        return turbo.update(
+            request,
+            "hl-tags-container",
+            HIGHLIGHTS_SIDEBAR_MODULE_TEMPLATES[UserProfile.SIDEBAR_MODULE_TAGS],
+            {"tag_cloud": tag_cloud},
+        )
 
 
 def _handle_apply(request):

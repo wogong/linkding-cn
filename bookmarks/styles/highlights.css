@@ -8,7 +8,6 @@
 .highlights-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--unit-2);
   margin-bottom: var(--unit-1);
   flex-wrap: wrap;
 
@@ -564,7 +563,6 @@
 .highlights-inline-filters {
   display: flex;
   align-items: center;
-  gap: var(--unit-1);
 }
 
 /* Hide Group by first when space tightens */
@@ -597,3 +595,68 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Sidebar: Colors module ── */
+
+.sidebar-colors-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--unit-1) 0;
+  padding: var(--unit-1) 0;
+}
+
+.sidebar-color-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--unit-1) 0;
+  cursor: pointer;
+  border-radius: var(--border-radius);
+  transition: background 0.12s;
+
+  &:hover {
+    background: var(--body-color-contrast);
+  }
+}
+
+.sidebar-color-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* White checkmark for active colors */
+.sidebar-color-cell.is-active .sidebar-color-circle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 5px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-right: none;
+  transform: translate(-50%, -65%) rotate(-45deg);
+  box-sizing: border-box;
+  filter: drop-shadow(0 0 1px rgba(0,0,0,0.5));
+}
+
+/* "All" dot: conic-gradient */
+.sidebar-color-circle.all-colors {
+  background: conic-gradient(
+    rgba(255,235,0,0.85) 0% 20%,
+    rgba(0,200,83,0.85) 20% 40%,
+    rgba(66,165,245,0.85) 40% 60%,
+    rgba(236,64,122,0.85) 60% 80%,
+    var(--primary-color) 80% 100%
+  );
+}
+
+.sidebar-color-count {
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+}
+

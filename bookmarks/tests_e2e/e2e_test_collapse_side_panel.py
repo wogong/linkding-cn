@@ -35,7 +35,7 @@ class CollapseSidePanelE2ETestCase(LinkdingE2ETestCase):
 
     def test_side_panel_should_be_hidden_when_collapsed(self):
         user = self.get_or_create_test_user()
-        user.profile.collapse_side_panel = True
+        user.profile.show_sidebar = False
         user.profile.save()
 
         with sync_playwright() as p:

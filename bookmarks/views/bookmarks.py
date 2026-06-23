@@ -388,6 +388,11 @@ def trashed(request: HttpRequest):
 
 def render_bookmarks_view(request: HttpRequest, template_name, context):
     context["sidebar_modules"] = _build_sidebar_modules(request, context)
+    profile = request.user_profile
+    context.setdefault("show_sidebar", profile.show_sidebar)
+    context.setdefault("sticky_side_panel", profile.sticky_side_panel)
+    context.setdefault("sticky_pagination", profile.sticky_pagination)
+    context.setdefault("sticky_header_controls", profile.sticky_header_controls)
 
     if context["details"]:
         context["page_title"] = _("Bookmark details - Linkding")

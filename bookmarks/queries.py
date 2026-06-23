@@ -699,11 +699,17 @@ def query_annotations(
     date_filter_start: str = "",
     date_filter_end: str = "",
     bookmark_id: int | None = None,
+    with_related: bool = True,
 ) -> QuerySet:
-    """查询用户的所有高亮 & 批注，支持搜索、颜色筛选、类型筛选、排序、聚合。"""
-    qs = Annotation.objects.filter(bookmark__owner=user).select_related(
-        "bookmark", "article_asset"
-    )
+    """查询用户的所有高亮 & 批注，支持搜索、颜色筛选、类型筛选、排序、聚合。
+
+    Args:
+        with_related: 是否 select_related(bookmark, article_asset)。
+                      聚合查询(values+annotate)时应设为 False 以避免 JOIN 干扰分组。
+    """
+    qs = Annotation.objects.filter(bookmark__owner=user)
+    if with_related:
+        qs = qs.select_related("bookmark", "article_asset")
 
     # 按书签 ID 过滤
     if bookmark_id:

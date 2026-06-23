@@ -892,11 +892,13 @@ class UserProfile(models.Model):
     SIDEBAR_MODULE_BUNDLES = "bundles"
     SIDEBAR_MODULE_DOMAINS = "domains"
     SIDEBAR_MODULE_TAGS = "tags"
+    SIDEBAR_MODULE_COLORS = "colors"
     SIDEBAR_MODULE_LABELS = {
         SIDEBAR_MODULE_SUMMARY: _("User summary"),
         SIDEBAR_MODULE_BUNDLES: _("Filters"),
         SIDEBAR_MODULE_DOMAINS: _("Domains"),
         SIDEBAR_MODULE_TAGS: _("Tags"),
+        SIDEBAR_MODULE_COLORS: _("Colors"),
     }
 
     TOOLBAR_MODULE_DATE = "date"
@@ -1082,6 +1084,7 @@ class UserProfile(models.Model):
     trash_search_preferences = models.JSONField(default=dict, null=False)
     highlights_search_preferences = models.JSONField(default=dict, null=False)
     sidebar_modules = models.JSONField(default=list, blank=True, null=False)
+    highlights_sidebar_modules = models.JSONField(default=list, blank=True, null=False)
     enable_automatic_html_snapshots = models.BooleanField(default=True, null=False)
     default_mark_unread = models.BooleanField(default=True, null=False)
     default_mark_shared = models.BooleanField(default=False, null=False)
@@ -1094,7 +1097,7 @@ class UserProfile(models.Model):
     sticky_header_controls = models.BooleanField(default=True, null=False)
     sticky_pagination = models.BooleanField(default=True, null=False)
     sticky_side_panel = models.BooleanField(default=True, null=False)
-    collapse_side_panel = models.BooleanField(default=False, null=False)
+    show_sidebar = models.BooleanField(default=True, null=False)
     hide_bundles = models.BooleanField(default=False, null=False)
     reader_settings = models.JSONField(default=dict, null=False)
     bookmark_quick_tags = models.JSONField(default=list, blank=True, null=False)
@@ -1130,6 +1133,23 @@ class UserProfile(models.Model):
         default=DOMAIN_VIEW_ICON,
     )
     domain_compact_mode = models.BooleanField(default=True, null=False)
+    highlights_domain_view_mode = models.CharField(
+        max_length=20,
+        choices=DOMAIN_VIEW_CHOICES,
+        blank=False,
+        default=DOMAIN_VIEW_ICON,
+    )
+    highlights_domain_compact_mode = models.BooleanField(default=True, null=False)
+    highlights_tag_grouping = models.CharField(
+        max_length=12,
+        choices=TAG_GROUPING_CHOICES,
+        blank=False,
+        default=TAG_GROUPING_ALPHABETICAL,
+    )
+    show_highlights_sidebar = models.BooleanField(default=True, null=False)
+    highlights_sticky_header_controls = models.BooleanField(default=True, null=False)
+    highlights_sticky_pagination = models.BooleanField(default=True, null=False)
+    highlights_sticky_side_panel = models.BooleanField(default=True, null=False)
 
     @classmethod
     def normalize_quick_tag(cls, qt: dict) -> dict:
@@ -1187,6 +1207,7 @@ class UserProfile(models.Model):
             {"key": cls.SIDEBAR_MODULE_BUNDLES, "enabled": bundles_enabled},
             {"key": cls.SIDEBAR_MODULE_DOMAINS, "enabled": True},
             {"key": cls.SIDEBAR_MODULE_TAGS, "enabled": True},
+            {"key": cls.SIDEBAR_MODULE_COLORS, "enabled": True},
         ]
 
     @classmethod
@@ -1236,6 +1257,53 @@ class UserProfile(models.Model):
                 "label": self.SIDEBAR_MODULE_LABELS[item["key"]],
             }
             for item in self.get_sidebar_modules()
+        ]
+
+    @classmethod
+    def default_highlights_sidebar_modules(cls) -> list[dict]:
+        return [
+            {"key": cls.SIDEBAR_MODULE_COLORS, "enabled": True},
+            {"key": cls.SIDEBAR_MODULE_DOMAINS, "enabled": True},
+            {"key": cls.SIDEBAR_MODULE_TAGS, "enabled": True},
+        ]
+
+    @staticmethod
+    def _normalize_module_list(raw: list | None, defaults: dict[str, bool]) -> list[dict]:
+        """Normalize a module list: validate keys, fill missing defaults, deduplicate."""
+        if not isinstance(raw, list) or len(raw) == 0:
+            return [{"key": k, "enabled": v} for k, v in defaults.items()]
+
+        normalized = []
+        seen = set()
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("key")
+            if key not in defaults or key in seen:
+                continue
+            normalized.append({"key": key, "enabled": bool(item.get("enabled", defaults[key]))})
+            seen.add(key)
+
+        for key, enabled in defaults.items():
+            if key not in seen:
+                normalized.append({"key": key, "enabled": enabled})
+
+        return normalized
+
+    def get_highlights_sidebar_modules(self) -> list[dict]:
+        defaults = {
+            item["key"]: item["enabled"]
+            for item in self.default_highlights_sidebar_modules()
+        }
+        return self._normalize_module_list(self.highlights_sidebar_modules, defaults)
+
+    def get_highlights_sidebar_module_items(self) -> list[dict]:
+        return [
+            {
+                **item,
+                "label": self.SIDEBAR_MODULE_LABELS[item["key"]],
+            }
+            for item in self.get_highlights_sidebar_modules()
         ]
 
     @classmethod
@@ -1476,7 +1544,7 @@ class UserProfileForm(forms.ModelForm):
             "sticky_header_controls",
             "sticky_pagination",
             "sticky_side_panel",
-            "collapse_side_panel",
+            "show_sidebar",
             "hide_bundles",
         ]
 
@@ -1492,9 +1560,11 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
     ]
 
     show_sidebar = forms.BooleanField(required=False)
+    show_highlights_sidebar = forms.BooleanField(required=False)
     enable_web_archive = forms.BooleanField(required=False)
     sharing_mode = forms.ChoiceField(choices=SHARING_MODE_CHOICES)
     sidebar_modules = forms.CharField()
+    highlights_sidebar_modules = forms.CharField()
     bookmark_actions = forms.CharField()
     bookmark_statuses = forms.CharField()
     bookmark_quick_edits = forms.CharField()
@@ -1526,6 +1596,9 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             "enable_automatic_html_snapshots",
             "items_per_page",
             "highlights_per_page",
+            "highlights_sticky_header_controls",
+            "highlights_sticky_pagination",
+            "highlights_sticky_side_panel",
             "sticky_header_controls",
             "sticky_pagination",
             "sticky_side_panel",
@@ -1534,7 +1607,8 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
-            self.fields["show_sidebar"].initial = not self.instance.collapse_side_panel
+            self.fields["show_sidebar"].initial = self.instance.show_sidebar
+            self.fields["show_highlights_sidebar"].initial = self.instance.show_highlights_sidebar
             self.fields["enable_web_archive"].initial = (
                 self.instance.web_archive_integration
                 == self.instance.WEB_ARCHIVE_INTEGRATION_ENABLED
@@ -1547,6 +1621,9 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
                 self.fields["sharing_mode"].initial = self.SHARING_MODE_DISABLED
             self.fields["sidebar_modules"].initial = json.dumps(
                 self.instance.get_sidebar_modules()
+            )
+            self.fields["highlights_sidebar_modules"].initial = json.dumps(
+                self.instance.get_highlights_sidebar_modules()
             )
             self.fields["bookmark_actions"].initial = json.dumps(
                 self.instance.get_bookmark_actions()
@@ -1586,6 +1663,22 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
 
         return self.instance.get_sidebar_module_items()
 
+    @property
+    def highlights_sidebar_module_items(self) -> list[dict]:
+        if self.is_bound:
+            modules = self.data.get("highlights_sidebar_modules")
+            try:
+                parsed = json.loads(modules) if modules else []
+            except (TypeError, ValueError):
+                parsed = []
+            defaults = {item["key"]: item["enabled"] for item in UserProfile.default_highlights_sidebar_modules()}
+            return [
+                {**item, "label": UserProfile.SIDEBAR_MODULE_LABELS[item["key"]]}
+                for item in UserProfile._normalize_module_list(parsed, defaults)
+            ]
+
+        return self.instance.get_highlights_sidebar_module_items()
+
     def clean_sidebar_modules(self):
         raw_value = self.cleaned_data["sidebar_modules"]
         try:
@@ -1597,6 +1690,15 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             parsed_value,
             bundles_enabled=not self.instance.hide_bundles,
         )
+
+    def clean_highlights_sidebar_modules(self):
+        raw_value = self.cleaned_data["highlights_sidebar_modules"]
+        try:
+            parsed_value = json.loads(raw_value)
+        except (TypeError, ValueError):
+            raise forms.ValidationError(_("Invalid sidebar configuration.")) from None
+        defaults = {item["key"]: item["enabled"] for item in UserProfile.default_highlights_sidebar_modules()}
+        return UserProfile._normalize_module_list(parsed_value, defaults)
 
     @property
     def bookmark_toolbar_module_items(self) -> list[dict]:
@@ -1742,7 +1844,8 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
 
     def save(self, commit=True):
         profile = super().save(commit=False)
-        profile.collapse_side_panel = not self.cleaned_data["show_sidebar"]
+        profile.show_sidebar = self.cleaned_data["show_sidebar"]
+        profile.show_highlights_sidebar = self.cleaned_data.get("show_highlights_sidebar", True)
 
         profile.web_archive_integration = (
             self.instance.WEB_ARCHIVE_INTEGRATION_ENABLED
@@ -1757,6 +1860,7 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             profile.default_mark_shared = False
 
         profile.sidebar_modules = self.cleaned_data["sidebar_modules"]
+        profile.highlights_sidebar_modules = self.cleaned_data.get("highlights_sidebar_modules", [])
         profile.bookmark_toolbar_modules = self.cleaned_data["bookmark_toolbar_modules"]
 
         # Sync bookmark actions to JSON field and legacy boolean fields

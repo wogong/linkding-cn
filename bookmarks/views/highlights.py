@@ -436,6 +436,10 @@ def _render_list(request, search: HighlightSearch, prefs=None, page_size=PAGE_SI
         "sticky_header_controls": request.user_profile.highlights_sticky_header_controls,
         "sticky_side_panel": request.user_profile.highlights_sticky_side_panel,
         "sticky_pagination": request.user_profile.highlights_sticky_pagination,
+        "highlight_copy_format": request.user_profile.highlight_copy_format,
+        "hl_copy_item_format": (request.user_profile.highlight_copy_format or {}).get("item_format", ""),
+        "hl_copy_separator": (request.user_profile.highlight_copy_format or {}).get("separator", ""),
+        "highlight_copy_default_action": request.user_profile.highlight_copy_default_action,
     }
     context["sidebar_modules"] = _build_highlights_sidebar_modules(request, context)
     return render(request, "bookmarks/highlights/index.html", context)

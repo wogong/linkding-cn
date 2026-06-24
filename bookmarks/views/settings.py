@@ -34,6 +34,7 @@ from bookmarks.models import (
     UserProfileAutoTaggingRulesForm,
     UserProfileCustomCssForm,
     UserProfileCustomDomainRootForm,
+    UserProfileHighlightCopyFormatForm,
     UserProfileQuickSettingsForm,
 )
 from bookmarks.services import exporter, importer, tasks
@@ -141,6 +142,9 @@ def general(request: HttpRequest, status=200, context_overrides=None):
     custom_domain_root_form = UserProfileCustomDomainRootForm(
         instance=request.user_profile
     )
+    highlight_copy_format_form = UserProfileHighlightCopyFormatForm(
+        instance=request.user_profile
+    )
     global_settings_form = None
     if request.user.is_superuser:
         global_settings_form = GlobalSettingsForm(instance=GlobalSettings.get())
@@ -173,6 +177,7 @@ def general(request: HttpRequest, status=200, context_overrides=None):
             "custom_css_form": custom_css_form,
             "auto_tagging_rules_form": auto_tagging_rules_form,
             "custom_domain_root_form": custom_domain_root_form,
+            "highlight_copy_format_form": highlight_copy_format_form,
             "global_settings_form": global_settings_form,
             "primary_language_choices": primary_language_choices,
             "other_language_choices": other_language_choices,
@@ -265,6 +270,9 @@ def _form_context_key(form_id: str) -> str | None:
     return {
         "profile_quick": "profile_quick_form",
         "profile_custom_css": "custom_css_form",
+        "profile_highlight_copy_format": "highlight_copy_format_form",
+        "profile_hl_item_format": "highlight_copy_format_form",
+        "profile_hl_separator": "highlight_copy_format_form",
         "profile_auto_tagging_rules": "auto_tagging_rules_form",
         "profile_custom_domain_root": "custom_domain_root_form",
         "global_quick": "global_settings_form",
@@ -374,6 +382,18 @@ def save(request: HttpRequest):
         form = UserProfileAutoTaggingRulesForm(request.POST, instance=profile)
     elif form_id == "profile_custom_domain_root":
         form = UserProfileCustomDomainRootForm(request.POST, instance=profile)
+    elif form_id in ("profile_highlight_copy_format", "profile_hl_item_format", "profile_hl_separator"):
+        submitted_fields = _parse_form_fields(request.POST.get("form_fields"))
+        existing_fmt = profile.highlight_copy_format or {}
+        form_data = {
+            "highlight_copy_default_action": profile.highlight_copy_default_action,
+            "item_format": existing_fmt.get("item_format", ""),
+            "separator": existing_fmt.get("separator", ""),
+        }
+        for field_name in submitted_fields:
+            if field_name in request.POST:
+                form_data[field_name] = request.POST.get(field_name)
+        form = UserProfileHighlightCopyFormatForm(form_data, instance=profile)
     elif form_id == "global_quick":
         if not request.user.is_superuser:
             raise PermissionDenied()

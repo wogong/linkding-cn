@@ -1150,6 +1150,22 @@ class UserProfile(models.Model):
     highlights_sticky_header_controls = models.BooleanField(default=True, null=False)
     highlights_sticky_pagination = models.BooleanField(default=True, null=False)
     highlights_sticky_side_panel = models.BooleanField(default=True, null=False)
+    highlight_copy_format = models.JSONField(default=dict, blank=True, null=False)
+
+    HIGHLIGHT_COPY_ACTION_BOTH = "both"
+    HIGHLIGHT_COPY_ACTION_HIGHLIGHT = "highlight"
+    HIGHLIGHT_COPY_ACTION_NOTE = "note"
+    HIGHLIGHT_COPY_ACTION_CHOICES = [
+        (HIGHLIGHT_COPY_ACTION_BOTH, _("Copy all")),
+        (HIGHLIGHT_COPY_ACTION_HIGHLIGHT, _("Copy highlight only")),
+        (HIGHLIGHT_COPY_ACTION_NOTE, _("Copy annotation only")),
+    ]
+    highlight_copy_default_action = models.CharField(
+        max_length=20,
+        choices=HIGHLIGHT_COPY_ACTION_CHOICES,
+        blank=False,
+        default=HIGHLIGHT_COPY_ACTION_BOTH,
+    )
 
     @classmethod
     def normalize_quick_tag(cls, qt: dict) -> dict:
@@ -1897,6 +1913,44 @@ class UserProfileCustomDomainRootForm(forms.ModelForm):
     class Meta:
         model = UserProfile
         fields = ["custom_domain_root"]
+
+
+class UserProfileHighlightCopyFormatForm(forms.ModelForm):
+    DEFAULT_ITEM_FORMAT = "> ${highlight}\n\n${annotation}"
+    DEFAULT_SEPARATOR = "\n\n---\n\n"
+
+    item_format = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4}),
+        label=_("Item format"),
+        strip=False,
+    )
+    separator = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label=_("Separator"),
+        strip=False,
+    )
+
+    class Meta:
+        model = UserProfile
+        fields = ["highlight_copy_format", "highlight_copy_default_action"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        fmt = self.instance.highlight_copy_format if self.instance and self.instance.pk else {}
+        self.fields["item_format"].initial = fmt.get("item_format", self.DEFAULT_ITEM_FORMAT)
+        self.fields["separator"].initial = fmt.get("separator", self.DEFAULT_SEPARATOR)
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        profile.highlight_copy_format = {
+            "item_format": self.cleaned_data.get("item_format", ""),
+            "separator": self.cleaned_data.get("separator", ""),
+        }
+        if commit:
+            profile.save()
+        return profile
 
 
 @receiver(post_save, sender=User)

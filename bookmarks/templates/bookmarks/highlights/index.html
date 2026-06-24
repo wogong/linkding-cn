@@ -395,9 +395,17 @@
 </div>
 
 {# ── Inline JS for interactions ── #}
+{% if hl_copy_item_format %}{{ hl_copy_item_format|json_script:"ld-hl-item-format" }}{% endif %}
+{% if hl_copy_separator %}{{ hl_copy_separator|json_script:"ld-hl-separator" }}{% endif %}
 <script>
 (function() {
   'use strict';
+
+  var ITEM_FORMAT = '> ${highlight}\n\n${annotation}';
+  var SEPARATOR = '\n\n---\n\n';
+  {% if hl_copy_item_format %}try { var _f = JSON.parse(document.getElementById('ld-hl-item-format').textContent); if (_f) ITEM_FORMAT = _f; } catch(e) {}{% endif %}
+  {% if hl_copy_separator %}try { var _s = JSON.parse(document.getElementById('ld-hl-separator').textContent); if (_s) SEPARATOR = _s; } catch(e) {}{% endif %}
+  var COPY_DEFAULT_ACTION = "{{ highlight_copy_default_action|default:'both' }}";
 
   // --- Note auto-save on blur ---
   document.querySelectorAll('.highlight-note-textarea').forEach(function(ta) {
@@ -528,8 +536,7 @@
       var item = btn.closest('.highlight-item');
       var text = item.querySelector('.highlight-text').textContent.trim();
       var note = item.querySelector('.highlight-note-textarea').value.trim();
-      var copy = '> ' + text;
-      if (note) copy += '\n\n' + note;
+      var copy = linkding.renderByAction(ITEM_FORMAT, text, note, COPY_DEFAULT_ACTION);
       navigator.clipboard.writeText(copy).then(function() {
         btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M5 12l5 5l10 -10"></path></svg>';
         setTimeout(function() {
@@ -793,6 +800,8 @@
       if (action.startsWith('bulk_copy_')) {
         e.preventDefault();
         var checked = document.querySelectorAll('[data-bulk-item]:checked');
+        var hasHL = ITEM_FORMAT.indexOf('${highlight}') !== -1;
+        var hasAnn = ITEM_FORMAT.indexOf('${annotation}') !== -1;
         var parts = [];
         checked.forEach(function(cb) {
           var item = cb.closest('.highlight-item');
@@ -800,17 +809,14 @@
           var text = item.querySelector('.highlight-text').textContent.trim();
           var note = item.querySelector('.highlight-note-textarea').value.trim();
           if (action === 'bulk_copy_highlight') {
-            parts.push('> ' + text);
+            parts.push(linkding.renderCopyText(hasAnn ? '> ${highlight}' : ITEM_FORMAT, text, ''));
           } else if (action === 'bulk_copy_note') {
-            if (note) parts.push(note);
+            parts.push(linkding.renderCopyText(hasHL ? '${annotation}' : ITEM_FORMAT, '', note));
           } else {
-            var part = '> ' + text;
-            if (note) part += '\n\n' + note;
-            parts.push(part);
+            parts.push(linkding.renderCopyText(ITEM_FORMAT, text, note));
           }
         });
-        var separator = '\n\n---\n\n';
-        navigator.clipboard.writeText(parts.join(separator)).then(function() {
+        navigator.clipboard.writeText(parts.join(SEPARATOR)).then(function() {
           showBulkMsg('{% translate "Copied!" %}', false);
         }).catch(function() {
           showBulkMsg('{% translate "Copy failed" %}', true);

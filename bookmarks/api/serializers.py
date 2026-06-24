@@ -257,6 +257,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "permanent_notes",
             "search_preferences",
             "reader_settings",
+            "highlight_copy_format",
+            "highlight_copy_default_action",
             "version",
         ]
 

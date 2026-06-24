@@ -28,3 +28,4 @@ setupViewportHeightVar();
 
 export { api } from "./api";
 export { cache } from "./utils/tag-cache.js";
+export { renderCopyText, renderByAction } from "./utils/highlight-copy-format.js";

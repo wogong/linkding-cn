@@ -158,9 +158,7 @@
                           data-settings-restore-state="restore"
                           hidden>
                     <span class="settings-draft-button-icon" data-settings-draft-button-icon hidden aria-hidden="true">
-                      <svg viewBox="0 0 16 16">
-                        <path d="M5.5 2.5h5l.5 1H14v1H2v-1h3l.5-1zm-1 3h7v7.25A1.25 1.25 0 0 1 10.25 14h-4.5A1.25 1.25 0 0 1 4.5 12.75V5.5zm2 1v5m2-5v5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2"></path>
-                      </svg>
+                      <svg viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"></path><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"></path></svg>
                     </span>
                     <span data-settings-draft-button-label>{% translate "Restore draft" %}</span>
                   </button>
@@ -464,9 +462,7 @@ reddit.com/r/Music music reddit</pre>
                           data-settings-restore-state="restore"
                           hidden>
                     <span class="settings-draft-button-icon" data-settings-draft-button-icon hidden aria-hidden="true">
-                      <svg viewBox="0 0 16 16">
-                        <path d="M5.5 2.5h5l.5 1H14v1H2v-1h3l.5-1zm-1 3h7v7.25A1.25 1.25 0 0 1 10.25 14h-4.5A1.25 1.25 0 0 1 4.5 12.75V5.5zm2 1v5m2-5v5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2"></path>
-                      </svg>
+                      <svg viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"></path><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"></path></svg>
                     </span>
                     <span data-settings-draft-button-label>{% translate "Restore draft" %}</span>
                   </button>
@@ -527,9 +523,7 @@ reddit.com/r/Music music reddit</pre>
                           data-settings-restore-state="restore"
                           hidden>
                     <span class="settings-draft-button-icon" data-settings-draft-button-icon hidden aria-hidden="true">
-                      <svg viewBox="0 0 16 16">
-                        <path d="M5.5 2.5h5l.5 1H14v1H2v-1h3l.5-1zm-1 3h7v7.25A1.25 1.25 0 0 1 10.25 14h-4.5A1.25 1.25 0 0 1 4.5 12.75V5.5zm2 1v5m2-5v5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2"></path>
-                      </svg>
+                      <svg viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"></path><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"></path></svg>
                     </span>
                     <span data-settings-draft-button-label>{% translate "Restore draft" %}</span>
                   </button>
@@ -1368,6 +1362,158 @@ reddit.com/r/Music music reddit</pre>
               </div>
             </div>
           </form>
+
+          {# ── Highlight copy settings ── #}
+          <div class="settings-card settings-card-stack">
+            {# Copy button action — instant save, always visible #}
+            <form action="{% url 'linkding:settings.save' %}" method="post" class="settings-subform" data-settings-save-mode="instant">
+              {% csrf_token %}
+              <input type="hidden" name="form_id" value="profile_highlight_copy_format">
+              <input type="hidden" name="form_fields" value="highlight_copy_default_action">
+              <div class="settings-row">
+                <div class="settings-copy">
+                  <label for="{{ highlight_copy_format_form.highlight_copy_default_action.id_for_label }}" class="settings-label">{% translate "Copy button action" %}</label>
+                  <div class="form-input-hint">
+                    {% translate "Set what the highlight copy button copies." %}
+                  </div>
+                </div>
+                <div class="settings-control">
+                  {% formfield highlight_copy_format_form.highlight_copy_default_action class="form-select settings-select-input" %}
+                </div>
+              </div>
+            </form>
+
+            {# Item format — collapsible, explicit save #}
+            <form action="{% url 'linkding:settings.save' %}" method="post" class="settings-subform settings-long-form" data-settings-save-mode="explicit" data-settings-draft-form>
+              {% csrf_token %}
+              <input type="hidden" name="form_id" value="profile_hl_item_format">
+              <input type="hidden" name="form_fields" value="item_format">
+              <div class="settings-stack-header">
+                <div>
+                  <label for="id_item_format" class="settings-label">{% translate "Copy single item format" %}</label>
+                  <div class="form-input-hint">
+                    · {% translate "Content format when copying a single highlight and/or annotation." %}<br>
+                    · {% blocktranslate trimmed %}
+                      <code>${highlight}</code> as highlight placeholder, <code>${annotation}</code> as annotation placeholder.
+                    {% endblocktranslate %}<br>
+                    · {% translate "Leave empty to use the default format." %}
+                  </div>
+                </div>
+                <div class="settings-stack-actions">
+                  <button type="button"
+                          class="settings-panel-toggle"
+                          data-settings-panel-toggle
+                          data-settings-panel-expanded-label="{% translate 'Collapse' %}"
+                          data-settings-panel-collapsed-label="{% translate 'Expand' %}"
+                          aria-controls="settings-hl-item-format-panel"
+                          aria-label="{% translate 'Expand' %}"
+                          aria-expanded="false">
+                    <span class="text-assistive" data-settings-panel-toggle-label>
+                      {% translate "Expand" %}
+                    </span>
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <path d="M6 4l4 4l-4 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div id="settings-hl-item-format-panel" data-settings-panel-body hidden>
+                {% formfield highlight_copy_format_form.item_format class="form-input settings-textarea monospace" rows="4" data_settings_draft_input="" data_hl_copy_preview_input="" %}
+                <div class="settings-field-errors" data-field-error-for="item_format"></div>
+                <div class="settings-panel-footer">
+                  <button type="button"
+                          class="btn settings-draft-button"
+                          data-settings-restore-draft
+                          data-settings-restore-label="{% translate 'Restore draft' %}"
+                          data-settings-discard-label="{% translate 'Discard draft' %}"
+                          data-settings-restore-state="restore"
+                          hidden>
+                    <span class="settings-draft-button-icon" data-settings-draft-button-icon hidden aria-hidden="true">
+                      <svg viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"></path><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"></path></svg>
+                    </span>
+                    <span data-settings-draft-button-label>{% translate "Restore draft" %}</span>
+                  </button>
+                  <div class="settings-form-status" data-settings-form-status aria-live="polite"></div>
+                  <button type="submit" class="btn btn-primary" data-explicit-save-button>{% translate "Save" %}</button>
+                </div>
+                {# Item format preview #}
+                <div class="settings-hl-copy-preview" data-hl-copy-preview>
+                  <label class="settings-label" style="margin-bottom: var(--unit-1);">{% translate "Preview" %}</label>
+                  <div class="settings-hl-copy-preview-grid">
+                    <div class="settings-hl-copy-preview-item">
+                      <span class="settings-hl-copy-preview-label">{% translate "Highlight only" %}</span>
+                      <pre class="settings-hl-copy-preview-content" data-preview="highlight"></pre>
+                    </div>
+                    <div class="settings-hl-copy-preview-item">
+                      <span class="settings-hl-copy-preview-label">{% translate "Annotation only" %}</span>
+                      <pre class="settings-hl-copy-preview-content" data-preview="note"></pre>
+                    </div>
+                    <div class="settings-hl-copy-preview-item" style="grid-column: 1 / -1;">
+                      <span class="settings-hl-copy-preview-label">{% translate "Highlight + Annotation" %}</span>
+                      <pre class="settings-hl-copy-preview-content" data-preview="both"></pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </form>
+
+            {# Separator — collapsible, explicit save #}
+            <form action="{% url 'linkding:settings.save' %}" method="post" class="settings-subform settings-long-form" data-settings-save-mode="explicit" data-settings-draft-form>
+              {% csrf_token %}
+              <input type="hidden" name="form_id" value="profile_hl_separator">
+              <input type="hidden" name="form_fields" value="separator">
+              <div class="settings-stack-header">
+                <div>
+                  <label for="id_separator" class="settings-label">{% translate "Copy multi-item separator" %}</label>
+                  <div class="form-input-hint">
+                    {% translate "Separator between items when batch copying multiple highlights." %}
+                  </div>
+                </div>
+                <div class="settings-stack-actions">
+                  <button type="button"
+                          class="settings-panel-toggle"
+                          data-settings-panel-toggle
+                          data-settings-panel-expanded-label="{% translate 'Collapse' %}"
+                          data-settings-panel-collapsed-label="{% translate 'Expand' %}"
+                          aria-controls="settings-hl-separator-panel"
+                          aria-label="{% translate 'Expand' %}"
+                          aria-expanded="false">
+                    <span class="text-assistive" data-settings-panel-toggle-label>
+                      {% translate "Expand" %}
+                    </span>
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <path d="M6 4l4 4l-4 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div id="settings-hl-separator-panel" data-settings-panel-body hidden>
+                {% formfield highlight_copy_format_form.separator class="form-input settings-textarea monospace" rows="3" data_settings_draft_input="" data_hl_sep_preview_input="" %}
+                <div class="settings-field-errors" data-field-error-for="separator"></div>
+                <div class="settings-panel-footer">
+                  <button type="button"
+                          class="btn settings-draft-button"
+                          data-settings-restore-draft
+                          data-settings-restore-label="{% translate 'Restore draft' %}"
+                          data-settings-discard-label="{% translate 'Discard draft' %}"
+                          data-settings-restore-state="restore"
+                          hidden>
+                    <span class="settings-draft-button-icon" data-settings-draft-button-icon hidden aria-hidden="true">
+                      <svg viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"></path><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"></path></svg>
+                    </span>
+                    <span data-settings-draft-button-label>{% translate "Restore draft" %}</span>
+                  </button>
+                  <div class="settings-form-status" data-settings-form-status aria-live="polite"></div>
+                  <button type="submit" class="btn btn-primary" data-explicit-save-button>{% translate "Save" %}</button>
+                </div>
+                {# Batch preview #}
+                <div class="settings-hl-copy-preview" data-hl-sep-preview>
+                  <label class="settings-label" style="margin-bottom: var(--unit-1);">{% translate "Preview" %}</label>
+                  <pre class="settings-hl-copy-preview-content" data-preview="batch"></pre>
+                </div>
+              </div>
+            </form>
+          </div>
         </section>
 
         <section id="settings-user" class="settings-section" aria-labelledby="settings-user-heading">

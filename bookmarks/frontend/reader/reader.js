@@ -7,6 +7,41 @@ import "../components/tag-autocomplete.js";
 import "./reader-toolbar.js";
 import "./reader-sidebar.js";
 import { loadReaderSettings } from "./reader-settings.js";
+import {
+  DEFAULT_ITEM_FORMAT,
+  DEFAULT_SEPARATOR,
+  renderByAction,
+} from "../utils/highlight-copy-format.js";
+
+// --- Highlight copy format config cache ---
+let _cachedItemFormat = null;
+let _cachedSeparator = null;
+let _cachedCopyAction = "both";
+let _copyConfigFetched = false;
+
+async function getCopyConfig(apiBase) {
+  if (_copyConfigFetched) return {
+    itemFormat: _cachedItemFormat || DEFAULT_ITEM_FORMAT,
+    separator: _cachedSeparator || DEFAULT_SEPARATOR,
+    action: _cachedCopyAction,
+  };
+  _copyConfigFetched = true;
+  try {
+    const resp = await fetch(`${apiBase}/user/profile/`);
+    if (resp.ok) {
+      const data = await resp.json();
+      const fmt = data.highlight_copy_format || {};
+      if (fmt.item_format) _cachedItemFormat = fmt.item_format;
+      if (fmt.separator) _cachedSeparator = fmt.separator;
+      if (data.highlight_copy_default_action) _cachedCopyAction = data.highlight_copy_default_action;
+    }
+  } catch { /* silent */ }
+  return {
+    itemFormat: _cachedItemFormat || DEFAULT_ITEM_FORMAT,
+    separator: _cachedSeparator || DEFAULT_SEPARATOR,
+    action: _cachedCopyAction,
+  };
+}
 
 // 无内容元素 + 媒体元素：对其使用 element_selector（tag+index+offset）定位。
 // 容器元素（P、DIV、FIGURE 等）不在此列，会继续遍历子节点找文字锚点。
@@ -1679,10 +1714,8 @@ function initHighlighter(contentEl, bookmarkId, assetId, sidebar, apiBase) {
           (item) => String(item.id) === String(id),
         );
       if (ann) {
-        let text = ann.selected_text;
-        if (ann.note_content) {
-          text += "\n\n---\n\n" + ann.note_content;
-        }
+        const config = await getCopyConfig(apiBase);
+        const text = renderByAction(config.itemFormat, ann.selected_text, ann.note_content || "", config.action);
         try {
           await navigator.clipboard.writeText(text);
         } catch {

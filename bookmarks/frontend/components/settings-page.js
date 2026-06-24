@@ -2,6 +2,12 @@ import { Behavior, registerBehavior } from "./runtime.js";
 import { gettext } from "../utils/i18n.js";
 import { hashIconSvg } from "../utils/svg.js";
 import {
+  DEFAULT_ITEM_FORMAT,
+  DEFAULT_SEPARATOR,
+  renderCopyText,
+  renderByAction,
+} from "../utils/highlight-copy-format.js";
+import {
   clearStoredSettingsDraft,
   getStoredSettingsDraft,
   getStoredSettingsPanelExpanded,
@@ -307,6 +313,7 @@ class SettingsPageBehavior extends Behavior {
     this.initializeDirectoryLinks();
     this.initializePanelToggles();
     this.initializeDraftForms();
+    this.initializeCopyFormatPreview();
     this.applyDependentState();
     this.queueAdaptiveControlLayoutsUpdate();
     this.restoreStoredScrollPosition();
@@ -1050,6 +1057,88 @@ class SettingsPageBehavior extends Behavior {
     });
   }
 
+  // --- Highlight copy format preview ---
+  initializeCopyFormatPreview() {
+    const itemInput = this.element.querySelector("[data-hl-copy-preview-input]");
+    const itemPreview = this.element.querySelector("[data-hl-copy-preview]");
+    const sepInput = this.element.querySelector("[data-hl-sep-preview-input]");
+    const sepPreview = this.element.querySelector("[data-hl-sep-preview]");
+    if (!itemInput || !itemPreview) return;
+
+    const SAMPLE_HIGHLIGHT = "The quick brown fox jumps over the lazy dog";
+    const SAMPLE_NOTE = "This is an important passage worth remembering";
+
+    const warn = (msg) => {
+      const span = document.createElement("span");
+      span.className = "hl-copy-warn";
+      span.textContent = msg;
+      return span;
+    };
+
+    const renderHighlightOnly = (fmt) => renderByAction(fmt, SAMPLE_HIGHLIGHT, "", "highlight");
+
+    const renderNoteOnly = (fmt) => renderByAction(fmt, "", SAMPLE_NOTE, "note");
+
+    const updateItemPreview = () => {
+      const fmt = itemInput.value || DEFAULT_ITEM_FORMAT;
+      const hasHL = fmt.includes("${highlight}");
+      const hasAnn = fmt.includes("${annotation}");
+
+      const hlEl = itemPreview.querySelector('[data-preview="highlight"]');
+      if (hlEl) {
+        hlEl.textContent = "";
+        if (hasHL) hlEl.appendChild(document.createTextNode(renderHighlightOnly(fmt)));
+        else hlEl.appendChild(warn(gettext("${highlight} not found")));
+      }
+
+      const noteEl = itemPreview.querySelector('[data-preview="note"]');
+      if (noteEl) {
+        noteEl.textContent = "";
+        if (hasAnn) noteEl.appendChild(document.createTextNode(renderNoteOnly(fmt)));
+        else noteEl.appendChild(warn(gettext("${annotation} not found")));
+      }
+
+      const bothEl = itemPreview.querySelector('[data-preview="both"]');
+      if (bothEl) {
+        bothEl.textContent = renderCopyText(fmt, SAMPLE_HIGHLIGHT, SAMPLE_NOTE);
+        if (!hasHL || !hasAnn) {
+          const missing = [];
+          if (!hasHL) missing.push("${highlight}");
+          if (!hasAnn) missing.push("${annotation}");
+          bothEl.appendChild(document.createTextNode("\n"));
+          bothEl.appendChild(warn(missing.join(", ") + " " + gettext("not found")));
+        }
+      }
+    };
+
+    const updateSepPreview = () => {
+      if (!sepInput || !sepPreview) return;
+      const fmt = itemInput.value || DEFAULT_ITEM_FORMAT;
+      const sep = sepInput.value || DEFAULT_SEPARATOR;
+      const item1 = renderCopyText(fmt, SAMPLE_HIGHLIGHT, SAMPLE_NOTE);
+      const item2 = renderCopyText(fmt, "Second highlight text", "Another annotation");
+      const batchEl = sepPreview.querySelector('[data-preview="batch"]');
+      if (batchEl) batchEl.textContent = item1 + sep + item2;
+    };
+
+    const updateAll = () => { updateItemPreview(); updateSepPreview(); };
+
+    // Initial render
+    updateAll();
+
+    // Focus-gated listeners
+    const setupFocusPreview = (input, updateFn) => {
+      if (!input) return;
+      let timer = null;
+      const debounced = () => { clearTimeout(timer); timer = setTimeout(updateFn, 500); };
+      input.addEventListener("focus", () => { updateFn(); input.addEventListener("input", debounced); });
+      input.addEventListener("blur", () => { clearTimeout(timer); input.removeEventListener("input", debounced); });
+      input.addEventListener("input", (e) => { if (e.isTrusted === false) updateFn(); });
+    };
+    setupFocusPreview(itemInput, updateAll);
+    setupFocusPreview(sepInput, updateSepPreview);
+  }
+
   // 草稿管理：文本框原生拖拽拉伸时，稳定页面滚动位置。
   isTextareaResizeHandlePointerDown(event, input) {
     const rect = input.getBoundingClientRect();
@@ -1216,6 +1305,7 @@ class SettingsPageBehavior extends Behavior {
     }
 
     input.value = draft;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
     input.focus();
     input.setSelectionRange(draft.length, draft.length);
     this.setDraftRestored(form, true);
@@ -1232,6 +1322,7 @@ class SettingsPageBehavior extends Behavior {
 
     const baseline = this.getDraftBaseline(input);
     input.value = baseline;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
     input.focus();
     input.setSelectionRange(baseline.length, baseline.length);
     this.clearStoredDraft(form);

@@ -772,6 +772,10 @@ def query_annotations(
     if sort == "random":
         return qs.order_by("?")
 
+    # 不需要排序时直接返回（用于纯聚合查询）
+    if not sort:
+        return qs.order_by()
+
     # 聚合排序：根据 group_by 决定主排序和次排序
     if group_by == "bookmark":
         order_fields = ["bookmark__title", sort]

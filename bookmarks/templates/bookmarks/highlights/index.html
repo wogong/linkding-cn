@@ -570,9 +570,9 @@
         allColorDot.classList.add('active');
       }
     }
-    // Hidden input: empty = no color filter (all), otherwise comma-separated
+    // Hidden input: "all" = no color filter, otherwise comma-separated
     if (!anyInactive) {
-      colorsHidden.value = '';
+      colorsHidden.value = 'all';
     } else {
       colorsHidden.value = selected.join(',');
     }

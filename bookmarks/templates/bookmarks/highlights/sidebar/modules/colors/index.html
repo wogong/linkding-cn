@@ -13,93 +13,21 @@
 {% block menu %}{% endblock %}
 
 {% block content %}
-  <form class="sidebar-colors-form" method="get"
-        action="{% url 'linkding:bookmarks.highlights' %}"
-        data-sidebar-colors-form>
-    {# Preserve current filters #}
-    <input type="hidden" name="q" value="{{ search_q }}">
-    <input type="hidden" name="note_filter" value="{{ note_filter }}">
-    <input type="hidden" name="sort" value="{{ sort }}">
-    <input type="hidden" name="group_by" value="{{ group_by }}">
-    <input type="hidden" name="date_filter_by" value="{{ date_filter_by }}">
-    <input type="hidden" name="date_filter_start" value="{{ date_filter_start }}">
-    <input type="hidden" name="date_filter_end" value="{{ date_filter_end }}">
-    <input type="hidden" name="bookmark_id" value="{{ bookmark_id }}">
-    <input type="hidden" name="colors" value="{{ colors_raw }}" data-colors-hidden>
+  <div class="sidebar-colors-grid">
+    {# "All" option #}
+    <a href="{{ color_all_url }}"
+       class="sidebar-color-cell {% if not colors %}is-active{% endif %}">
+      <span class="sidebar-color-circle all-colors"></span>
+      <span class="sidebar-color-count">{{ color_total }}</span>
+    </a>
 
-    <div class="sidebar-colors-grid">
-      {# "All" option #}
-      <label class="sidebar-color-cell {% if not colors %}is-active{% endif %}" data-color-value="">
-        <span class="sidebar-color-circle all-colors"></span>
-        <span class="sidebar-color-count">{{ color_total }}</span>
-      </label>
-
-      {# Individual colors — all active when "All" is selected #}
-      {% for stat in color_stats %}
-        <label class="sidebar-color-cell {% if not colors or stat.selected %}is-active{% endif %}"
-               data-color-value="{{ stat.key }}">
-          <span class="sidebar-color-circle" style="background-color: {{ stat.css_color }};"></span>
-          <span class="sidebar-color-count">{{ stat.count }}</span>
-        </label>
-      {% endfor %}
-    </div>
-  </form>
-
-  <script>
-  (function() {
-    var container = document.currentScript.closest('[data-sidebar-module]');
-    var form = container ? container.querySelector('[data-sidebar-colors-form]') : document.querySelector('[data-sidebar-colors-form]');
-    if (!form || form.dataset.bound) return;
-    form.dataset.bound = '1';
-    var hidden = form.querySelector('[data-colors-hidden]');
-    var allCell = form.querySelector('[data-color-value=""]');
-    var colorCells = form.querySelectorAll('.sidebar-color-cell:not([data-color-value=""])');
-
-    function syncAllState() {
-      var allActive = true;
-      colorCells.forEach(function(c) {
-        if (!c.classList.contains('is-active')) allActive = false;
-      });
-      if (allCell) allCell.classList.toggle('is-active', allActive);
-    }
-
-    function buildHidden() {
-      if (allCell && allCell.classList.contains('is-active')) {
-        hidden.value = '';
-        return;
-      }
-      var selected = [];
-      colorCells.forEach(function(c) {
-        if (c.classList.contains('is-active')) selected.push(c.dataset.colorValue);
-      });
-      hidden.value = selected.join(',');
-    }
-
-    function submitForm() {
-      buildHidden();
-      form.submit();
-    }
-
-    // "All" click: toggle all
-    if (allCell) {
-      allCell.addEventListener('click', function() {
-        var activate = !allCell.classList.contains('is-active');
-        colorCells.forEach(function(c) {
-          c.classList.toggle('is-active', activate);
-        });
-        allCell.classList.toggle('is-active', activate);
-        submitForm();
-      });
-    }
-
-    // Individual color click: toggle + sync All
-    colorCells.forEach(function(c) {
-      c.addEventListener('click', function() {
-        c.classList.toggle('is-active');
-        syncAllState();
-        submitForm();
-      });
-    });
-  })();
-  </script>
+    {# Individual colors #}
+    {% for stat in color_stats %}
+      <a href="{{ stat.url }}"
+         class="sidebar-color-cell {% if stat.selected %}is-active{% endif %}">
+        <span class="sidebar-color-circle" style="background-color: {{ stat.css_color }};"></span>
+        <span class="sidebar-color-count">{{ stat.count }}</span>
+      </a>
+    {% endfor %}
+  </div>
 {% endblock %}

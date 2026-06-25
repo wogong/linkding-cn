@@ -119,8 +119,12 @@ class HighlightSearch:
             self.page = self.page.strip()
 
         # Parse colors list from comma-separated string
+        # "all" is a special value meaning "no color filter" (show all)
         colors_raw = self._values["colors"]
-        self.colors_list = [c.strip() for c in colors_raw.split(",") if c.strip()] if colors_raw else []
+        if not colors_raw or colors_raw == "all":
+            self.colors_list = []
+        else:
+            self.colors_list = [c.strip() for c in colors_raw.split(",") if c.strip()]
 
     def __repr__(self):
         return f"<HighlightSearch {self.query_params}>"
@@ -223,8 +227,8 @@ class HighlightSearch:
         for param in self.params:
             value = self._values[param]
             if param == "colors":
-                if self.colors_list:
-                    params["colors"] = ",".join(self.colors_list)
+                if value and value != "all":
+                    params["colors"] = value
             elif param == "q":
                 if value:
                     params["q"] = value
@@ -291,6 +295,37 @@ def _group_annotations(annotations, group_by):
             }
         groups[key]["annotations"].append(ann)
     return [(g["label"], g.get("color_key"), g.get("bookmark_id"), g["annotations"]) for g in groups.values()]
+
+
+def _build_color_filter_urls(request, search):
+    """基于当前 URL 为每个颜色预算 toggle URL（参照标签云 AddTagItem 模式）。"""
+    base = reverse("linkding:bookmarks.highlights")
+    params = request.GET.copy()
+    params.pop("page", None)  # 切换颜色时重置分页
+
+    urls = {}
+
+    # "All" — 不含 colors 参数（默认状态）
+    all_params = params.copy()
+    all_params.pop("colors", None)
+    qs = all_params.urlencode()
+    urls["all"] = f"{base}?{qs}" if qs else base
+
+    # 各颜色 — toggle
+    current = set(search.colors_list)
+    for color_key, _ in Annotation.COLOR_CHOICES:
+        p = params.copy()
+        if color_key in current:
+            next_colors = current - {color_key}
+        else:
+            next_colors = current | {color_key}
+        if next_colors:
+            p["colors"] = ",".join(sorted(next_colors))
+        else:
+            p.pop("colors", None)
+        urls[color_key] = f"{base}?{p.urlencode()}"
+
+    return urls
 
 
 _HIGHLIGHTS_MODULE_WRAPPER_IDS = {
@@ -378,6 +413,7 @@ def _render_list(request, search: HighlightSearch, prefs=None, page_size=PAGE_SI
         date_filter_by=search.date_filter_by,
         date_filter_start=search.date_filter_start,
         date_filter_end=search.date_filter_end,
+        sort="",  # 纯聚合查询，不需要排序
         # colors intentionally omitted
         with_related=False,
     )
@@ -398,6 +434,11 @@ def _render_list(request, search: HighlightSearch, prefs=None, page_size=PAGE_SI
             "selected": color_key in search.colors_list,
         })
     color_stats.sort(key=lambda s: (-s["count"], COLOR_PRIORITY.get(s["key"], 99)))
+
+    # Build filter URLs for each color (sidebar pure-link navigation)
+    color_filter_urls = _build_color_filter_urls(request, search)
+    for stat in color_stats:
+        stat["url"] = color_filter_urls.get(stat["key"], "#")
 
     # Build sidebar contexts (filtered by current search)
     domains = HighlightDomainsContext(request, search)
@@ -420,6 +461,7 @@ def _render_list(request, search: HighlightSearch, prefs=None, page_size=PAGE_SI
         "summary": summary,
         "color_stats": color_stats,
         "color_total": color_total,
+        "color_all_url": color_filter_urls["all"],
         "sort_choices": SORT_CHOICES,
         "group_choices": GROUP_CHOICES,
         "note_filter_choices": NOTE_FILTER_CHOICES,

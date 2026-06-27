@@ -1315,8 +1315,6 @@ msgid "Bookmarks - Linkding"
 msgstr "书签 - Linkding"
 
 #: bookmarks/templates/bookmarks/index.html:15
-#: bookmarks/templates/bookmarks/nav_menu.html:12
-#: bookmarks/templates/bookmarks/nav_menu.html:70
 #: bookmarks/templates/settings/general.html:378
 #: bookmarks/templates/settings/general.html:1692
 #: bookmarks/views/contexts.py:399
@@ -1341,8 +1339,15 @@ msgid "Add"
 msgstr "新增"
 
 #: bookmarks/templates/bookmarks/nav_menu.html:8
-msgid "Categories"
-msgstr "分类"
+msgctxt "nav"
+msgid "Bookmarks"
+msgstr "书签"
+
+#: bookmarks/templates/bookmarks/nav_menu.html:15
+#: bookmarks/templates/bookmarks/nav_menu.html:73
+#: bookmarks/templates/settings/integrations.html:119
+msgid "All bookmarks"
+msgstr "全部书签"
 
 #: bookmarks/templates/bookmarks/nav_menu.html:15
 #: bookmarks/templates/bookmarks/nav_menu.html:73
@@ -2505,10 +2510,6 @@ msgstr "筛选未读或已读书签。使用 yes 表示未读，no 表示已读�
 #: bookmarks/templates/settings/integrations.html:111
 msgid "filters shared or unshared bookmarks. Use yes for shared and no for unshared."
 msgstr "筛选已分享或未分享书签。使用 yes 表示已分享，no 表示未分享。"
-
-#: bookmarks/templates/settings/integrations.html:119
-msgid "All bookmarks"
-msgstr "全部书签"
 
 #: bookmarks/templates/settings/integrations.html:120
 msgid "Unread bookmarks"

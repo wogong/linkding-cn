@@ -452,7 +452,7 @@ class ReadingProgressController {
 
   // ---- localStorage（崩溃恢复用，成功同步后即清理）----
 
-  static _LS_KEY = "reader_reading_progress";
+  static _LS_KEY = "ld:reader:progress";
   static _LS_MAX_ENTRIES = 1000;
   static _LS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;  // 7天
 
@@ -1266,7 +1266,7 @@ function renderArticle(bodyHtml, meta, resolvedTitle, bookmarkData, apiBase, ass
   layout.appendChild(sidebar);
 
   // Restore sidebar state from localStorage (default: closed)
-  const savedSidebarRaw = localStorage.getItem("reader_sidebar_open");
+  const savedSidebarRaw = localStorage.getItem("ld:reader:sidebar-open");
   const savedSidebarOpen = savedSidebarRaw === "true";
   sidebar.open = savedSidebarOpen;
   toolbar.sidebarOpen = savedSidebarOpen;
@@ -1276,7 +1276,7 @@ function renderArticle(bodyHtml, meta, resolvedTitle, bookmarkData, apiBase, ass
     const newState = !sidebar.open;
     sidebar.open = newState;
     toolbar.sidebarOpen = newState;
-    localStorage.setItem("reader_sidebar_open", String(newState));
+    localStorage.setItem("ld:reader:sidebar-open", String(newState));
   });
 
   // On mobile, tap outside sidebar closes it.
@@ -1292,7 +1292,7 @@ function renderArticle(bodyHtml, meta, resolvedTitle, bookmarkData, apiBase, ass
     if (!insideSidebar && !insideToolbar && !insidePopup) {
       sidebar.open = false;
       toolbar.sidebarOpen = false;
-      localStorage.setItem("reader_sidebar_open", "false");
+      localStorage.setItem("ld:reader:sidebar-open", "false");
     }
   });
 
@@ -1375,9 +1375,9 @@ function renderArticle(bodyHtml, meta, resolvedTitle, bookmarkData, apiBase, ass
   if (isEditable) {
     // Check for pending scroll from "Add to my bookmarks" flow
     try {
-      const pending = JSON.parse(localStorage.getItem("reader_pending_scroll") || "null");
+      const pending = JSON.parse(localStorage.getItem("ld:reader:pending-scroll") || "null");
       if (pending && pending.bookmarkId === bookmarkId && pending.scrollTop > 0) {
-        localStorage.removeItem("reader_pending_scroll");
+        localStorage.removeItem("ld:reader:pending-scroll");
         requestAnimationFrame(() => {
           contentArea.scrollTop = pending.scrollTop;
         });

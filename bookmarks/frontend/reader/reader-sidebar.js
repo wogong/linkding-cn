@@ -618,7 +618,7 @@ export class ReaderSidebar extends LitElement {
 
       // Store scroll position for restoration on the new page
       try {
-        localStorage.setItem("reader_pending_scroll", JSON.stringify({
+        localStorage.setItem("ld:reader:pending-scroll", JSON.stringify({
           bookmarkId: data.id,
           scrollTop: scrollTop,
         }));

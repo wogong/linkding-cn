@@ -14,10 +14,10 @@ function initSidebarState() {
   let stored;
   try { stored = localStorage.getItem(storageKey); } catch (e) { stored = null; }
 
-  // localStorage 优先；不存在时读取服务器设置（data-sidebar-default）
+  // localStorage 优先；不存在时：移动端默认关闭（覆盖式侧边栏），桌面端读取服务器设置
   const shouldOpen = stored !== null
     ? stored === "1"
-    : page.dataset.sidebarDefault === "1";
+    : window.innerWidth > 840 && page.dataset.sidebarDefault === "1";
 
   page.classList.remove("sidebar-open", "sidebar-closed", "sidebar-visible");
   if (shouldOpen) {

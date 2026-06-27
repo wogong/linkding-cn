@@ -36,7 +36,7 @@ async function fetchReaderSettingsFromServer() {
   return {};
 }
 
-const SETTINGS_KEY = "reader_settings";
+const SETTINGS_KEY = "ld:reader:settings";
 const MOBILE_BREAKPOINT = 768;
 const WIDTH_SPLIT_BREAKPOINT = 960;
 const WIDTH_MIN = 220;

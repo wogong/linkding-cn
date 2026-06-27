@@ -1,4 +1,4 @@
-const SETTINGS_KEY = "reader_settings";
+const SETTINGS_KEY = "ld:reader:settings";
 
 export function loadReaderSettings() {
   try {

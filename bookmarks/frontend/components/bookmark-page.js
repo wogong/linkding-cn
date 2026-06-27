@@ -957,10 +957,12 @@ class BookmarkItem extends Behavior {
   onEditClick() {
     if (this.scroller) {
       localStorage.setItem(
-        "bookmarkListScrollPosition",
-        this.scroller.scrollTop,
+        "ld:bookmark-list:scroll",
+        JSON.stringify({
+          position: this.scroller.scrollTop,
+          returnUrl: window.location.pathname,
+        }),
       );
-      localStorage.setItem("bookmarkListReturnUrl", window.location.pathname);
     }
   }
 
@@ -1207,10 +1209,29 @@ document.addEventListener("turbo:before-render", () => {
 // 展开折叠按钮
 // ==========================================
 
+// 模板 data-toggle-storage-key → ld:sidebar:collapse JSON 字段名
+const COLLAPSE_KEY_MAP = {
+  userSummarySectionState: "summary",
+  userSummaryActivityState: "activity",
+  tagSectionState: "tags",
+  domainSectionState: "domains",
+  bundleSectionState: "bundles",
+};
+
+const COLLAPSE_STORAGE_KEY = "ld:sidebar:collapse";
+
+function _readCollapseMap() {
+  try { return JSON.parse(localStorage.getItem(COLLAPSE_STORAGE_KEY) || "{}"); }
+  catch { return {}; }
+}
+
+const BUNDLES_KEY = "ld:sidebar:bundles";
+const DOMAINS_KEY = "ld:sidebar:domains";
+
 class CollapseButtonBehavior extends Behavior {
   constructor(element) {
     super(element);
-    this.storageKey = element.dataset.toggleStorageKey;
+    this.collapseField = COLLAPSE_KEY_MAP[element.dataset.toggleStorageKey] || null;
     this.targetSelector =
       element.dataset.toggleTargetSelector || ".section-content";
     this.toggleBtn = element.querySelector("button");
@@ -1237,16 +1258,17 @@ class CollapseButtonBehavior extends Behavior {
     this.toggleBtn.setAttribute("aria-expanded", newState);
     this.content.style.display = newState ? "" : "none";
 
-    // 记忆状态
-    if (this.storageKey) {
-      localStorage.setItem(this.storageKey, newState ? "true" : "false");
+    if (this.collapseField) {
+      const map = _readCollapseMap();
+      map[this.collapseField] = newState;
+      localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify(map));
     }
   }
 
   restoreState() {
     if (!this.toggleBtn || !this.content) return;
-    const expanded = this.storageKey
-      ? localStorage.getItem(this.storageKey) !== "false"
+    const expanded = this.collapseField
+      ? _readCollapseMap()[this.collapseField] !== false
       : true;
     this.toggleBtn.setAttribute("aria-expanded", expanded);
     this.content.style.display = expanded ? "" : "none";
@@ -1289,18 +1311,16 @@ class BundleCollapseButton extends Behavior {
   setBundleState(bundleId, expanded) {
     if (!bundleId) return;
     let state = {};
-    try {
-      state = JSON.parse(localStorage.getItem("bundleFolderState") || "{}");
-    } catch {}
+    try { state = JSON.parse(localStorage.getItem(BUNDLES_KEY) || "{}"); }
+    catch {}
     state[bundleId] = expanded;
-    localStorage.setItem("bundleFolderState", JSON.stringify(state));
+    localStorage.setItem(BUNDLES_KEY, JSON.stringify(state));
   }
 
   restoreBundleState() {
     let state = {};
-    try {
-      state = JSON.parse(localStorage.getItem("bundleFolderState") || "{}");
-    } catch {}
+    try { state = JSON.parse(localStorage.getItem(BUNDLES_KEY) || "{}"); }
+    catch {}
 
     this.element.querySelectorAll(".folder-toggle").forEach((btn) => {
       const folderItem = btn.closest("li");
@@ -1370,18 +1390,16 @@ class DomainTreeBehavior extends Behavior {
   setNodeState(nodeId, expanded) {
     if (!nodeId) return;
     let state = {};
-    try {
-      state = JSON.parse(localStorage.getItem("domainTreeState") || "{}");
-    } catch {}
+    try { state = JSON.parse(localStorage.getItem(DOMAINS_KEY) || "{}"); }
+    catch {}
     state[nodeId] = expanded;
-    localStorage.setItem("domainTreeState", JSON.stringify(state));
+    localStorage.setItem(DOMAINS_KEY, JSON.stringify(state));
   }
 
   restoreTreeState() {
     let state = {};
-    try {
-      state = JSON.parse(localStorage.getItem("domainTreeState") || "{}");
-    } catch {}
+    try { state = JSON.parse(localStorage.getItem(DOMAINS_KEY) || "{}"); }
+    catch {}
 
     this.element
       .querySelectorAll('.domain-menu-item[data-domain-has-children="true"]')
@@ -1396,7 +1414,7 @@ class DomainTreeBehavior extends Behavior {
         const hasSelectedDescendant = childList.querySelector(
           ".domain-menu-item.selected",
         );
-        const expanded = hasSelectedDescendant ? true : state[nodeId] !== false;
+        const expanded = hasSelectedDescendant ? true : state[nodeId] === true;
 
         button.setAttribute("aria-expanded", expanded);
         childList.style.display = expanded ? "" : "none";
@@ -1412,15 +1430,15 @@ registerBehavior("ld-domain-tree", DomainTreeBehavior);
 function restoreBookmarkListScrollPosition() {
   const scroller = document.scrollingElement;
   if (scroller && document.querySelector(".bookmark-list")) {
-    const scroll = localStorage.getItem("bookmarkListScrollPosition");
-    const returnUrl = localStorage.getItem("bookmarkListReturnUrl");
+    let data = null;
+    try { data = JSON.parse(localStorage.getItem("ld:bookmark-list:scroll")); }
+    catch {}
 
-    if (scroll !== null && returnUrl !== null) {
-      if (window.location.pathname === returnUrl) {
-        scroller.scrollTo(0, parseInt(scroll, 10));
+    if (data && data.returnUrl && data.position != null) {
+      if (window.location.pathname === data.returnUrl) {
+        scroller.scrollTo(0, Number(data.position) || 0);
       }
-      localStorage.removeItem("bookmarkListScrollPosition");
-      localStorage.removeItem("bookmarkListReturnUrl");
+      localStorage.removeItem("ld:bookmark-list:scroll");
     }
   }
 }
@@ -1493,7 +1511,7 @@ function createScrollHandler(saveFn, delay) {
   };
 }
 
-const SIDEBAR_KEY = "sidebarScrollPosition";
+const SIDEBAR_KEY = "ld:sidebar:scroll";
 const SIDEBAR_SEL = ".sidebar";
 
 // 问题 3 修复：独立变量替代在布尔值上挂属性

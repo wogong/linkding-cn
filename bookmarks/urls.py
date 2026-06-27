@@ -130,6 +130,11 @@ urlpatterns = [
     path("api/tags/", include(api_routes.tag_router.urls)),
     path("api/bundles/", include(api_routes.bundle_router.urls)),
     path("api/user/", include(api_routes.user_router.urls)),
+    path(
+        "api/render-markdown/",
+        api_routes.render_markdown_api,
+        name="api.render_markdown",
+    ),
     # Feeds
     path("feeds/<str:feed_key>/all", feeds.AllBookmarksFeed(), name="feeds.all"),
     path(

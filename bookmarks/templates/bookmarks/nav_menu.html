@@ -24,10 +24,13 @@
     </ld-dropdown>
     <a href="{% url 'linkding:bookmarks.highlights' %}" class="btn btn-link">{% translate "Highlights" %}</a>
     <ld-dropdown class="dropdown">
-      <button class="btn btn-link dropdown-toggle" tabindex="0">
-        {% translate "Settings" %}
+      <button class="btn btn-link dropdown-toggle ld-update-anchor" tabindex="0" ld-update-checker>
+        {% translate "Settings" %}<span class="ld-update-dot" ld-update-dot style="display:none"></span>
       </button>
       <ul class="menu" role="list" tabindex="-1">
+        <li class="menu-item ld-update-menu-item" ld-update-menu-item style="display:none">
+          <button type="button" class="btn btn-link menu-link ld-update-trigger">{% translate "New version" %}<span class="ld-update-dot"></span></button>
+        </li>
         <li class="menu-item">
           <a href="{% url 'linkding:settings.general' %}" class="menu-link">{% translate "General" %}</a>
         </li>
@@ -58,11 +61,12 @@
       </svg>
     </a>
     <ld-dropdown class="dropdown dropdown-right">
-      <button class="btn btn-link dropdown-toggle" aria-label="{% translate 'Navigation menu' %}" tabindex="0">
+      <button class="btn btn-link dropdown-toggle ld-update-anchor" aria-label="{% translate 'Navigation menu' %}" tabindex="0">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
              style="width: 24px; height: 24px">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
         </svg>
+        <span class="ld-update-dot" ld-update-dot style="display:none"></span>
       </button>
       <!-- menu component -->
       <ul class="menu" role="list" tabindex="-1">
@@ -83,6 +87,9 @@
           <a href="{% url 'linkding:bookmarks.highlights' %}" class="menu-link">{% translate "Highlights" %}</a>
         </li>
         <div class="divider"></div>
+        <li class="menu-item ld-update-menu-item" ld-update-menu-item style="display:none">
+          <button type="button" class="btn btn-link menu-link ld-update-trigger">{% translate "New version" %}<span class="ld-update-dot"></span></button>
+        </li>
         <li class="menu-item">
           <a href="{% url 'linkding:settings.general' %}" class="menu-link">{% translate "General" %}</a>
         </li>

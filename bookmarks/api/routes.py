@@ -9,7 +9,7 @@ from django.http import Http404, StreamingHttpResponse
 from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext as _
 from rest_framework import mixins, status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter, SimpleRouter
@@ -605,3 +605,15 @@ bundle_router.register("", BookmarkBundleViewSet, basename="bundle")
 
 bookmark_asset_router = SimpleRouter()
 bookmark_asset_router.register("", BookmarkAssetViewSet, basename="bookmark_asset")
+
+
+@api_view(["POST"])
+def render_markdown_api(request):
+    """接受 Markdown 文本，返回渲染后的 HTML（需要登录）"""
+    markdown_text = request.data.get("markdown", "")
+    if not markdown_text:
+        return Response({"html": ""})
+    from bookmarks.templatetags.shared import render_markdown
+
+    html = render_markdown({}, markdown_text)
+    return Response({"html": str(html)})

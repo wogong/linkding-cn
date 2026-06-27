@@ -3130,6 +3130,10 @@ msgid_plural "Successfully merged %(count)s tags (%(tag_names)s) into \"%(target
 msgstr[0] "已成功将 %(count)s 个标签（%(tag_names)s）合并到'%(target_tag)s'中。"
 msgstr[1] "已成功将 %(count)s 个标签（%(tag_names)s）合并到'%(target_tag)s'中。"
 
+#: bookmarks/templates/bookmarks/nav_menu.html
+msgid "New version"
+msgstr "新版本"
+
 #~ msgid "Expected RPAREN, got EOF"
 #~ msgstr "缺少右括号"
 

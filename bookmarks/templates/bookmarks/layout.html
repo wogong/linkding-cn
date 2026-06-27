@@ -3,7 +3,7 @@
 <!DOCTYPE html>
 {% get_current_language as CURRENT_LANGUAGE %}
 {# Use data attributes as storage for access in static scripts #}
-<html lang="{{ CURRENT_LANGUAGE }}" data-api-base-url="{% url 'linkding:api-root' %}">
+<html lang="{{ CURRENT_LANGUAGE }}" data-api-base-url="{% url 'linkding:api-root' %}" data-app-version="{{ app_version }}">
 {% block head %}{% include 'bookmarks/head.html' %}{% endblock %}
 <body>
 

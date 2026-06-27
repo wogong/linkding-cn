@@ -10,7 +10,7 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
-from bookmarks import queries
+from bookmarks import queries, utils
 from bookmarks.models import Annotation, UserProfile
 from bookmarks.type_defs import HttpRequest
 from bookmarks.views import turbo
@@ -308,7 +308,7 @@ def _build_color_filter_urls(request, search):
     # "All" — 不含 colors 参数（默认状态）
     all_params = params.copy()
     all_params.pop("colors", None)
-    qs = all_params.urlencode()
+    qs = utils.clean_query_params(all_params)
     urls["all"] = f"{base}?{qs}" if qs else base
 
     # 各颜色 — toggle
@@ -323,7 +323,7 @@ def _build_color_filter_urls(request, search):
             p["colors"] = ",".join(sorted(next_colors))
         else:
             p.pop("colors", None)
-        urls[color_key] = f"{base}?{p.urlencode()}"
+        urls[color_key] = f"{base}?{utils.clean_query_params(p)}"
 
     return urls
 

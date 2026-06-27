@@ -44,7 +44,7 @@
                   {% if bookmark_item.tags %}
                     <span class="tags">
                       {% for tag in bookmark_item.tags %}
-                        <a href="?{{ tag.query_string }}">#{{ tag.name }}</a>
+                        <a href="{{ tag.query_string }}">#{{ tag.name }}</a>
                       {% endfor %}
                     </span>
                   {% endif %}
@@ -65,7 +65,7 @@
               {% if bookmark_item.tags %}
                 <div class="tags">
                   {% for tag in bookmark_item.tags %}
-                    <a href="?{{ tag.query_string }}">#{{ tag.name }}</a>
+                    <a href="{{ tag.query_string }}">#{{ tag.name }}</a>
                   {% endfor %}
                 </div>
               {% endif %}

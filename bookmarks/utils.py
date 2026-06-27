@@ -178,6 +178,20 @@ def get_clean_url(url: str) -> str:
     return clean_url
 
 
+def clean_query_params(params) -> str:
+    """移除空值参数后编码，避免 URL 中出现 ?q= 这样的残留。
+    接受 QueryDict 或普通 dict，返回编码后的 query string。
+    """
+    from django.http import QueryDict
+
+    cleaned = QueryDict("", mutable=True)
+    for key in params:
+        value = params[key]
+        if value not in (None, ""):
+            cleaned[key] = value
+    return cleaned.urlencode()
+
+
 def get_safe_return_url(return_url: str, fallback_url: str):
     # Use fallback if URL is none or URL is not on same domain
     if not return_url or not re.match(r"^/[a-z]+", return_url):

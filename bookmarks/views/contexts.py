@@ -71,7 +71,7 @@ class RequestContext:
         if remove:
             for key in remove:
                 query_params.pop(key, None)
-        encoded_params = query_params.urlencode()
+        encoded_params = utils.clean_query_params(query_params)
         return view_url + "?" + encoded_params if encoded_params else view_url
 
     def index(self, add: dict = None, remove: dict = None) -> str:
@@ -1234,7 +1234,7 @@ class SidebarUserSummaryContext:
             else:
                 query_params[key] = value
 
-        encoded_params = query_params.urlencode()
+        encoded_params = utils.clean_query_params(query_params)
         base_url = reverse("linkding:bookmarks.index")
         return base_url + "?" + encoded_params if encoded_params else base_url
 
@@ -1389,7 +1389,7 @@ class BookmarkListContext:
         query_params = search.query_params
         if page is not None:
             query_params["page"] = page
-        query_string = urllib.parse.urlencode(query_params)
+        query_string = utils.clean_query_params(query_params)
 
         return base_url if query_string == "" else base_url + "?" + query_string
 
@@ -1399,7 +1399,7 @@ class BookmarkListContext:
     ):
         query_params = search.query_params
         query_params["return_url"] = return_url
-        query_string = urllib.parse.urlencode(query_params)
+        query_string = utils.clean_query_params(query_params)
 
         return (
             base_action_url
@@ -1451,7 +1451,8 @@ class AddTagItem:
         params.pop("details", None)
         params.pop("page", None)
 
-        return params.urlencode()
+        encoded = utils.clean_query_params(params)
+        return f"?{encoded}" if encoded else context.index_url
 
     @staticmethod
     def _generate_query_string_legacy(context: RequestContext, tag: Tag) -> str:
@@ -1470,7 +1471,8 @@ class AddTagItem:
         params.pop("details", None)
         params.pop("page", None)
 
-        return params.urlencode()
+        encoded = utils.clean_query_params(params)
+        return f"?{encoded}" if encoded else context.index_url
 
 
 class RemoveTagItem:
@@ -1494,7 +1496,8 @@ class RemoveTagItem:
         params.pop("details", None)
         params.pop("page", None)
 
-        return params.urlencode()
+        encoded = utils.clean_query_params(params)
+        return f"?{encoded}" if encoded else context.index_url
 
     @staticmethod
     def _generate_query_string_legacy(context: RequestContext, tag: Tag) -> str:
@@ -1526,7 +1529,8 @@ class RemoveTagItem:
         params.pop("details", None)
         params.pop("page", None)
 
-        return params.urlencode()
+        encoded = utils.clean_query_params(params)
+        return f"?{encoded}" if encoded else context.index_url
 
 
 class TagGroup:
@@ -1823,7 +1827,7 @@ class DomainItem:
             query_params = request_context.query_params.copy()
             query_params.setlist("q", [query_string])
             query_params.pop("page", None)
-            encoded_query = query_params.urlencode()
+            encoded_query = utils.clean_query_params(query_params)
             self.url = (
                 "?" + encoded_query if encoded_query else request_context.index_url
             )

@@ -1,4 +1,5 @@
 import "@hotwired/turbo";
+import "./init.js";
 import "iconify-icon";
 import "./components/runtime.js";
 import "./components/bookmark-page.js";
@@ -14,7 +15,7 @@ import "./components/confirm-dropdown.js";
 import "./components/confirm-inline.js";
 import "./components/details-modal.js";
 import "./components/dropdown.js";
-import "./components/filter-drawer.js";
+
 import "./components/form.js";
 import "./components/modal.js";
 import "./components/search-autocomplete.js";

@@ -1435,8 +1435,6 @@ document.addEventListener("turbo:load", restoreBookmarkListScrollPosition);
 // 侧边栏滚动位置记忆
 // ==========================================
 
-// 显示侧边栏开启（sidebar）、关闭（drawer），滚动位置记忆各自独立
-
 function readScrollData(key) {
   try {
     return JSON.parse(localStorage.getItem(key));
@@ -1495,13 +1493,29 @@ function createScrollHandler(saveFn, delay) {
   };
 }
 
-// --- 显示侧边栏开启（sidebar） ---
-
 const SIDEBAR_KEY = "sidebarScrollPosition";
 const SIDEBAR_SEL = ".sidebar";
 
-const saveSidebar = () => saveScrollPosition(SIDEBAR_KEY, SIDEBAR_SEL);
-const restoreSidebar = () => applyScrollPosition(SIDEBAR_KEY, SIDEBAR_SEL);
+// 问题 3 修复：独立变量替代在布尔值上挂属性
+let sidebarRestoring = false;
+let sidebarContentChanging = false;
+let sidebarContentChangingTimer = null;
+
+const saveSidebar = () => {
+  // 恢复期间或内容变化期间，跳过保存
+  if (sidebarRestoring || sidebarContentChanging) return;
+  saveScrollPosition(SIDEBAR_KEY, SIDEBAR_SEL);
+};
+const restoreSidebar = () => {
+  sidebarRestoring = true;
+  applyScrollPosition(SIDEBAR_KEY, SIDEBAR_SEL);
+  // 问题 6 修复：双重 rAF + setTimeout 兜底，确保 scrollTop 设置完成且对应 scroll 事件已处理
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      setTimeout(() => { sidebarRestoring = false; }, 50);
+    });
+  });
+};
 const onSidebarScroll = createScrollHandler(saveSidebar, 300);
 
 function bindSidebarScrollListener() {
@@ -1514,62 +1528,163 @@ function unbindSidebarScrollListener() {
   if (el) el.removeEventListener("scroll", onSidebarScroll);
 }
 
-// --- 显示侧边栏关闭（drawer） ---
+// 监听侧边栏内容变化（如筛选/取消筛选），当内容变长时恢复滚动位置
+let sidebarContentObserver = null;
+let prevSidebarScrollHeight = 0;
 
-const DRAWER_KEY = "drawerScrollPosition";
-const DRAWER_SEL = "ld-filter-drawer .modal-body";
+function setupSidebarContentObserver() {
+  const el = document.querySelector(SIDEBAR_SEL);
+  if (!el) return;
 
-const saveDrawer = () => saveScrollPosition(DRAWER_KEY, DRAWER_SEL);
-const restoreDrawer = () => applyScrollPosition(DRAWER_KEY, DRAWER_SEL);
-const onDrawerScroll = createScrollHandler(saveDrawer, 150);
+  prevSidebarScrollHeight = el.scrollHeight;
 
-function setupDrawerObserver() {
-  const modals = document.querySelector(".modals");
-  if (!modals) return;
+  sidebarContentObserver = new MutationObserver(() => {
+    const newHeight = el.scrollHeight;
+    const prevHeight = prevSidebarScrollHeight;
+    prevSidebarScrollHeight = newHeight;
 
-  new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      for (const node of m.addedNodes) {
-        if (node.tagName === "LD-FILTER-DRAWER") {
-          requestAnimationFrame(() => {
-            const body = node.querySelector(".modal-body");
-            if (body) {
-              body.addEventListener("scroll", onDrawerScroll, {
-                passive: true,
-              });
-              restoreDrawer();
-            }
-          });
-        }
-      }
+    if (newHeight === prevHeight) return;
+
+    // 标记内容正在变化，阻止 scroll 事件覆盖已保存的滚动位置
+    sidebarContentChanging = true;
+    clearTimeout(sidebarContentChangingTimer);
+    sidebarContentChangingTimer = setTimeout(() => {
+      sidebarContentChanging = false;
+    }, 500);
+
+    // 内容变长 → 可能是取消筛选导致内容恢复，尝试恢复滚动位置
+    if (newHeight > prevHeight) {
+      restoreSidebar();
     }
-  }).observe(modals, { childList: true });
+  });
+
+  sidebarContentObserver.observe(el, { childList: true, subtree: true });
 }
 
-// 抽屉关闭前保存（捕获阶段，先于 Modal 自身的 close handler）
-document.addEventListener(
-  "click",
-  (e) => {
-    if (
-      e.target.closest("[data-close-modal]") &&
-      e.target.closest("ld-filter-drawer")
-    ) {
-      saveDrawer();
+function disconnectSidebarContentObserver() {
+  if (sidebarContentObserver) {
+    sidebarContentObserver.disconnect();
+    sidebarContentObserver = null;
+  }
+  prevSidebarScrollHeight = 0;
+  clearTimeout(sidebarContentChangingTimer);
+  sidebarContentChanging = false;
+}
+
+// ==========================================
+// Sidebar Toggle
+// ==========================================
+
+function getSidebarPage() {
+  return document.querySelector(".bookmarks-page, .highlights-page");
+}
+
+function isMobile() {
+  return window.innerWidth <= 840;
+}
+
+// localStorage key 按页面区分：书签页和高亮页各自独立
+function getSidebarStateKey() {
+  const page = getSidebarPage();
+  if (page && page.classList.contains("highlights-page")) return "ld:sidebar-state:highlights";
+  return "ld:sidebar-state:bookmarks";
+}
+
+let sidebarJustToggled = false;
+
+function saveSidebarState(isOpen) {
+  try { localStorage.setItem(getSidebarStateKey(), isOpen ? "1" : "0"); } catch {}
+}
+
+function openSidebar(page) {
+  page.classList.remove("sidebar-closed");
+  page.classList.add("sidebar-open");
+  restoreSidebar();
+  if (isMobile()) {
+    document.body.classList.add("sidebar-overlay-active");
+    page.classList.add("sidebar-animate");
+    requestAnimationFrame(() => page.classList.add("sidebar-visible"));
+    sidebarJustToggled = true;
+    setTimeout(() => {
+      sidebarJustToggled = false;
+      page.classList.remove("sidebar-animate");
+    }, 400);
+  }
+}
+
+function closeSidebar(page) {
+  if (page.classList.contains("sidebar-open") && isMobile()) {
+    page.classList.add("sidebar-closing");
+    void page.offsetWidth;
+    page.classList.remove("sidebar-visible");
+
+    const sidebar = page.querySelector(".sidebar");
+    if (sidebar) {
+      let done = false;
+      const finalize = () => {
+        if (done) return;
+        done = true;
+        page.classList.remove("sidebar-open", "sidebar-closing");
+        page.classList.add("sidebar-closed");
+        document.body.classList.remove("sidebar-overlay-active");
+      };
+      sidebar.addEventListener("transitionend", finalize, { once: true });
+      setTimeout(finalize, 300);
+      return;
     }
-  },
-  true,
-);
+  }
 
-// --- 生命周期 ---
+  page.classList.remove("sidebar-open", "sidebar-visible");
+  page.classList.add("sidebar-closed");
+  document.body.classList.remove("sidebar-overlay-active");
+}
 
+// 交互 handler
+function handleSidebarInteraction(e) {
+  const page = getSidebarPage();
+  if (!page) return;
+
+  // Toggle 按钮
+  if (e.target.closest("[data-sidebar-toggle]")) {
+    if (e.type === "touchstart") { e.preventDefault(); }
+    const wasOpen = page.classList.contains("sidebar-open");
+    wasOpen ? closeSidebar(page) : openSidebar(page);
+    saveSidebarState(!wasOpen);
+    return;
+  }
+
+  // 关闭按钮（移动端）
+  if (e.target.closest("[data-sidebar-close]")) {
+    if (e.type === "touchstart") { e.preventDefault(); }
+    closeSidebar(page);
+    saveSidebarState(false);
+    return;
+  }
+
+  // 遮罩点击（移动端 sidebar 外部区域）
+  if (e.type === "click" && !sidebarJustToggled &&
+      page.classList.contains("sidebar-visible") &&
+      !e.target.closest(".sidebar") && isMobile()) {
+    closeSidebar(page);
+    saveSidebarState(false);
+  }
+}
+document.addEventListener("click", handleSidebarInteraction);
+document.addEventListener("touchstart", handleSidebarInteraction, { passive: false });
+
+// Turbo 生命周期
 document.addEventListener("turbo:before-cache", () => {
   saveSidebar();
   unbindSidebarScrollListener();
-  saveDrawer();
+  disconnectSidebarContentObserver();
 });
-document.addEventListener("turbo:load", restoreSidebar);
-document.addEventListener("turbo:load", bindSidebarScrollListener);
-document.addEventListener("turbo:load", setupDrawerObserver);
-document.addEventListener("DOMContentLoaded", restoreSidebar);
-document.addEventListener("DOMContentLoaded", bindSidebarScrollListener);
-document.addEventListener("DOMContentLoaded", setupDrawerObserver);
+document.addEventListener("turbo:load", () => {
+  bindSidebarScrollListener();
+  setupSidebarContentObserver();
+  restoreSidebar();
+});
+document.addEventListener("DOMContentLoaded", () => {
+  bindSidebarScrollListener();
+  setupSidebarContentObserver();
+  restoreSidebar();
+});

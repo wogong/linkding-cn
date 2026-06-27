@@ -4,7 +4,9 @@
 {% block title %}{% translate "Highlights - Linkding" %}{% endblock %}
 
 {% block content %}
-<div class="highlights-page crud-page grid columns-md-1 {% if not show_sidebar %}collapse-sidebar{% endif %}" ld-highlights-bulk-edit>
+<div class="highlights-page crud-page grid columns-md-1 sidebar-closed"
+     data-sidebar-default="{{ show_sidebar|yesno:'1,0' }}"
+     ld-highlights-bulk-edit>
 
   {# ── Header ── #}
   <main class="main col-2" aria-labelledby="main-heading">
@@ -197,7 +199,7 @@
           <path d="M21 7h-3a5 5 0 0 0 -5 5a5 5 0 0 0 5 5h3"></path>
         </svg>
       </a>
-      {% sidebar_toggle %}
+      {% include 'bookmarks/sidebar/components/toggle_button.html' %}
     </div>
 
     {# ── Search summary ── #}
@@ -389,7 +391,8 @@
   </main>
 
   {# Sidebar #}
-  <div class="scrollbar sidebar col-1 hide-md{% if sticky_pagination %} paginate-sticky{% endif %}" data-sticky-on="{{ sticky_side_panel|yesno:'true,false' }}">
+  <div class="scrollbar sidebar col-1{% if sticky_pagination %} paginate-sticky{% endif %}" data-sticky-on="{{ sticky_side_panel|yesno:'true,false' }}">
+    {% include 'bookmarks/sidebar/components/close_button.html' %}
     {% include 'bookmarks/highlights/sidebar/index.html' %}
   </div>
 </div>

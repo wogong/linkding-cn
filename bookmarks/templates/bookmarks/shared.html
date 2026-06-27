@@ -5,7 +5,8 @@
 
 {% block content %}
   <div
-      class="bookmarks-page grid columns-md-1 {% if not show_sidebar %}collapse-sidebar{% endif %}">
+      class="bookmarks-page grid columns-md-1 sidebar-closed"
+      data-sidebar-default="{{ show_sidebar|yesno:'1,0' }}">
 
     {# Bookmark list #}
     <main class="main col-2" aria-labelledby="main-heading">
@@ -14,7 +15,7 @@
         <div class="header-controls">
           {% bookmark_search bookmark_list.search mode='shared' %}
           {% random_sort bookmark_list.search %}
-          {% sidebar_toggle %}
+          {% include 'bookmarks/sidebar/components/toggle_button.html' %}
         </div>
       </div>
 
@@ -29,7 +30,8 @@
     </main>
 
     {# Filters #}
-    <div class="scrollbar sidebar col-1 hide-md" data-sticky-on="{{ sticky_side_panel|yesno:'true,false' }}">
+    <div class="scrollbar sidebar col-1" data-sticky-on="{{ sticky_side_panel|yesno:'true,false' }}">
+      {% include 'bookmarks/sidebar/components/close_button.html' %}
       <section aria-labelledby="user-heading">
         <div class="section-header">
           <h2 id="user-heading">{% translate "User" %}</h2>

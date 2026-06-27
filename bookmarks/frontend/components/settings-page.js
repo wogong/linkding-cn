@@ -721,6 +721,7 @@ class SettingsPageBehavior extends Behavior {
       }
 
       this.clearErrors(form);
+      this.clearSidebarStateFromLocalStorage(form);
       if (this.isDraftForm(form)) {
         this.clearStoredDraft(form);
         this.setDraftRestored(form, false);
@@ -967,6 +968,17 @@ class SettingsPageBehavior extends Behavior {
     // Modules remain editable even when sidebar is collapsed,
     // because the sidebar can still be opened via the drawer button.
 
+  }
+
+  // 设置页保存后，删除 localStorage 中的 sidebar 状态，
+  // 让下次页面加载使用服务器设置（data-sidebar-default）。
+  // 这样 toolbar toggle 的 localStorage 不会与设置页冲突。
+  clearSidebarStateFromLocalStorage(form) {
+    if (!form.matches("[data-sidebar-modules-form]")) return;
+    try {
+      localStorage.removeItem("ld:sidebar-state:bookmarks");
+      localStorage.removeItem("ld:sidebar-state:highlights");
+    } catch {}
   }
 
   // 语言设置：主选项与”其他语言”下拉的联动提交。

@@ -16,21 +16,13 @@
     grid-gap: var(--unit-9);
   }
 
-  ld-filter-drawer-trigger {
+  /* sidebar-close-btn: desktop always hidden, mobile shown via sidebar-visible */
+  .sidebar-close-btn {
     display: none;
   }
 
-  @media (max-width: 840px) {
-    section.sidebar {
-      display: none;
-    }
-
-    ld-filter-drawer-trigger {
-      display: inline-block;
-    }
-  }
-
-  &.collapse-sidebar {
+  /* 侧边栏关闭 */
+  &.sidebar-closed {
     main {
       grid-column: span var(--grid-columns);
     }
@@ -38,11 +30,109 @@
     .sidebar {
       display: none;
     }
+  }
+}
 
-    ld-filter-drawer-trigger {
-      display: inline-block;
+/* 移动端：sidebar 始终用 fixed overlay 模式
+   注意：@media 不能嵌套在 CSS nesting 规则内部（postcss-nesting 不支持） */
+@media (max-width: 840px) {
+  .bookmarks-page.sidebar-open,
+  .highlights-page.sidebar-open {
+    main {
+      grid-column: span var(--grid-columns);
+    }
+
+    .sidebar {
+      position: fixed !important;
+      top: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      left: auto !important;
+      width: 85% !important;
+      max-width: 360px !important;
+      height: 100vh !important;
+      max-height: none !important;
+      z-index: var(--zindex-4) !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      overscroll-behavior: contain;
+      background: var(--body-color);
+      box-shadow: -2px 0 12px rgba(0, 0, 0, 0.15);
+      transform: translateX(100%);
+      padding: var(--unit-4);
+      scrollbar-gutter: auto;
+      padding-right: var(--unit-4);
+    }
+
+    /* 遮罩层 */
+    &::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      pointer-events: none;
+      z-index: calc(var(--zindex-4) - 1);
+    }
+
+    /* 展开态：无动画（页面加载/Turbo 导航时 sidebar 直接就位） */
+    &.sidebar-visible .sidebar {
+      transform: translateX(0);
+      transition: none;
+    }
+
+    &.sidebar-visible::after {
+      opacity: 1;
+      transition: none;
+    }
+
+    /* 开启动画：仅用户点击 toggle 时由 openSidebar() 添加
+       specificity 0-4-1 > sidebar-visible 的 0-3-1，覆盖 transition: none */
+    &.sidebar-animate.sidebar-visible .sidebar {
+      transition: transform 0.25s ease;
+    }
+
+    &.sidebar-animate.sidebar-visible::after {
+      transition: opacity 0.25s ease;
+    }
+
+    /* 关闭动画：closing 期间保留 transition，允许 sidebar 滑出 */
+    &.sidebar-closing .sidebar {
+      transition: transform 0.25s ease;
+    }
+
+    &.sidebar-closing::after {
+      transition: opacity 0.25s ease;
+    }
+
+    .sidebar-close-bar {
+      display: flex;
     }
   }
+
+  body.sidebar-overlay-active {
+    overflow: visible !important;
+  }
+}
+
+/* 移动端关闭栏 */
+.sidebar-close-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--unit-4);
+}
+.sidebar-close-label {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+.sidebar-close-bar .sidebar-close-btn {
+  padding: 0;
+  height: auto;
+  border: none;
+  background: none;
+  box-shadow: none;
+  display: inline-flex;
 }
 
 /* Bookmark area header controls */
@@ -1762,6 +1852,7 @@ ul.bookmark-list {
 
 
 .sidebar {
+  position: relative;
   max-height: var(--app-viewport-height);
   &.paginate-sticky {
     max-height: calc(var(--app-viewport-height) * 0.85);

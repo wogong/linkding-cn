@@ -52,8 +52,3 @@ class FrontendModuleBoundaryTestCase(SimpleTestCase):
             "registerDomainDisplayPreferences();",
             domain_content,
         )
-
-    def test_filter_drawer_behavior_imports_drawer_state_from_state_directory(self):
-        content = self.read_source("bookmarks/frontend/components/filter-drawer.js")
-
-        self.assertIn('from "../state/filter-drawer-state.js"', content)

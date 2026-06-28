@@ -54,6 +54,7 @@ def read(request: HttpRequest, bookmark_id: int):
                     "snapshot_url": snapshot_url,
                     "web_archive_url": web_archive_url,
                     "is_authenticated": request.user.is_authenticated,
+                    "api_base_url": reverse("linkding:api-root").rstrip("/"),
                 },
             )
 

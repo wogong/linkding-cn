@@ -2134,3 +2134,78 @@ html.reader-mode {
   }
 
 }
+
+/* ---- Loading / Pending states ---- */
+
+html.reader-mode .loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  color: var(--text-color, #999);
+}
+
+html.reader-mode .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color, #333);
+  border-top-color: var(--primary-color, #5856e0);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+html.reader-mode .loading-text {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+html.reader-mode .loading-error {
+  color: var(--danger-color, #e74c3c);
+  margin-top: 12px;
+  display: none;
+}
+
+/* ---- Unavailable page ---- */
+
+html.reader-mode .unavailable-container {
+  padding: 2rem 0;
+}
+
+html.reader-mode .unavailable-title {
+  font-size: 16px;
+  margin-bottom: 2rem;
+}
+
+html.reader-mode .weblinks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--unit-2);
+}
+
+html.reader-mode a.weblink {
+  display: flex;
+  align-items: center;
+  gap: var(--unit-2);
+}
+
+html.reader-mode a.weblink img,
+html.reader-mode a.weblink svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: var(--text-color);
+}
+
+html.reader-mode a.weblink span {
+  flex: 1 1 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

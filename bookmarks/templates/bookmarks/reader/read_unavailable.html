@@ -1,8 +1,9 @@
 {% load i18n static shared %}
 <!DOCTYPE html>
-<html lang="{{ LANGUAGE_CODE|default:'en' }}">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}" class="reader-mode">
 <head>
   <meta charset="UTF-8">
+  <meta name="csrfmiddlewaretoken" content="{{ csrf_token }}">
   <title>{% translate "Reader view" %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimal-ui">
   {% if request.user_profile.theme == 'light' %}
@@ -23,38 +24,6 @@
   {% if request.user_profile.custom_css %}
     <link href="{% url 'linkding:custom_css' %}?hash={{ request.user_profile.custom_css_hash }}" rel="stylesheet" type="text/css"/>
   {% endif %}
-  <style>
-    .unavailable-container {
-      padding: 2rem 0;
-    }
-    .unavailable-title {
-      font-size: 16px;
-      margin-bottom: 2rem;
-    }
-    .weblinks {
-      display: flex;
-      flex-direction: column;
-      gap: var(--unit-2);
-    }
-    a.weblink {
-      display: flex;
-      align-items: center;
-      gap: var(--unit-2);
-    }
-    a.weblink img,
-    a.weblink svg {
-      flex: 0 0 auto;
-      width: 16px;
-      height: 16px;
-      color: var(--text-color);
-    }
-    a.weblink span {
-      flex: 1 1 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-  </style>
 </head>
 <body>
 <header class="container">
@@ -123,41 +92,16 @@
   </div>
 </div>
 {% if is_authenticated %}
-<script>
-(function() {
-  var link = document.getElementById('add-bookmark-link');
-  var text = document.getElementById('add-bookmark-text');
-  var bookmarkUrl = link.dataset.url;
-  var csrfToken = '{{ csrf_token }}';
-
-  link.addEventListener('click', function(e) {
-    e.preventDefault();
-    if (link.dataset.loading) return;
-    link.dataset.loading = '1';
-    text.textContent = '{% translate "Adding..." %}';
-
-    fetch('/api/bookmarks/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrfToken
-      },
-      body: JSON.stringify({ url: bookmarkUrl })
-    })
-    .then(function(r) {
-      if (!r.ok) throw new Error('API error');
-      return r.json();
-    })
-    .then(function(data) {
-      window.location.href = '/bookmarks/' + data.id + '/read';
-    })
-    .catch(function() {
-      text.textContent = '{% translate "Failed, please try again." %}';
-      delete link.dataset.loading;
-    });
-  });
-})();
+{{ api_base_url|default:"/api"|json_script:"reader-api-base-url" }}
+<script type="application/json" id="unavailable-config">
+{
+  "msg": {
+    "adding": "{% translate 'Adding...' %}",
+    "failed": "{% translate 'Failed, please try again.' %}"
+  }
+}
 </script>
+<script src="{% static 'reader-unavailable.js' %}?v={{ app_version }}" type="application/javascript"></script>
 {% endif %}
 </body>
 </html>

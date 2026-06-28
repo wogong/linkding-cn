@@ -1381,8 +1381,6 @@ html.reader-mode {
     align-items: center;
     gap: var(--unit-2);
     font-size: var(--font-size-sm);
-    max-width: min(320px, calc(100vw - 16px));
-    white-space: normal;
     text-align: center;
     white-space: nowrap;
     box-sizing: border-box;

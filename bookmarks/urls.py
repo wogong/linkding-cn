@@ -33,13 +33,13 @@ urlpatterns = [
         "bookmarks/<int:bookmark_id>/edit", views.bookmarks.edit, name="bookmarks.edit"
     ),
     path(
-        "bookmarks/<int:bookmark_id>/read", views.bookmarks.read, name="bookmarks.read"
+        "bookmarks/<int:bookmark_id>/read", views.reader.read, name="bookmarks.read"
     ),
     path(
-        "bookmarks/<int:bookmark_id>/reparse", views.bookmarks.reparse, name="bookmarks.reparse"
+        "bookmarks/<int:bookmark_id>/reparse", views.reader.reparse, name="bookmarks.reparse"
     ),
     path(
-        "bookmarks/<int:bookmark_id>/export", views.bookmarks.export, name="bookmarks.export"
+        "bookmarks/<int:bookmark_id>/export", views.reader.export, name="bookmarks.export"
     ),
     path(
         "bookmarks/<int:bookmark_id>/trash",

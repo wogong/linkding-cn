@@ -121,7 +121,7 @@ def _parse_html_with_options(html_content: str, url: str, options: dict) -> dict
     import subprocess
     import tempfile
 
-    script_path = os.path.join(os.path.dirname(__file__), "defuddle_parse.js")
+    script_path = os.path.join(os.path.dirname(__file__), "vendor", "defuddle_parse.js")
     if not os.path.exists(script_path):
         raise DefuddleError(f"Node.js wrapper script not found at {script_path}")
 
@@ -176,7 +176,7 @@ def _parse_url_with_options(url: str, options: dict) -> dict:
     import json
     import subprocess
 
-    script_path = os.path.join(os.path.dirname(__file__), "defuddle_parse.js")
+    script_path = os.path.join(os.path.dirname(__file__), "vendor", "defuddle_parse.js")
     if not os.path.exists(script_path):
         raise DefuddleError(f"Node.js wrapper script not found at {script_path}")
 

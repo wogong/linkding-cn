@@ -32,7 +32,7 @@
                 </span>
               {% else %}
                 <img class="favicon" src="{% static domain.favicon_file %}"
-                     onerror="this.onerror=null;this.src='{% static 'favicon.svg' %}'"
+                     onerror="handleFaviconError(this,'https://{{ domain.host|urlencode }}')"
                      alt="" width="16" height="16">
               {% endif %}
               <span class="domain-text domain-text-icon">
@@ -53,7 +53,7 @@
               </span>
             {% else %}
               <img class="favicon" src="{% static domain.favicon_file %}"
-                   onerror="this.onerror=null;this.src='{% static 'favicon.svg' %}'"
+                   onerror="handleFaviconError(this,'https://{{ domain.host|urlencode }}')"
                    alt="" width="16" height="16">
             {% endif %}
             <span class="domain-text">

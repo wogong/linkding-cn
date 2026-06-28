@@ -80,7 +80,7 @@
     <div class="weblinks">
       <a class="weblink" href="{{ bookmark.url }}" rel="noopener">
         {% if bookmark.favicon_file %}
-          <img class="favicon" src="{% static bookmark.favicon_file %}" alt="" onerror="this.src='{% static "favicon.svg" %}'">
+          <img class="favicon" src="{% static bookmark.favicon_file %}" alt="" onerror="this.onerror=null;this.src='{% static 'favicon.svg' %}'">
         {% else %}
           <img class="favicon" src="{% static 'favicon.svg' %}" alt="">
         {% endif %}

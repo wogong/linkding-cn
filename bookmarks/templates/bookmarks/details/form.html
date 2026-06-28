@@ -11,7 +11,7 @@
        target="{{ details.profile.bookmark_link_target }}">
       {% if details.bookmark.favicon_file %}
         <img class="favicon" src="{% static details.bookmark.favicon_file %}"
-             onerror="this.onerror=null;var el=this;fetch('{% url 'linkding:bookmarks.prefetch_favicon' %}?url={{ details.bookmark.url|urlencode }}').then(r=>r.json()).then(d=>{el.src='/static/'+(d.favicon_file||'favicon.svg')}).catch(()=>{el.src='{% static 'favicon.svg' %}'})"
+             onerror="handleFaviconError(this,'{{ details.bookmark.url|urlencode }}')"
              alt="">
       {% else %}
         <img class="favicon" src="{% static 'favicon.svg' %}" alt="">

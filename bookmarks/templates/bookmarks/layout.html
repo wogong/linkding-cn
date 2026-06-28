@@ -241,5 +241,14 @@
   {% block overlays %}
   {% endblock %}
 </div>
+<script>
+function handleFaviconError(img, url) {
+  img.onerror = null;
+  fetch('{% url "linkding:bookmarks.prefetch_favicon" %}?url=' + encodeURIComponent(url))
+    .then(function(r) { return r.json(); })
+    .then(function(d) { img.src = '/static/' + (d.favicon_file || 'favicon.svg'); })
+    .catch(function() { img.src = '{% static "favicon.svg" %}'; });
+}
+</script>
 </body>
 </html>

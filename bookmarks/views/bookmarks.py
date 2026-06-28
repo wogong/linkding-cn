@@ -617,6 +617,13 @@ def prefetch_favicon(request: HttpRequest):
 
     cached_favicon = favicon_loader.get_cached_favicon(url)
     if cached_favicon:
+        if cached_favicon.is_stale:
+            try:
+                new_file = favicon_loader.refresh_favicon(url)
+                _update_favicon_for_matching_bookmarks(request.user, url, new_file)
+                return JsonResponse({"status": "success", "favicon_file": new_file})
+            except Exception:
+                pass  # refresh 失败则回退到 stale 文件
         _update_favicon_for_matching_bookmarks(request.user, url, cached_favicon.filename)
         return JsonResponse(
             {"status": "success", "favicon_file": cached_favicon.filename}

@@ -735,7 +735,25 @@ reddit.com/r/Music music reddit</pre>
                       {% translate "Drag to reorder modules and toggle whether they are shown in the bookmark toolbar." %}
                     </div>
                   </div>
+                  <div class="settings-stack-actions">
+                    <button type="button"
+                            class="settings-panel-toggle"
+                            data-settings-panel-toggle
+                            data-settings-panel-expanded-label="{% translate 'Collapse' %}"
+                            data-settings-panel-collapsed-label="{% translate 'Expand' %}"
+                            aria-controls="settings-bookmark-toolbar-modules-panel"
+                            aria-label="{% translate 'Expand' %}"
+                            aria-expanded="false">
+                      <span class="text-assistive" data-settings-panel-toggle-label>
+                        {% translate "Expand" %}
+                      </span>
+                      <svg viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M6 4l4 4l-4 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
+                <div id="settings-bookmark-toolbar-modules-panel" data-settings-panel-body hidden>
                 <ul class="settings-modules-list" data-bookmark-toolbar-list>
                   {% for module in profile_quick_form.bookmark_toolbar_module_items %}
                     <li class="settings-module-item" data-toolbar-module-key="{{ module.key }}">
@@ -757,6 +775,7 @@ reddit.com/r/Music music reddit</pre>
                     </li>
                   {% endfor %}
                 </ul>
+                </div>
               </div>
             </div>
 

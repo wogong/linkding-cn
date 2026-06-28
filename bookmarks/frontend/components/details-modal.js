@@ -269,6 +269,12 @@ class DetailsModal extends Modal {
         }
         const urlDisplay = item.querySelector(".url-display");
         if (urlDisplay) urlDisplay.textContent = value;
+        // 同步弹窗内 URL 显示态
+        const modalUrlLink = this.querySelector(".detail-url-link");
+        if (modalUrlLink) {
+          modalUrlLink.href = value;
+          modalUrlLink.textContent = value;
+        }
         break;
       }
       case "description": {

@@ -1,3 +1,16 @@
+"""
+异步任务模块
+
+集中管理所有 Huey 异步任务，按功能分为以下几大类：
+  1. 通用任务工具（优先级、队列管理）
+  2. Web Archive（Wayback Machine）快照
+  3. Favicon 加载与刷新
+  4. 预览图加载
+  5. 元数据补全与刷新
+  6. HTML 快照生成（含域级冷却调度器）
+  7. 文章提取（阅读模式，defuddle 解析）
+"""
+
 import functools
 import gzip
 import logging
@@ -26,13 +39,14 @@ logger = logging.getLogger(__name__)
 HTML_SNAPSHOT_DISPATCHER_LOCK = huey.lock_task("html-snapshot-dispatcher-lock")
 
 
-# Create custom decorator for Huey tasks that implements exponential backoff
-# Taken from: https://huey.readthedocs.io/en/latest/guide.html#tips-and-tricks
-# Retry 1: 60
-# Retry 2: 240
-# Retry 3: 960
-# Retry 4: 3840
-# Retry 5: 15360
+# ---------------------------------------------------------------------------
+# 通用任务工具
+# ---------------------------------------------------------------------------
+
+# 自定义 Huey 任务装饰器，实现指数退避重试策略
+# 参考: https://huey.readthedocs.io/en/latest/guide.html#tips-and-tricks
+# 退避序列: 60 → 240 → 960 → 3840 → 15360 秒
+
 def task(retries=5, retry_delay=15, retry_backoff=4):
     def deco(fn):
         @functools.wraps(fn)
@@ -57,6 +71,11 @@ def task(retries=5, retry_delay=15, retry_backoff=4):
     return deco
 
 
+# ---------------------------------------------------------------------------
+# Web Archive（Wayback Machine）快照
+# ---------------------------------------------------------------------------
+
+
 def is_web_archive_integration_active(user: User) -> bool:
     background_tasks_enabled = not settings.LD_DISABLE_BACKGROUND_TASKS
     web_archive_integration_enabled = (
@@ -72,7 +91,7 @@ def create_web_archive_snapshot(user: User, bookmark: Bookmark, force_update: bo
         _create_web_archive_snapshot_task(bookmark.id, force_update)
 
 
-def _create_snapshot(bookmark: Bookmark):
+def _create_wayback_snapshot(bookmark: Bookmark):
     logger.info(f"Create new snapshot for bookmark. url={bookmark.url}...")
     archive = waybackpy.WaybackMachineSaveAPI(
         bookmark.url, settings.LD_DEFAULT_USER_AGENT, max_tries=1
@@ -96,7 +115,7 @@ def _create_web_archive_snapshot_task(bookmark_id: int, force_update: bool):
 
     # Create new snapshot
     try:
-        _create_snapshot(bookmark)
+        _create_wayback_snapshot(bookmark)
         return
     except TooManyRequestsError:
         logger.error(
@@ -109,30 +128,15 @@ def _create_web_archive_snapshot_task(bookmark_id: int, force_update: bool):
         )
 
 
-@task()
-def _load_web_archive_snapshot_task(bookmark_id: int):
-    # Loading snapshots from CDX API has been removed, keeping the task function
-    # for now to prevent errors when huey tries to run the task
-    pass
-
-
-@task()
-def _schedule_bookmarks_without_snapshots_task(user_id: int):
-    # Loading snapshots from CDX API has been removed, keeping the task function
-    # for now to prevent errors when huey tries to run the task
-    pass
+# ---------------------------------------------------------------------------
+# Favicon 加载与刷新
+# ---------------------------------------------------------------------------
 
 
 def is_favicon_feature_active(user: User) -> bool:
     background_tasks_enabled = not settings.LD_DISABLE_BACKGROUND_TASKS
 
     return background_tasks_enabled and user.profile.enable_favicons
-
-
-def is_preview_feature_active(user: User) -> bool:
-    return (
-        user.profile.enable_preview_images and not settings.LD_DISABLE_BACKGROUND_TASKS
-    )
 
 
 def update_bookmark_favicon(bookmark: Bookmark, new_favicon_file: str):
@@ -174,11 +178,11 @@ def _load_favicon_task(bookmark_id: int):
 
 def schedule_bookmarks_without_favicons(user: User):
     if is_favicon_feature_active(user):
-        _schedule_bookmarks_without_favicons_task(user.id)
+        _batch_load_favicons_task(user.id)
 
 
 @task()
-def _schedule_bookmarks_without_favicons_task(user_id: int):
+def _batch_load_favicons_task(user_id: int):
     user = User.objects.get(id=user_id)
     bookmarks = Bookmark.objects.filter(favicon_file__exact="", owner=user)
 
@@ -189,17 +193,28 @@ def _schedule_bookmarks_without_favicons_task(user_id: int):
 
 def schedule_refresh_favicons(user: User):
     if is_favicon_feature_active(user) and settings.LD_ENABLE_REFRESH_FAVICONS:
-        _schedule_refresh_favicons_task(user.id)
+        _batch_refresh_favicons_task(user.id)
 
 
 @task()
-def _schedule_refresh_favicons_task(user_id: int):
+def _batch_refresh_favicons_task(user_id: int):
     user = User.objects.get(id=user_id)
     bookmarks = Bookmark.objects.filter(owner=user)
 
     # TODO: Implement bulk task creation
     for bookmark in bookmarks:
         refresh_favicon(user, bookmark)
+
+
+# ---------------------------------------------------------------------------
+# 预览图加载
+# ---------------------------------------------------------------------------
+
+
+def is_preview_feature_active(user: User) -> bool:
+    return (
+        user.profile.enable_preview_images and not settings.LD_DISABLE_BACKGROUND_TASKS
+    )
 
 
 def load_preview_image(user: User, bookmark: Bookmark):
@@ -240,11 +255,11 @@ def _load_preview_image_task(bookmark_id: int):
 
 def schedule_bookmarks_without_previews(user: User):
     if is_preview_feature_active(user):
-        _schedule_bookmarks_without_previews_task(user.id)
+        _batch_load_preview_images_task(user.id)
 
 
 @task()
-def _schedule_bookmarks_without_previews_task(user_id: int):
+def _batch_load_preview_images_task(user_id: int):
     user = User.objects.get(id=user_id)
     bookmarks = Bookmark.objects.filter(
         Q(preview_image_file__exact=""),
@@ -257,6 +272,11 @@ def _schedule_bookmarks_without_previews_task(user_id: int):
             _load_preview_image_task(bookmark.id)
         except Exception as exc:
             logging.exception(exc)
+
+
+# ---------------------------------------------------------------------------
+# 元数据补全与刷新
+# ---------------------------------------------------------------------------
 
 
 def refresh_metadata(bookmark: Bookmark):
@@ -336,10 +356,10 @@ def _refresh_metadata_task(bookmark_id: int):
     metadata = load_website_metadata(bookmark.url, ignore_cache=True)
     update_fields = []
 
-    if metadata.title or metadata.title == "":
+    if metadata.title is not None:
         bookmark.title = metadata.title
         update_fields.append("title")
-    if metadata.description or metadata.description == "":
+    if metadata.description is not None:
         bookmark.description = metadata.description
         update_fields.append("description")
     if metadata.preview_image:
@@ -364,11 +384,21 @@ def _refresh_metadata_task(bookmark_id: int):
         create_html_snapshot(bookmark)
 
 
+# ---------------------------------------------------------------------------
+# HTML 快照生成（SingleFile 归档）
+#
+# 采用"调度器 + 冷却窗口"模式：
+#   - 每次需要生成快照时，创建 STATUS_PENDING 资产并启动调度器
+#   - 调度器按域名冷却间隔串行调度，避免对同一域名频繁抓取
+#   - 每分钟定时兜底，确保中断后未完成的任务能被重新拾起
+# ---------------------------------------------------------------------------
+
+
 def is_html_snapshot_feature_active() -> bool:
     return settings.LD_ENABLE_SNAPSHOTS and not settings.LD_DISABLE_BACKGROUND_TASKS
 
 
-def _kick_html_snapshot_dispatcher():
+def _trigger_html_snapshot_dispatcher():
     _html_snapshot_dispatcher_task()
 
 
@@ -389,6 +419,14 @@ def _get_html_snapshot_dispatcher_tick_seconds() -> int:
 
 
 def _select_next_html_snapshot_asset(now, next_eligible_at: dict[str, object]):
+    """
+    从待处理快照队列中选出下一个可执行的资产。
+
+    优先选 date_created 最新的（LIFO），但跳过仍处于冷却期的域名。
+    返回 (asset, next_wake_at)：
+      - asset 不为 None  → 立即执行
+      - asset 为 None     → 所有 pending 均在冷却中，next_wake_at 为最早可唤醒时间
+    """
     pending_assets = (
         BookmarkAsset.objects.filter(
             asset_type=BookmarkAsset.TYPE_SNAPSHOT,
@@ -422,6 +460,15 @@ def _run_html_snapshot_dispatcher_loop(
     sleep_func: Callable[[float], None] | None = None,
     cooldown_func: Callable[[], int] | None = None,
 ):
+    """
+    调度器主循环：持续消费待处理快照，直到队列清空。
+
+    工作逻辑：
+      1. 从 pending 队列中选出下一个可执行资产（跳过冷却中的域名）
+      2. 选中 → 提交任务，记录该域名的下次可用时间
+      3. 无可执行资产 → 计算最早唤醒时间，sleep 等待后重试
+      4. 队列完全为空 → 退出循环
+    """
     now_func = now_func or timezone.now
     sleep_func = sleep_func or time.sleep
     cooldown_func = cooldown_func or _get_html_snapshot_cooldown_seconds
@@ -460,7 +507,7 @@ def create_html_snapshot(bookmark: Bookmark):
 
     asset = assets.create_snapshot_asset(bookmark)
     asset.save()
-    _kick_html_snapshot_dispatcher()
+    _trigger_html_snapshot_dispatcher()
 
 
 def create_html_snapshots(bookmark_list: list[Bookmark]):
@@ -476,11 +523,11 @@ def create_html_snapshots(bookmark_list: list[Bookmark]):
         return
 
     BookmarkAsset.objects.bulk_create(assets_to_create)
-    _kick_html_snapshot_dispatcher()
+    _trigger_html_snapshot_dispatcher()
 
 
 # SingleFile does not support running multiple snapshot captures in parallel.
-# Keep a periodic fallback that can re-kick the dispatcher if pending work was
+# Keep a periodic fallback that can re-trigger the dispatcher if pending work was
 # missed due to an interrupted worker or process restart.
 @huey.periodic_task(crontab(minute="*"))
 def _schedule_html_snapshots_task():
@@ -488,7 +535,7 @@ def _schedule_html_snapshots_task():
         asset_type=BookmarkAsset.TYPE_SNAPSHOT,
         status=BookmarkAsset.STATUS_PENDING,
     ).exists():
-        _kick_html_snapshot_dispatcher()
+        _trigger_html_snapshot_dispatcher()
 
 
 def _create_html_snapshot_task(asset_id: int):
@@ -532,8 +579,18 @@ def create_missing_html_snapshots(user: User) -> int:
     return bookmarks_without_snapshots.count()
 
 
+# ---------------------------------------------------------------------------
+# 文章提取（阅读模式，defuddle 解析）
+#
+# 解析优先级：
+#   1. 已有 HTML 快照 → 直接用 defuddle 解析 HTML
+#   2. 域名配置了自定义 snapshot_processor → 先生成快照再解析
+#   3. 都没有 → 让 defuddle 直接抓取 URL；失败则回退到生成快照再解析
+# ---------------------------------------------------------------------------
+
+
 def create_article(bookmark: Bookmark) -> BookmarkAsset:
-    """Create a pending article asset and queue the defuddle task."""
+    """创建 pending 状态的文章资产，并提交 defuddle 解析任务。"""
     from bookmarks.services.articles import create_article_asset_pending
 
     asset = create_article_asset_pending(bookmark)
@@ -542,7 +599,7 @@ def create_article(bookmark: Bookmark) -> BookmarkAsset:
 
 
 def create_html_articles(bookmark_list: list[Bookmark]):
-    """Batch create pending article assets and queue defuddle tasks."""
+    """批量创建 pending 状态的文章资产，并逐个提交 defuddle 解析任务。"""
     from bookmarks.services.articles import create_article_asset_pending
 
     for bookmark in bookmark_list:
@@ -551,7 +608,7 @@ def create_html_articles(bookmark_list: list[Bookmark]):
 
 
 def _load_snapshot_asset_html(snapshot: BookmarkAsset | None) -> str | None:
-    """Load HTML content from a snapshot asset, or None if unavailable."""
+    """从快照资产文件中读取 HTML 内容，无法读取时返回 None。"""
     if (
         not snapshot
         or snapshot.status != BookmarkAsset.STATUS_COMPLETE
@@ -580,12 +637,12 @@ def _load_snapshot_asset_html(snapshot: BookmarkAsset | None) -> str | None:
 
 
 def _load_snapshot_html(bookmark: Bookmark) -> str | None:
-    """Load HTML content from the bookmark's latest snapshot, or None if unavailable."""
+    """读取书签最新快照的 HTML 内容，无可用快照时返回 None。"""
     return _load_snapshot_asset_html(bookmark.latest_snapshot)
 
 
 def _has_custom_snapshot_processor(url: str) -> bool:
-    """Check if the domain has a custom snapshot processor configured."""
+    """检查该域名是否配置了自定义快照处理器。"""
     from bookmarks.utils import search_config_for_domain
 
     settings_path = settings.LD_CUSTOM_SNAPSHOT_PROCESSOR_SETTINGS
@@ -599,7 +656,7 @@ def _has_custom_snapshot_processor(url: str) -> bool:
 def _create_snapshot_for_article(
     bookmark: Bookmark,
 ) -> tuple[BookmarkAsset | None, str | None]:
-    """Create a snapshot for article parsing and return its asset plus HTML content."""
+    """为文章解析生成快照，返回 (快照资产, HTML内容)；失败时内容为 None。"""
     asset = assets.create_snapshot_asset(bookmark)
     asset.save()
 
@@ -619,7 +676,7 @@ def _create_snapshot_for_article(
 
 @task(retries=2)
 def _create_article_task(asset_id: int):
-    """Huey task: fetch page, run defuddle, save parsed article."""
+    """Huey 任务：抓取页面 → defuddle 解析 → 保存文章内容。"""
     from bookmarks.services.articles import remove_article, save_article_content
 
     try:

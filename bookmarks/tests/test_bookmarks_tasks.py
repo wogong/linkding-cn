@@ -1105,11 +1105,11 @@ class ArticleTasksTestCase(TestCase, BookmarkFactoryMixin):
 
         with (
             mock.patch(
-                "bookmarks.services.defuddle_processor.parse_url",
+                "bookmarks.services.reader_processor.parse_url",
                 side_effect=RuntimeError("direct parse failed"),
             ) as mock_parse_url,
             mock.patch(
-                "bookmarks.services.defuddle_processor.parse_html",
+                "bookmarks.services.reader_processor.parse_html",
                 return_value=self.parsed_article,
             ) as mock_parse_html,
             mock.patch(
@@ -1146,11 +1146,11 @@ class ArticleTasksTestCase(TestCase, BookmarkFactoryMixin):
 
         with (
             mock.patch(
-                "bookmarks.services.defuddle_processor.parse_url",
+                "bookmarks.services.reader_processor.parse_url",
                 side_effect=RuntimeError("direct parse failed"),
             ),
             mock.patch(
-                "bookmarks.services.defuddle_processor.parse_html",
+                "bookmarks.services.reader_processor.parse_html",
                 side_effect=RuntimeError("snapshot parse failed"),
             ) as mock_parse_html,
             mock.patch(

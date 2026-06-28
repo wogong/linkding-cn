@@ -4,10 +4,11 @@
   "description": "Self-hosted bookmark manager - Chinese enhanced fork of linkding",
   "main": "index.js",
   "scripts": {
-    "build": "npm run build-js && npm run build-theme-light && npm run build-theme-dark",
+    "build": "npm run build-js && npm run build-theme-light && npm run build-theme-dark && npm run build-defuddle",
     "build-js": "rollup -c",
     "build-theme-light": "POSTCSS_DISABLE_CACHE=true postcss -o bookmarks/static/theme-light.css bookmarks/styles/theme-light.css",
     "build-theme-dark": "POSTCSS_DISABLE_CACHE=true postcss -o bookmarks/static/theme-dark.css bookmarks/styles/theme-dark.css",
+    "build-defuddle": "node esbuild.config.mjs",
     "dev": "rollup -c -w"
   },
   "repository": {
@@ -31,6 +32,7 @@
     "approx-string-match": "^2.0.0",
     "cssnano": "^7.0.6",
     "defuddle": "^0.18.1",
+    "esbuild": "^0.25.0",
     "iconify-icon": "^3.0.2",
     "lit": "^3.3.1",
     "postcss": "^8.4.45",
@@ -42,5 +44,8 @@
   "devDependencies": {
     "prettier": "^3.3.3"
   },
-  "web-types": "./web-types.json"
+  "web-types": "./web-types.json",
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
 }

@@ -646,26 +646,26 @@ def _create_article_task(asset_id: int):
 
     fallback_snapshot = None
     try:
-        from bookmarks.services import defuddle_processor
+        from bookmarks.services import reader_processor
 
         # 1. Try existing snapshot
         raw_html = _load_snapshot_html(bookmark)
         if raw_html:
             logger.info(f"Using existing snapshot. url={bookmark.url}")
-            result = defuddle_processor.parse_html(raw_html, url=bookmark.url)
+            result = reader_processor.parse_html(raw_html, url=bookmark.url)
         elif _has_custom_snapshot_processor(bookmark.url):
             # 2. Custom snapshot_processor → create snapshot first, then parse
             logger.info(f"Creating snapshot via custom processor. url={bookmark.url}")
             _snapshot, raw_html = _create_snapshot_for_article(bookmark)
             if not raw_html:
                 raise Exception("Failed to create snapshot via custom processor")
-            result = defuddle_processor.parse_html(raw_html, url=bookmark.url)
+            result = reader_processor.parse_html(raw_html, url=bookmark.url)
         else:
             # 3. No snapshot, no custom processor → let defuddle fetch URL directly.
             # If that fails, retry once from a freshly generated snapshot.
             logger.info(f"Parsing URL directly with defuddle. url={bookmark.url}")
             try:
-                result = defuddle_processor.parse_url(bookmark.url)
+                result = reader_processor.parse_url(bookmark.url)
             except Exception as direct_error:
                 logger.info(
                     f"Direct article parsing failed; retrying via generated snapshot. url={bookmark.url}",
@@ -676,7 +676,7 @@ def _create_article_task(asset_id: int):
                     raise Exception(
                         "Failed to create fallback snapshot for article"
                     ) from direct_error
-                result = defuddle_processor.parse_html(raw_html, url=bookmark.url)
+                result = reader_processor.parse_html(raw_html, url=bookmark.url)
 
         # 生成标准 HTML 文档：元数据放 head，正文放 body
         from django.utils.html import escape

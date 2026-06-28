@@ -13,6 +13,31 @@ class DefuddleError(Exception):
     pass
 
 
+def _normalize_result(data: dict) -> dict:
+    """统一 defuddle 输出格式。"""
+    return {
+        "title": data.get("title", ""),
+        "content": data.get("content", ""),
+        "description": data.get("description", ""),
+        "author": data.get("author", ""),
+        "site": data.get("site", ""),
+        "wordCount": data.get("wordCount", 0),
+    }
+
+
+def _inject_base_tag(html_content: str, url: str) -> str:
+    """注入 <base> 标签以便 defuddle 解析相对链接。"""
+    if url and "<base " not in html_content:
+        base_tag = f'<base href="{url}">'
+        if "<head>" in html_content:
+            html_content = html_content.replace("<head>", f"<head>{base_tag}", 1)
+        elif "<head " in html_content:
+            html_content = html_content.replace("<head", f"{base_tag}<head", 1)
+        else:
+            html_content = f"<head>{base_tag}</head>{html_content}"
+    return html_content
+
+
 def parse_html(html_content: str, url: str = "") -> dict:
     """
     Parse raw HTML with defuddle and return clean article content.
@@ -25,15 +50,7 @@ def parse_html(html_content: str, url: str = "") -> dict:
     if not os.path.exists(defuddle_bin):
         raise DefuddleError(f"defuddle CLI not found at {defuddle_bin}")
 
-    # Inject <base> tag so defuddle can resolve relative links
-    if url and "<base " not in html_content:
-        base_tag = f'<base href="{url}">'
-        if "<head>" in html_content:
-            html_content = html_content.replace("<head>", f"<head>{base_tag}", 1)
-        elif "<head " in html_content:
-            html_content = html_content.replace("<head", f"{base_tag}<head", 1)
-        else:
-            html_content = f"<head>{base_tag}</head>{html_content}"
+    html_content = _inject_base_tag(html_content, url)
 
     # Write HTML to temp file
     with tempfile.NamedTemporaryFile(
@@ -67,15 +84,7 @@ def parse_html(html_content: str, url: str = "") -> dict:
         if not output:
             raise DefuddleError("defuddle produced no output")
 
-        data = json.loads(output)
-        return {
-            "title": data.get("title", ""),
-            "content": data.get("content", ""),
-            "description": data.get("description", ""),
-            "author": data.get("author", ""),
-            "site": data.get("site", ""),
-            "wordCount": data.get("wordCount", 0),
-        }
+        return _normalize_result(json.loads(output))
 
     except json.JSONDecodeError as e:
         raise DefuddleError(f"Failed to parse defuddle output: {e}") from e
@@ -118,15 +127,7 @@ def parse_url(url: str) -> dict:
         if not output:
             raise DefuddleError("defuddle produced no output")
 
-        data = json.loads(output)
-        return {
-            "title": data.get("title", ""),
-            "content": data.get("content", ""),
-            "description": data.get("description", ""),
-            "author": data.get("author", ""),
-            "site": data.get("site", ""),
-            "wordCount": data.get("wordCount", 0),
-        }
+        return _normalize_result(json.loads(output))
 
     except json.JSONDecodeError as e:
         raise DefuddleError(f"Failed to parse defuddle output: {e}") from e

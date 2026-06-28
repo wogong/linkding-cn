@@ -330,6 +330,9 @@ LD_CUSTOM_WEBSITE_LOADER_SETTINGS = os.getenv(
 LD_CUSTOM_SNAPSHOT_PROCESSOR_SETTINGS = os.getenv(
     "LD_CUSTOM_SNAPSHOT_PROCESSOR_SETTINGS", "data/snapshot_processor/settings.json"
 )
+LD_CUSTOM_READER_PROCESSOR_SETTINGS = os.getenv(
+    "LD_CUSTOM_READER_PROCESSOR_SETTINGS", "data/reader_processor/settings.json"
+)
 
 # Asset / snapshot settings
 LD_ASSET_FOLDER = os.path.join(BASE_DIR, "data", "assets")

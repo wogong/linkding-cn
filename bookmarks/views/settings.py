@@ -367,6 +367,7 @@ def save(request: HttpRequest):
     profile_before = {
         "enable_favicons": profile.enable_favicons,
         "enable_preview_images": profile.enable_preview_images,
+        "custom_domain_root": profile.custom_domain_root,
     }
 
     if form_id == "profile_quick":
@@ -421,6 +422,13 @@ def save(request: HttpRequest):
         }
         from bookmarks.services.icon_loader import cleanup_unused_icons
         cleanup_unused_icons(new_icon_names, old_icon_names)
+    elif form_id == "profile_custom_domain_root":
+        old_domain_root = profile_before.get("custom_domain_root") or ""
+        new_domain_root = saved_instance.custom_domain_root or ""
+        if old_domain_root != new_domain_root:
+            tasks.rename_favicon_for_domain_config(
+                request.user, old_domain_root, new_domain_root
+            )
 
     return _build_form_success_response(request, form_id)
 

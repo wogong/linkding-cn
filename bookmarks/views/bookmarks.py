@@ -687,21 +687,41 @@ def prefetch_favicon(request: HttpRequest):
         return JsonResponse({"status": "success", "favicon_file": "favicon.svg"})
 
 
+def _build_favicon_domain_query(url: str, domain_config=None):
+    """构建匹配书签域名（含别名）的 ORM 查询，返回 (base_url, prefix_query)。"""
+    from django.db.models import Q
+
+    from bookmarks.services.favicon_loader import _get_url_parameters
+    from bookmarks.utils import get_alias_domains_for_root
+
+    url_params = _get_url_parameters(url, domain_config=domain_config)
+    base_url = url_params["url"]  # scheme://hostname (normalized)
+    scheme = urllib.parse.urlparse(url).scheme or "https"
+
+    # Collect all domains (including aliases) that map to the same favicon
+    domains = [url_params["domain"]]
+    if domain_config:
+        domains = get_alias_domains_for_root(url_params["domain"], domain_config)
+
+    # Build prefix filter for all possible domain URLs
+    prefix_query = Q()
+    for domain in domains:
+        prefix_query |= Q(url__startswith=f"{scheme}://{domain}")
+
+    return base_url, prefix_query
+
+
 def _update_favicon_for_matching_bookmarks(user, url: str, new_favicon_file: str, domain_config=None):
     """Update bookmarks with the same domain that have a different or missing favicon_file."""
     from bookmarks.services.favicon_loader import _get_url_parameters
 
-    url_params = _get_url_parameters(url, domain_config=domain_config)
-    base_url = url_params["url"]  # scheme://hostname
+    base_url, prefix_query = _build_favicon_domain_query(url, domain_config)
 
-    # Find bookmarks owned by user with matching scheme+hostname but different favicon_file
     bookmarks = Bookmark.objects.filter(
         owner=user,
-        url__startswith=base_url,
-    ).exclude(favicon_file=new_favicon_file)
+    ).filter(prefix_query).exclude(favicon_file=new_favicon_file)
 
     for bookmark in bookmarks:
-        # Verify this bookmark's URL maps to the same favicon key
         bookmark_params = _get_url_parameters(bookmark.url, domain_config=domain_config)
         if bookmark_params["url"] == base_url:
             bookmark.favicon_file = new_favicon_file
@@ -712,17 +732,13 @@ def _clear_favicon_for_matching_bookmarks(user, url: str, domain_config=None):
     """Clear favicon_file for bookmarks with the same domain to prevent repeated 404 errors."""
     from bookmarks.services.favicon_loader import _get_url_parameters
 
-    url_params = _get_url_parameters(url, domain_config=domain_config)
-    base_url = url_params["url"]  # scheme://hostname
+    base_url, prefix_query = _build_favicon_domain_query(url, domain_config)
 
-    # Find bookmarks owned by user with matching scheme+hostname that have a non-empty favicon_file
     bookmarks = Bookmark.objects.filter(
         owner=user,
-        url__startswith=base_url,
-    ).exclude(favicon_file="")
+    ).filter(prefix_query).exclude(favicon_file="")
 
     for bookmark in bookmarks:
-        # Verify this bookmark's URL maps to the same favicon key
         bookmark_params = _get_url_parameters(bookmark.url, domain_config=domain_config)
         if bookmark_params["url"] == base_url:
             bookmark.favicon_file = ""

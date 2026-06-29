@@ -437,6 +437,60 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
 
         self.assertEqual(self.executed_count(), 0)
 
+    def test_rename_favicon_for_domain_config_should_update_cached_bookmarks(self):
+        user = self.get_or_create_test_user()
+        user.profile.enable_favicons = True
+        user.profile.custom_domain_root = "m.okjike.com -> xiaohongshu.com"
+        user.profile.save()
+
+        bookmark = self.setup_bookmark(
+            url="https://m.okjike.com/path",
+            favicon_file="https_m_okjike_com.svg",
+        )
+
+        # 模拟本地缓存命中：归一化后的域名 favicon 已存在
+        self.mock_get_cached_favicon.return_value = (
+            favicon_loader.CachedFavicon(
+                filename="https_xiaohongshu_com.svg", is_stale=False
+            )
+        )
+
+        old_config = "m.okjike.com -> xiaohongshu.com"
+        new_config = "m.okjike.com -> web.okjike.com"
+        tasks.rename_favicon_for_domain_config(user, old_config, new_config)
+
+        bookmark.refresh_from_db()
+        self.assertEqual(bookmark.favicon_file, "https_xiaohongshu_com.svg")
+        # 验证缓存查询使用了 new_config（web.okjike.com）
+        args, kwargs = self.mock_get_cached_favicon.call_args
+        self.assertEqual(args[0], "https://m.okjike.com/path")
+        self.assertIsNotNone(kwargs.get("domain_config"))
+        # 不应调用 load_favicon（无网络请求）
+        self.mock_download_favicon.assert_not_called()
+
+    def test_rename_favicon_for_domain_config_should_not_update_when_cache_miss(self):
+        user = self.get_or_create_test_user()
+        user.profile.enable_favicons = True
+        user.profile.custom_domain_root = "m.okjike.com -> xiaohongshu.com"
+        user.profile.save()
+
+        bookmark = self.setup_bookmark(
+            url="https://m.okjike.com/path",
+            favicon_file="https_m_okjike_com.svg",
+        )
+
+        # 模拟本地缓存未命中
+        self.mock_get_cached_favicon.return_value = None
+
+        old_config = "m.okjike.com -> xiaohongshu.com"
+        new_config = "m.okjike.com -> web.okjike.com"
+        tasks.rename_favicon_for_domain_config(user, old_config, new_config)
+
+        # 缓存未命中时不更新，交给前端 onerror 懒加载
+        bookmark.refresh_from_db()
+        self.assertEqual(bookmark.favicon_file, "https_m_okjike_com.svg")
+        self.mock_download_favicon.assert_not_called()
+
     def test_load_preview_image_should_create_preview_image_file(self):
         bookmark = self.setup_bookmark()
 

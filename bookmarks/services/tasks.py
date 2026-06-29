@@ -33,7 +33,7 @@ from waybackpy.exceptions import TooManyRequestsError, WaybackError
 from bookmarks.models import Bookmark, BookmarkAsset, UserProfile
 from bookmarks.services import assets, favicon_loader, preview_image_loader
 from bookmarks.services.website_loader import load_website_metadata
-from bookmarks.utils import get_registrable_domain, parse_domain_roots
+from bookmarks.utils import get_matching_domain_roots, get_registrable_domain, parse_domain_roots
 
 logger = logging.getLogger(__name__)
 HTML_SNAPSHOT_DISPATCHER_LOCK = huey.lock_task("html-snapshot-dispatcher-lock")
@@ -198,6 +198,47 @@ def _batch_load_favicons_task(user_id: int):
 def schedule_refresh_favicons(user: User):
     if is_favicon_feature_active(user) and settings.LD_ENABLE_REFRESH_FAVICONS:
         _batch_refresh_favicons_task(user.id)
+
+
+def rename_favicon_for_domain_config(user, old_config_str: str, new_config_str: str):
+    """自定义域名规则变更后，更新受影响书签的 favicon_file。
+    仅处理本地缓存命中的书签（纯 SQL），未命中的交给前端 onerror 懒加载。"""
+    if not is_favicon_feature_active(user):
+        return
+
+    old_config = parse_domain_roots(old_config_str)
+    new_config = parse_domain_roots(new_config_str)
+
+    # 收集新旧规则中所有受影响的域名
+    affected = set()
+    for domains in (old_config.aliases.keys(), new_config.aliases.keys()):
+        for hostname in domains:
+            affected.add(f"https://{hostname}")
+            for rd in get_matching_domain_roots(hostname, old_config) + \
+                       get_matching_domain_roots(hostname, new_config):
+                affected.add(f"https://{rd}")
+
+    if not affected:
+        return
+
+    from django.db.models import Q
+    prefix_query = Q()
+    for url_prefix in affected:
+        prefix_query |= Q(url__startswith=url_prefix)
+
+    bookmarks = Bookmark.objects.filter(owner=user).filter(prefix_query)
+    updates = []
+
+    for bookmark in bookmarks:
+        cached = favicon_loader.get_cached_favicon(
+            bookmark.url, domain_config=new_config
+        )
+        if cached and cached.filename != bookmark.favicon_file:
+            bookmark.favicon_file = cached.filename
+            updates.append(bookmark)
+
+    if updates:
+        Bookmark.objects.bulk_update(updates, ["favicon_file"])
 
 
 @task()

@@ -294,8 +294,48 @@ class BookmarkNewViewTestCase(TestCase, BookmarkFactoryMixin):
             payload = response.json()
             self.assertEqual(payload["status"], "success")
             self.assertEqual(payload["favicon_file"], "https_example_com.png")
-            mock_get_cached_favicon.assert_called_once_with("https://example.com")
-            mock_load_favicon.assert_called_once_with("https://example.com", timeout=5)
+            mock_get_cached_favicon.assert_called_once()
+            args, kwargs = mock_get_cached_favicon.call_args
+            self.assertEqual(args[0], "https://example.com")
+            self.assertIn("domain_config", kwargs)
+
+            mock_load_favicon.assert_called_once()
+            args, kwargs = mock_load_favicon.call_args
+            self.assertEqual(args[0], "https://example.com")
+            self.assertEqual(kwargs["timeout"], 5)
+            self.assertIn("domain_config", kwargs)
+
+    def test_prefetch_favicon_updates_alias_bookmark(self):
+        """通过别名域名获取 favicon 时，应能更新该别名域名的书签"""
+        self.user.profile.enable_favicons = True
+        self.user.profile.custom_domain_root = "m.okjike.com -> xiaohongshu.com"
+        self.user.profile.save()
+
+        bookmark = self.setup_bookmark(
+            url="https://m.okjike.com/path", favicon_file=""
+        )
+
+        with (
+            mock.patch.object(
+                favicon_loader, "get_cached_favicon", return_value=None
+            ),
+            mock.patch.object(
+                favicon_loader,
+                "load_favicon",
+                return_value="https_xiaohongshu_com.svg",
+            ),
+        ):
+            response = self.client.get(
+                reverse("linkding:bookmarks.prefetch_favicon")
+                + "?url=https://m.okjike.com"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.assertEqual(payload["favicon_file"], "https_xiaohongshu_com.svg")
+        bookmark.refresh_from_db()
+        self.assertEqual(bookmark.favicon_file, "https_xiaohongshu_com.svg")
 
     def test_should_show_respective_share_hint(self):
         self.user.profile.enable_sharing = True

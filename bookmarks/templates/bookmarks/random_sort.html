@@ -1,31 +1,11 @@
+{% load i18n %}
 <form action="" method="post" style="display: inline;">
   {% csrf_token %}
   <input type="hidden" name="sort" value="random">
-  {% if search.q %}
-    <input type="hidden" name="q" value="{{ search.q }}">
-  {% endif %}
-  {% if search.user %}
-    <input type="hidden" name="user" value="{{ search.user }}">
-  {% endif %}
-  {% if search.bundle %}
-    <input type="hidden" name="bundle" value="{{ search.bundle.id }}">
-  {% endif %}
-  {% if search.shared != 'off' %}
-    <input type="hidden" name="shared" value="{{ search.shared }}">
-  {% endif %}
-  {% if search.unread != 'off' %}
-    <input type="hidden" name="unread" value="{{ search.unread }}">
-  {% endif %}
-  {% if search.date_filter_by %}
-    <input type="hidden" name="date_filter_by" value="{{ search.date_filter_by }}">
-  {% endif %}
-  {% if search.date_filter_start %}
-    <input type="hidden" name="date_filter_start" value="{{ search.date_filter_start }}">
-  {% endif %}
-  {% if search.date_filter_end %}
-    <input type="hidden" name="date_filter_end" value="{{ search.date_filter_end }}">
-  {% endif %}
-  {% load i18n %}
+  {# 传递经过白名单验证的查询参数，保留所有筛选条件，使用 force_escape 防止 XSS #}
+  {% for key, value in filtered_params.items %}
+    <input type="hidden" name="{{ key|force_escape }}" value="{{ value|force_escape }}">
+  {% endfor %}
   <button type="submit" class="btn ml-2" title="{% translate 'Random sort' %}">
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" stroke-width="2"
          stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -36,4 +16,4 @@
       <path d="M21 7h-3a5 5 0 0 0 -5 5a5 5 0 0 0 5 5h3"></path>
     </svg>
   </button>
-</form> 
+</form>

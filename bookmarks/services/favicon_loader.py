@@ -163,12 +163,12 @@ def refresh_favicon(url: str, timeout: int = 10) -> str:
         return _load_or_refresh_favicon(url, timeout=timeout, force_refresh=True)
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to refresh favicon for {url}: {e}")
-        raise
+        return ""
     except Exception as e:
         logger.error(
             f"An unexpected error occurred during favicon refresh for {url}: {e}"
         )
-        raise
+        return ""
 
 
 def is_favicon_file_exists(url: str) -> bool:

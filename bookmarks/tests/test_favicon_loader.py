@@ -212,14 +212,12 @@ class FaviconLoaderTestCase(TestCase):
         self.assertEqual(self.count_icons(), 1)
         self.assertEqual(self.get_icon_data("https_example_com.png"), b"updated_icon")
 
-    def test_refresh_favicon_raises_on_request_error(self):
-        with (
-            mock.patch(
-                "requests.get", side_effect=requests.exceptions.RequestException("boom")
-            ),
-            self.assertRaises(requests.exceptions.RequestException),
+    def test_refresh_favicon_returns_empty_on_request_error(self):
+        with mock.patch(
+            "requests.get", side_effect=requests.exceptions.RequestException("boom")
         ):
-            favicon_loader.refresh_favicon("https://example.com")
+            result = favicon_loader.refresh_favicon("https://example.com")
+            self.assertEqual(result, "")
 
     @override_settings(LD_FAVICON_PROVIDER="https://custom.icons.com/?url={url}")
     def test_custom_provider_with_url_param(self):

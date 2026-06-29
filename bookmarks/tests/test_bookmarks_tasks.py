@@ -283,19 +283,16 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
         self.assertEqual(bookmark.title, "Updated title")
         self.assertEqual(bookmark.favicon_file, "https_example_com.png")
 
-    def test_refresh_favicon_should_retry_and_keep_existing_file_on_failure(self):
+    def test_refresh_favicon_should_fallback_to_default_on_failure(self):
         bookmark = self.setup_bookmark(favicon_file="https_example_com.png")
 
-        self.mock_load_favicon.side_effect = requests.exceptions.RequestException(
-            "boom"
-        )
+        self.mock_load_favicon.return_value = ""
 
         tasks.refresh_favicon(self.get_or_create_test_user(), bookmark)
         bookmark.refresh_from_db()
 
-        self.assertEqual(tasks._load_favicon_task.task_class.default_retries, 3)
         self.assertEqual(self.mock_load_favicon.call_count, 1)
-        self.assertEqual(bookmark.favicon_file, "https_example_com.png")
+        self.assertEqual(bookmark.favicon_file, "favicon.svg")
 
     @override_settings(LD_DISABLE_BACKGROUND_TASKS=True)
     def test_load_favicon_should_not_run_when_background_tasks_are_disabled(self):

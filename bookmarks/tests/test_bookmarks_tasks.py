@@ -826,6 +826,186 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
 
         self.mock_assets_create_snapshot.assert_not_called()
 
+    @override_settings(LD_ENABLE_SNAPSHOTS=True, LD_SNAPSHOT_RETRY_DELAYS=[60, 300, 1500])
+    def test_create_html_snapshot_task_should_retry_on_failure(self):
+        bookmark = self.setup_bookmark(url="https://example.com")
+        asset = self.setup_asset(
+            bookmark=bookmark,
+            asset_type=BookmarkAsset.TYPE_SNAPSHOT,
+            status=BookmarkAsset.STATUS_PENDING,
+            retry_count=0,
+        )
+
+        # 模拟快照失败（设置 STATUS_FAILURE 并抛出异常，模拟真实行为）
+        def create_snapshot_failure(asset):
+            BookmarkAsset.objects.filter(id=asset.id).update(
+                status=BookmarkAsset.STATUS_FAILURE
+            )
+            raise Exception("Snapshot failed")
+
+        self.mock_assets_create_snapshot.side_effect = create_snapshot_failure
+
+        mock_now = timezone.now()
+        with mock.patch("bookmarks.services.tasks.timezone.now", return_value=mock_now):
+            tasks._create_html_snapshot_task(asset.id)
+
+        asset.refresh_from_db()
+        self.assertEqual(asset.status, BookmarkAsset.STATUS_PENDING)
+        self.assertEqual(asset.retry_count, 1)
+        self.assertIsNotNone(asset.next_retry_at)
+        # 第一次重试延迟 60 秒
+        self.assertEqual(asset.next_retry_at, mock_now + timedelta(seconds=60))
+
+    @override_settings(LD_ENABLE_SNAPSHOTS=True, LD_SNAPSHOT_RETRY_DELAYS=[60, 300, 1500])
+    def test_create_html_snapshot_task_should_use_configured_delays(self):
+        bookmark = self.setup_bookmark(url="https://example.com")
+        asset = self.setup_asset(
+            bookmark=bookmark,
+            asset_type=BookmarkAsset.TYPE_SNAPSHOT,
+            status=BookmarkAsset.STATUS_PENDING,
+            retry_count=1,  # 已重试 1 次
+        )
+
+        # 模拟快照失败（设置 STATUS_FAILURE 并抛出异常，模拟真实行为）
+        def create_snapshot_failure(asset):
+            BookmarkAsset.objects.filter(id=asset.id).update(
+                status=BookmarkAsset.STATUS_FAILURE
+            )
+            raise Exception("Snapshot failed")
+
+        self.mock_assets_create_snapshot.side_effect = create_snapshot_failure
+
+        mock_now = timezone.now()
+        with mock.patch("bookmarks.services.tasks.timezone.now", return_value=mock_now):
+            tasks._create_html_snapshot_task(asset.id)
+
+        asset.refresh_from_db()
+        self.assertEqual(asset.status, BookmarkAsset.STATUS_PENDING)
+        self.assertEqual(asset.retry_count, 2)
+        self.assertIsNotNone(asset.next_retry_at)
+        # 第二次重试延迟 300 秒（数组索引 1）
+        self.assertEqual(asset.next_retry_at, mock_now + timedelta(seconds=300))
+
+    @override_settings(LD_ENABLE_SNAPSHOTS=True, LD_SNAPSHOT_RETRY_DELAYS=[60, 300, 1500])
+    def test_create_html_snapshot_task_should_set_failure_after_max_retries(self):
+        bookmark = self.setup_bookmark(url="https://example.com")
+        asset = self.setup_asset(
+            bookmark=bookmark,
+            asset_type=BookmarkAsset.TYPE_SNAPSHOT,
+            status=BookmarkAsset.STATUS_PENDING,
+            retry_count=3,  # 已达最大重试次数（数组长度）
+        )
+
+        # 模拟快照失败（设置 STATUS_FAILURE 并抛出异常，模拟真实行为）
+        def create_snapshot_failure(asset):
+            BookmarkAsset.objects.filter(id=asset.id).update(
+                status=BookmarkAsset.STATUS_FAILURE
+            )
+            raise Exception("Snapshot failed")
+
+        self.mock_assets_create_snapshot.side_effect = create_snapshot_failure
+
+        tasks._create_html_snapshot_task(asset.id)
+
+        asset.refresh_from_db()
+        self.assertEqual(asset.status, BookmarkAsset.STATUS_FAILURE)
+        self.assertEqual(asset.retry_count, 3)  # retry_count 不变
+        self.assertIsNone(asset.next_retry_at)  # next_retry_at 未设置
+
+    @override_settings(LD_ENABLE_SNAPSHOTS=True, LD_SNAPSHOT_RETRY_DELAYS=[30, 60])
+    def test_create_html_snapshot_task_should_use_custom_delays(self):
+        """验证自定义延迟数组配置"""
+        bookmark = self.setup_bookmark(url="https://example.com")
+        asset = self.setup_asset(
+            bookmark=bookmark,
+            asset_type=BookmarkAsset.TYPE_SNAPSHOT,
+            status=BookmarkAsset.STATUS_PENDING,
+            retry_count=0,
+        )
+
+        # 模拟快照失败（设置 STATUS_FAILURE 并抛出异常，模拟真实行为）
+        def create_snapshot_failure(asset):
+            BookmarkAsset.objects.filter(id=asset.id).update(
+                status=BookmarkAsset.STATUS_FAILURE
+            )
+            raise Exception("Snapshot failed")
+
+        self.mock_assets_create_snapshot.side_effect = create_snapshot_failure
+
+        mock_now = timezone.now()
+        with mock.patch("bookmarks.services.tasks.timezone.now", return_value=mock_now):
+            tasks._create_html_snapshot_task(asset.id)
+
+        asset.refresh_from_db()
+        self.assertEqual(asset.status, BookmarkAsset.STATUS_PENDING)
+        self.assertEqual(asset.retry_count, 1)
+        # 第一次重试延迟 30 秒（自定义数组的第一个元素）
+        self.assertEqual(asset.next_retry_at, mock_now + timedelta(seconds=30))
+
+    @override_settings(LD_ENABLE_SNAPSHOTS=True, LD_SNAPSHOT_RETRY_DELAYS=[30, 60])
+    def test_create_html_snapshot_task_should_respect_custom_max_retries(self):
+        """验证自定义数组长度决定最大重试次数"""
+        bookmark = self.setup_bookmark(url="https://example.com")
+        asset = self.setup_asset(
+            bookmark=bookmark,
+            asset_type=BookmarkAsset.TYPE_SNAPSHOT,
+            status=BookmarkAsset.STATUS_PENDING,
+            retry_count=2,  # 已达最大重试次数（数组长度为 2）
+        )
+
+        # 模拟快照失败（设置 STATUS_FAILURE 并抛出异常，模拟真实行为）
+        def create_snapshot_failure(asset):
+            BookmarkAsset.objects.filter(id=asset.id).update(
+                status=BookmarkAsset.STATUS_FAILURE
+            )
+            raise Exception("Snapshot failed")
+
+        self.mock_assets_create_snapshot.side_effect = create_snapshot_failure
+
+        tasks._create_html_snapshot_task(asset.id)
+
+        asset.refresh_from_db()
+        # 应该标记为最终失败
+        self.assertEqual(asset.status, BookmarkAsset.STATUS_FAILURE)
+
+    @override_settings(LD_ENABLE_SNAPSHOTS=True)
+    def test_select_next_html_snapshot_asset_should_skip_pending_retry(self):
+        now = timezone.now()
+        bookmark = self.setup_bookmark(url="https://example.com")
+        asset = self.setup_asset(
+            bookmark=bookmark,
+            asset_type=BookmarkAsset.TYPE_SNAPSHOT,
+            status=BookmarkAsset.STATUS_PENDING,
+            retry_count=1,
+            next_retry_at=now + timedelta(minutes=5),  # 5 分钟后重试
+        )
+
+        selected_asset, next_wake_at = tasks._select_next_html_snapshot_asset(now, {})
+
+        # 应该跳过这个资产
+        self.assertIsNone(selected_asset)
+        # next_wake_at 应该是 next_retry_at
+        self.assertEqual(next_wake_at, now + timedelta(minutes=5))
+
+    @override_settings(LD_ENABLE_SNAPSHOTS=True)
+    def test_select_next_html_snapshot_asset_should_process_ready_retry(self):
+        now = timezone.now()
+        bookmark = self.setup_bookmark(url="https://example.com")
+        asset = self.setup_asset(
+            bookmark=bookmark,
+            asset_type=BookmarkAsset.TYPE_SNAPSHOT,
+            status=BookmarkAsset.STATUS_PENDING,
+            retry_count=1,
+            next_retry_at=now - timedelta(minutes=1),  # 已过重试时间
+        )
+
+        selected_asset, next_wake_at = tasks._select_next_html_snapshot_asset(now, {})
+
+        # 应该选中这个资产
+        self.assertIsNotNone(selected_asset)
+        self.assertEqual(selected_asset.id, asset.id)
+        self.assertIsNone(next_wake_at)
+
     @override_settings(LD_ENABLE_SNAPSHOTS=False)
     def test_create_html_snapshot_should_not_create_asset_when_single_file_is_disabled(
         self,

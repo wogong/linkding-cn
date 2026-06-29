@@ -171,6 +171,8 @@ class BookmarkAsset(models.Model):
     display_name = models.CharField(max_length=2048, blank=True, null=False)
     status = models.CharField(max_length=64, blank=False, null=False)
     gzip = models.BooleanField(default=False, null=False)
+    retry_count = models.IntegerField(default=0)
+    next_retry_at = models.DateTimeField(null=True, blank=True)
 
     @property
     def download_name(self):

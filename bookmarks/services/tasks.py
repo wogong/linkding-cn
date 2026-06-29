@@ -432,6 +432,9 @@ def _select_next_html_snapshot_asset(now, next_eligible_at: dict[str, object]):
             asset_type=BookmarkAsset.TYPE_SNAPSHOT,
             status=BookmarkAsset.STATUS_PENDING,
         )
+        .filter(
+            Q(next_retry_at__isnull=True) | Q(next_retry_at__lte=now)
+        )
         .select_related("bookmark")
         .order_by("-date_created", "-id")
     )
@@ -553,10 +556,30 @@ def _create_html_snapshot_task(asset_id: int):
             f"Successfully created HTML snapshot for bookmark. url={asset.bookmark.url}"
         )
     except Exception as error:
-        logger.error(
-            f"Failed to HTML snapshot for bookmark. url={asset.bookmark.url}",
-            exc_info=error,
-        )
+        # 刷新以获取 assets.create_snapshot 设置的最新状态
+        asset.refresh_from_db()
+
+        retry_delays = settings.LD_SNAPSHOT_RETRY_DELAYS
+        max_retries = len(retry_delays)
+
+        # 重试逻辑：使用配置的延迟数组
+        if asset.retry_count < max_retries:
+            delay_seconds = retry_delays[asset.retry_count]
+            asset.retry_count += 1
+            asset.next_retry_at = timezone.now() + timedelta(seconds=delay_seconds)
+            asset.status = BookmarkAsset.STATUS_PENDING  # 覆盖 STATUS_FAILURE
+            asset.save()
+            logger.warning(
+                f"Snapshot failed, will retry #{asset.retry_count} at {asset.next_retry_at}. "
+                f"url={asset.bookmark.url}"
+            )
+        else:
+            # 已达最大重试次数，保持 STATUS_FAILURE（由 assets.create_snapshot 设置）
+            logger.error(
+                f"Snapshot failed after {asset.retry_count} retries. "
+                f"url={asset.bookmark.url}",
+                exc_info=error,
+            )
 
 
 def create_missing_html_snapshots(user: User) -> int:

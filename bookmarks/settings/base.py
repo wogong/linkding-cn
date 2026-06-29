@@ -371,6 +371,23 @@ LD_SNAPSHOT_DOMAIN_COOLDOWN_MAX_SEC = int(
 )
 LD_SNAPSHOT_DISPATCHER_TICK_SEC = int(os.getenv("LD_SNAPSHOT_DISPATCHER_TICK_SEC", 1))
 
+# Snapshot retry delays in seconds (comma-separated).
+# The number of retries equals the length of this array.
+# Example: "60,300,1500" means 3 retries with delays of 1min, 5min, 25min.
+#
+# Technical notes:
+# - Values < 30s are allowed but not recommended:
+#   - SingleFile needs 10-30s to start Chromium, so very short delays waste resources
+#   - Frequent retries may trigger anti-scraping measures on target websites
+#   - If the dispatcher loop has exited, the next retry waits for the periodic
+#     fallback task (up to 60s), so the actual delay may be longer than configured
+# - Recommended minimum: 30 seconds
+LD_SNAPSHOT_RETRY_DELAYS = [
+    int(x.strip())
+    for x in os.getenv("LD_SNAPSHOT_RETRY_DELAYS", "60,300,1500").split(",")
+    if x.strip()
+]
+
 # Monolith isn't used at the moment, as the local snapshot implementation
 # switched to single-file after the prototype. Keeping this around in case
 # it turns out to be useful in the future.

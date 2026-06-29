@@ -35,7 +35,6 @@ function parseVersion(v) {
 }
 
 function shouldCheck(state) {
-  if (!state.release) return true;
   if (!state.lastCheck) return true;
   return Date.now() - state.lastCheck > CHECK_INTERVAL;
 }

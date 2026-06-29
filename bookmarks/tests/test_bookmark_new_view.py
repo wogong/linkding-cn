@@ -112,7 +112,7 @@ class BookmarkNewViewTestCase(TestCase, BookmarkFactoryMixin):
 
         self.assertInHTML(
             '<input type="text" name="title" value="Example Title" '
-            'class="form-input" maxlength="512" autocomplete="off" '
+            'class="form-input" autocomplete="off" '
             'id="id_title">',
             html,
         )

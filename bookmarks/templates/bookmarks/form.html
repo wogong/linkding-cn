@@ -318,8 +318,12 @@
 
               notesDetails.open = !!existingBookmark.notes;
               document.querySelector('details.description').open = !!existingBookmark.description;
-              updateInput(titleInput, existingBookmark.title);
-              updateInput(descriptionInput, existingBookmark.description);
+              if (!isTitleModified) {
+                updateInput(titleInput, existingBookmark.title);
+              }
+              if (!isDescriptionModified) {
+                updateInput(descriptionInput, existingBookmark.description);
+              }
               updateInput(notesInput, existingBookmark.notes);
               updateInput(tagsInput, existingBookmark.tag_names.join(" "));
               updateCheckbox(unreadCheckbox, existingBookmark.unread);

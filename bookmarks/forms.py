@@ -28,7 +28,7 @@ class BookmarkForm(forms.ModelForm):
     url = forms.CharField(validators=[BookmarkURLValidator()])
     tag_string = forms.CharField(required=False)
     # Do not require title and description as they may be empty
-    title = forms.CharField(max_length=512, required=False)
+    title = forms.CharField(required=False)
     description = forms.CharField(required=False, widget=forms.Textarea())
     unread = forms.BooleanField(required=False)
     shared = forms.BooleanField(required=False)

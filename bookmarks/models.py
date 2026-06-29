@@ -59,7 +59,7 @@ def build_tag_string(tag_names: list[str], delimiter: str = ","):
 class Bookmark(models.Model):
     url = models.CharField(max_length=2048, validators=[BookmarkURLValidator()])
     url_normalized = models.CharField(max_length=2048, blank=True, db_index=True)
-    title = models.CharField(max_length=512, blank=True)
+    title = models.TextField(blank=True)
     description = models.TextField(blank=True)
     notes = models.TextField(blank=True)
     preview_image_remote_url = models.URLField(max_length=2048, blank=True)

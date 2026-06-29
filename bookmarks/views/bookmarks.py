@@ -656,39 +656,42 @@ def prefetch_favicon(request: HttpRequest):
     if not url:
         return JsonResponse({"error": _("URL parameter is missing")}, status=400)
 
-    cached_favicon = favicon_loader.get_cached_favicon(url)
+    from bookmarks.utils import parse_domain_roots
+    domain_config = parse_domain_roots(request.user.profile.custom_domain_root)
+
+    cached_favicon = favicon_loader.get_cached_favicon(url, domain_config=domain_config)
     if cached_favicon:
         if cached_favicon.is_stale:
             try:
-                new_file = favicon_loader.refresh_favicon(url)
+                new_file = favicon_loader.refresh_favicon(url, domain_config=domain_config)
                 if new_file:
-                    _update_favicon_for_matching_bookmarks(request.user, url, new_file)
+                    _update_favicon_for_matching_bookmarks(request.user, url, new_file, domain_config)
                     return JsonResponse({"status": "success", "favicon_file": new_file})
             except Exception:
                 pass  # refresh 失败则回退到 stale 文件
         # Stale file may be a data URI saved before the fix — treat as missing
         if not cached_favicon.is_stale:
-            _update_favicon_for_matching_bookmarks(request.user, url, cached_favicon.filename)
+            _update_favicon_for_matching_bookmarks(request.user, url, cached_favicon.filename, domain_config)
             return JsonResponse(
                 {"status": "success", "favicon_file": cached_favicon.filename}
             )
 
-    favicon_file = favicon_loader.load_favicon(url, timeout=5)
+    favicon_file = favicon_loader.load_favicon(url, timeout=5, domain_config=domain_config)
 
     if favicon_file:
-        _update_favicon_for_matching_bookmarks(request.user, url, favicon_file)
+        _update_favicon_for_matching_bookmarks(request.user, url, favicon_file, domain_config)
         return JsonResponse({"status": "success", "favicon_file": favicon_file})
     else:
         # Fallback: provider has no real favicon, use built-in placeholder
-        _update_favicon_for_matching_bookmarks(request.user, url, "favicon.svg")
+        _update_favicon_for_matching_bookmarks(request.user, url, "favicon.svg", domain_config)
         return JsonResponse({"status": "success", "favicon_file": "favicon.svg"})
 
 
-def _update_favicon_for_matching_bookmarks(user, url: str, new_favicon_file: str):
+def _update_favicon_for_matching_bookmarks(user, url: str, new_favicon_file: str, domain_config=None):
     """Update bookmarks with the same domain that have a different or missing favicon_file."""
     from bookmarks.services.favicon_loader import _get_url_parameters
 
-    url_params = _get_url_parameters(url)
+    url_params = _get_url_parameters(url, domain_config=domain_config)
     base_url = url_params["url"]  # scheme://hostname
 
     # Find bookmarks owned by user with matching scheme+hostname but different favicon_file
@@ -699,17 +702,17 @@ def _update_favicon_for_matching_bookmarks(user, url: str, new_favicon_file: str
 
     for bookmark in bookmarks:
         # Verify this bookmark's URL maps to the same favicon key
-        bookmark_params = _get_url_parameters(bookmark.url)
+        bookmark_params = _get_url_parameters(bookmark.url, domain_config=domain_config)
         if bookmark_params["url"] == base_url:
             bookmark.favicon_file = new_favicon_file
             bookmark.save(update_fields=["favicon_file"])
 
 
-def _clear_favicon_for_matching_bookmarks(user, url: str):
+def _clear_favicon_for_matching_bookmarks(user, url: str, domain_config=None):
     """Clear favicon_file for bookmarks with the same domain to prevent repeated 404 errors."""
     from bookmarks.services.favicon_loader import _get_url_parameters
 
-    url_params = _get_url_parameters(url)
+    url_params = _get_url_parameters(url, domain_config=domain_config)
     base_url = url_params["url"]  # scheme://hostname
 
     # Find bookmarks owned by user with matching scheme+hostname that have a non-empty favicon_file
@@ -720,7 +723,7 @@ def _clear_favicon_for_matching_bookmarks(user, url: str):
 
     for bookmark in bookmarks:
         # Verify this bookmark's URL maps to the same favicon key
-        bookmark_params = _get_url_parameters(bookmark.url)
+        bookmark_params = _get_url_parameters(bookmark.url, domain_config=domain_config)
         if bookmark_params["url"] == base_url:
             bookmark.favicon_file = ""
             bookmark.save(update_fields=["favicon_file"])

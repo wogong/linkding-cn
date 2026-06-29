@@ -294,6 +294,22 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
         self.assertEqual(self.mock_load_favicon.call_count, 1)
         self.assertEqual(bookmark.favicon_file, "favicon.svg")
 
+    def test_load_favicon_task_passes_domain_config(self):
+        self.user.profile.custom_domain_root = "xhslink.com -> xiaohongshu.com"
+        self.user.profile.save()
+
+        bookmark = self.setup_bookmark(url="https://xhslink.com/page")
+
+        tasks.refresh_favicon(self.get_or_create_test_user(), bookmark)
+
+        self.assertEqual(self.mock_load_favicon.call_count, 1)
+        call_kwargs = self.mock_load_favicon.call_args
+        # domain_config 应为预解析的 DomainConfig，包含正确的别名映射
+        domain_config = call_kwargs.kwargs.get("domain_config") or call_kwargs[1].get("domain_config")
+        self.assertIsNotNone(domain_config)
+        self.assertIn("xhslink.com", domain_config.aliases)
+        self.assertEqual(domain_config.aliases["xhslink.com"], "xiaohongshu.com")
+
     @override_settings(LD_DISABLE_BACKGROUND_TASKS=True)
     def test_load_favicon_should_not_run_when_background_tasks_are_disabled(self):
         bookmark = self.setup_bookmark()

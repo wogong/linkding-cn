@@ -259,3 +259,43 @@ class FaviconLoaderTestCase(TestCase):
             favicon_loader.load_favicon("https://example.com")
 
             self.assertTrue(self.icon_exists("https_example_com.ico"))
+
+    def test_get_url_parameters_with_custom_domain_root(self):
+        # 无归一化 → 原始 hostname
+        params = favicon_loader._get_url_parameters("https://sub.example.com/page")
+        self.assertEqual(params["url"], "https://sub.example.com")
+        self.assertEqual(params["domain"], "sub.example.com")
+
+        # 有归一化 → 映射到目标域名
+        params = favicon_loader._get_url_parameters(
+            "https://xhslink.com/page",
+            custom_domain_root="xhslink.com -> xiaohongshu.com",
+        )
+        self.assertEqual(params["url"], "https://xiaohongshu.com")
+        self.assertEqual(params["domain"], "xiaohongshu.com")
+
+        # 子域名也应归一化
+        params = favicon_loader._get_url_parameters(
+            "https://sub.xhslink.com/page",
+            custom_domain_root="xhslink.com -> xiaohongshu.com",
+        )
+        self.assertEqual(params["url"], "https://xiaohongshu.com")
+        self.assertEqual(params["domain"], "xiaohongshu.com")
+
+        # 无匹配域名 → 原始 hostname
+        params = favicon_loader._get_url_parameters(
+            "https://other.com/page",
+            custom_domain_root="xhslink.com -> xiaohongshu.com",
+        )
+        self.assertEqual(params["url"], "https://other.com")
+        self.assertEqual(params["domain"], "other.com")
+
+    def test_get_url_parameters_with_domain_config(self):
+        from bookmarks.utils import parse_domain_roots
+        config = parse_domain_roots("xhslink.com -> xiaohongshu.com")
+        params = favicon_loader._get_url_parameters(
+            "https://xhslink.com/page",
+            domain_config=config,
+        )
+        self.assertEqual(params["url"], "https://xiaohongshu.com")
+        self.assertEqual(params["domain"], "xiaohongshu.com")

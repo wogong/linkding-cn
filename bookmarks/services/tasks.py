@@ -33,7 +33,7 @@ from waybackpy.exceptions import TooManyRequestsError, WaybackError
 from bookmarks.models import Bookmark, BookmarkAsset, UserProfile
 from bookmarks.services import assets, favicon_loader, preview_image_loader
 from bookmarks.services.website_loader import load_website_metadata
-from bookmarks.utils import get_registrable_domain
+from bookmarks.utils import get_registrable_domain, parse_domain_roots
 
 logger = logging.getLogger(__name__)
 HTML_SNAPSHOT_DISPATCHER_LOCK = huey.lock_task("html-snapshot-dispatcher-lock")
@@ -148,9 +148,11 @@ def update_bookmark_favicon(bookmark: Bookmark, new_favicon_file: str):
         )
 
 
-def load_favicon(user: User, bookmark: Bookmark):
+def load_favicon(user: User, bookmark: Bookmark, domain_config=None):
     if is_favicon_feature_active(user):
-        cached_favicon = favicon_loader.get_cached_favicon(bookmark.url)
+        if domain_config is None:
+            domain_config = parse_domain_roots(user.profile.custom_domain_root)
+        cached_favicon = favicon_loader.get_cached_favicon(bookmark.url, domain_config=domain_config)
         if cached_favicon:
             update_bookmark_favicon(bookmark, cached_favicon.filename)
             if not cached_favicon.is_stale:
@@ -172,7 +174,8 @@ def _load_favicon_task(bookmark_id: int):
 
     logger.info(f"Refresh favicon for bookmark. url={bookmark.url}")
 
-    new_favicon_file = favicon_loader.refresh_favicon(bookmark.url) or "favicon.svg"
+    domain_config = parse_domain_roots(bookmark.owner.profile.custom_domain_root)
+    new_favicon_file = favicon_loader.refresh_favicon(bookmark.url, domain_config=domain_config) or "favicon.svg"
     update_bookmark_favicon(bookmark, new_favicon_file)
 
 
@@ -185,10 +188,11 @@ def schedule_bookmarks_without_favicons(user: User):
 def _batch_load_favicons_task(user_id: int):
     user = User.objects.get(id=user_id)
     bookmarks = Bookmark.objects.filter(favicon_file__exact="", owner=user)
+    domain_config = parse_domain_roots(user.profile.custom_domain_root)
 
     # TODO: Implement bulk task creation
     for bookmark in bookmarks:
-        load_favicon(user, bookmark)
+        load_favicon(user, bookmark, domain_config=domain_config)
 
 
 def schedule_refresh_favicons(user: User):

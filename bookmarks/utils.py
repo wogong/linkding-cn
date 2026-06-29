@@ -557,6 +557,22 @@ def get_alias_domains_for_root(root: str, config: DomainConfig) -> list[str]:
     return domains
 
 
+def resolve_favicon_domain(
+    hostname: str, config: DomainConfig | None = None, custom_domain_root: str = ""
+) -> str:
+    """将 hostname 按自定义域名规则归一化，用于 favicon 获取。
+
+    优先使用预解析的 config；未提供时从 custom_domain_root 字符串解析。
+    返回归一化后的域名；无匹配时返回原始 hostname。
+    """
+    if config is None:
+        if not custom_domain_root:
+            return hostname
+        config = parse_domain_roots(custom_domain_root)
+    matches = get_matching_domain_roots(hostname, config)
+    return matches[0] if matches else hostname
+
+
 def build_domain_filter_value_with_aliases(
     hostname: str,
     include_subdomains: bool,

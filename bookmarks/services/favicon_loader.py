@@ -34,13 +34,17 @@ def _url_to_filename(url: str) -> str:
     return re.sub(r"\W+", "_", url)
 
 
-def _get_url_parameters(url: str) -> dict:
+def _get_url_parameters(url: str, domain_config=None, custom_domain_root: str = "") -> dict:
     parsed_uri = urlparse(url)
+    hostname = parsed_uri.hostname or ""
+    if domain_config is not None or custom_domain_root:
+        from bookmarks.utils import resolve_favicon_domain
+        hostname = resolve_favicon_domain(hostname, config=domain_config, custom_domain_root=custom_domain_root)
     return {
         # https://example.com/foo?bar -> https://example.com
-        "url": f"{parsed_uri.scheme}://{parsed_uri.hostname}",
+        "url": f"{parsed_uri.scheme}://{hostname}",
         # https://example.com/foo?bar -> example.com
-        "domain": parsed_uri.hostname,
+        "domain": hostname,
     }
 
 
@@ -71,8 +75,8 @@ def _find_cached_favicon(
     return None
 
 
-def get_cached_favicon(url: str, include_stale: bool = True) -> CachedFavicon | None:
-    url_parameters = _get_url_parameters(url)
+def get_cached_favicon(url: str, include_stale: bool = True, domain_config=None, custom_domain_root: str = "") -> CachedFavicon | None:
+    url_parameters = _get_url_parameters(url, domain_config=domain_config, custom_domain_root=custom_domain_root)
     favicon_name = _url_to_filename(url_parameters["url"])
     return _find_cached_favicon(favicon_name, include_stale)
 
@@ -107,9 +111,9 @@ def _is_data_uri(data: bytes) -> bool:
 
 
 def _load_or_refresh_favicon(
-    url: str, timeout: int = 10, force_refresh: bool = False
+    url: str, timeout: int = 10, force_refresh: bool = False, domain_config=None, custom_domain_root: str = ""
 ) -> str:
-    url_parameters = _get_url_parameters(url)
+    url_parameters = _get_url_parameters(url, domain_config=domain_config, custom_domain_root=custom_domain_root)
 
     # Create favicon folder if not exists
     _ensure_favicon_folder()
@@ -147,9 +151,9 @@ def _load_or_refresh_favicon(
     return favicon_file
 
 
-def load_favicon(url: str, timeout: int = 10) -> str:
+def load_favicon(url: str, timeout: int = 10, domain_config=None, custom_domain_root: str = "") -> str:
     try:
-        return _load_or_refresh_favicon(url, timeout=timeout, force_refresh=False)
+        return _load_or_refresh_favicon(url, timeout=timeout, force_refresh=False, domain_config=domain_config, custom_domain_root=custom_domain_root)
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to load favicon for {url}: {e}")
         return ""
@@ -158,9 +162,9 @@ def load_favicon(url: str, timeout: int = 10) -> str:
         return ""
 
 
-def refresh_favicon(url: str, timeout: int = 10) -> str:
+def refresh_favicon(url: str, timeout: int = 10, domain_config=None, custom_domain_root: str = "") -> str:
     try:
-        return _load_or_refresh_favicon(url, timeout=timeout, force_refresh=True)
+        return _load_or_refresh_favicon(url, timeout=timeout, force_refresh=True, domain_config=domain_config, custom_domain_root=custom_domain_root)
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to refresh favicon for {url}: {e}")
         return ""

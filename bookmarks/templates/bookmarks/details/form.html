@@ -126,7 +126,7 @@
         {% if details.bookmark.preview_image_file %}
           <img src="{% static details.bookmark.preview_image_file %}" alt=""/>
         {% elif details.bookmark.preview_image_remote_url %}
-          <img src="{{ details.bookmark.preview_image_remote_url }}" referrerpolicy="unsafe-url" alt=""/>
+          <img src="{{ details.bookmark.preview_image_remote_url }}" referrerpolicy="unsafe-url" alt="" onerror="this.style.display='none'"/>
         {% endif %}
       </section>
     {% endif %}

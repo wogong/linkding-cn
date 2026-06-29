@@ -1379,6 +1379,7 @@ class BookmarkListContext:
         self.sharing_enabled = user_profile.enable_sharing or user_profile.enable_public_sharing
         self.show_favicons = user_profile.enable_favicons
         self.show_preview_images = user_profile.enable_preview_images
+        self.show_preview_image_placeholders = user_profile.enable_preview_image_placeholders
         self.show_notes = user_profile.permanent_notes
         self.show_sidebar = user_profile.show_sidebar
         self.is_preview = False

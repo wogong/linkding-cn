@@ -79,6 +79,14 @@ const DEPENDENT_STATE_RULES = [
   },
   {
     matches(form, hasField) {
+      return hasField("enable_preview_images");
+    },
+    apply(behavior, form) {
+      behavior.updatePreviewImagePlaceholderState(form);
+    },
+  },
+  {
+    matches(form, hasField) {
       return form.matches("[data-sharing-settings-form]") || hasField("sharing_mode");
     },
     apply(behavior, form) {
@@ -948,6 +956,21 @@ class SettingsPageBehavior extends Behavior {
 
     const row = form.querySelector('[data-setting-row="refresh_favicons"]');
     const enabled = Boolean(form.querySelector('[name="enable_favicons"]')?.checked);
+    this.setRowVisibility(row, enabled);
+  }
+
+  updatePreviewImagePlaceholderState(form = null) {
+    if (!(form instanceof HTMLFormElement)) {
+      form = this.element.querySelector(
+        'form input[name="enable_preview_images"]',
+      )?.form;
+    }
+    if (!form) {
+      return;
+    }
+
+    const row = form.querySelector('[data-setting-row="preview_image_placeholders"]');
+    const enabled = Boolean(form.querySelector('[name="enable_preview_images"]')?.checked);
     this.setRowVisibility(row, enabled);
   }
 

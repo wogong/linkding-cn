@@ -2166,7 +2166,17 @@ msgid ""
 "Enabling this feature downloads missing preview images in the background."
 msgstr "启用后会在后台下载缺失的预览图。"
 
+#: bookmarks/templates/settings/general.html:636
+msgid "Display preview image placeholders"
+msgstr "显示预览图占位图"
+
 #: bookmarks/templates/settings/general.html:638
+msgid ""
+"Show a placeholder image when a bookmark has no preview image or the preview "
+"image cannot be loaded."
+msgstr "当书签没有预览图或预览图无法加载时，显示占位图。"
+
+#: bookmarks/templates/settings/general.html:647
 msgid "Expand notes"
 msgstr "默认展开笔记"
 

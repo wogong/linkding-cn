@@ -647,6 +647,11 @@
     .form-input-hint + .form-input-hint {
       margin-top: var(--unit-2);
     }
+
+    .form-input-hint.hint-bullet::before {
+      content: "·";
+      margin-right: var(--unit-1);
+    }
   }
 
   .settings-help:hover .settings-help-popover,

@@ -93,6 +93,14 @@ const DEPENDENT_STATE_RULES = [
       behavior.updateSidebarState(form);
     },
   },
+  {
+    matches(form, hasField) {
+      return hasField("enable_random_button") || hasField("random_mode");
+    },
+    apply(behavior, form) {
+      behavior.updateRandomModeState(form);
+    },
+  },
 ];
 
 class SettingsPageBehavior extends Behavior {
@@ -968,6 +976,25 @@ class SettingsPageBehavior extends Behavior {
     // Modules remain editable even when sidebar is collapsed,
     // because the sidebar can still be opened via the drawer button.
 
+  }
+
+  updateRandomModeState(form = null) {
+    if (!(form instanceof HTMLFormElement)) {
+      form = this.element.querySelector(
+        'form input[name="random_mode"]',
+      )?.form;
+    }
+    if (!form) {
+      return;
+    }
+
+    const enabled = Boolean(form.querySelector('[name="enable_random_button"]')?.checked);
+    const modeRow = form.querySelector('[data-setting-row="random_mode"]');
+    const targetRow = form.querySelector('[data-setting-row="random_target"]');
+    const mode = this.getCheckedRadioValue(form, "random_mode");
+
+    this.setRowVisibility(modeRow, enabled);
+    this.setRowVisibility(targetRow, enabled && mode === "single");
   }
 
   // 设置页保存后，删除 localStorage 中的 sidebar 状态，

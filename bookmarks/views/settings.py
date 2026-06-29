@@ -332,6 +332,9 @@ def _build_profile_quick_form_data(profile, request_post) -> dict:
             if isinstance(field, django_forms.BooleanField):
                 if field_name in request_post:
                     form_data[field_name] = request_post.get(field_name)
+                else:
+                    # BooleanField 不在 POST 中表示未勾选，显式设置为 False
+                    form_data[field_name] = False
             else:
                 if field_name in request_post:
                     form_data[field_name] = request_post.get(field_name)
@@ -372,8 +375,9 @@ def save(request: HttpRequest):
             qt.get("icon_name") for qt in profile.get_bookmark_quick_tags()
             if qt.get("icon_name")
         }
+        form_data = _build_profile_quick_form_data(profile, request.POST)
         form = UserProfileQuickSettingsForm(
-            _build_profile_quick_form_data(profile, request.POST),
+            form_data,
             instance=profile,
         )
     elif form_id == "profile_custom_css":

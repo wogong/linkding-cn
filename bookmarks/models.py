@@ -1103,6 +1103,39 @@ class UserProfile(models.Model):
     bookmark_quick_tags = models.JSONField(default=list, blank=True, null=False)
     bookmark_toolbar_modules = models.JSONField(default=list, blank=True, null=False)
 
+    # 随机按钮设置
+    RANDOM_MODE_LIST = "list"
+    RANDOM_MODE_SINGLE = "single"
+    RANDOM_MODE_CHOICES = [
+        (RANDOM_MODE_LIST, _("List")),
+        (RANDOM_MODE_SINGLE, _("Single")),
+    ]
+
+    RANDOM_TARGET_URL = "url"
+    RANDOM_TARGET_READER = "reader"
+    RANDOM_TARGET_SNAPSHOT = "snapshot"
+    RANDOM_TARGET_DETAILS = "details"
+    RANDOM_TARGET_CHOICES = [
+        (RANDOM_TARGET_URL, _("URL")),
+        (RANDOM_TARGET_READER, _("Reader")),
+        (RANDOM_TARGET_SNAPSHOT, _("Snapshot")),
+        (RANDOM_TARGET_DETAILS, _("Details")),
+    ]
+
+    enable_random_button = models.BooleanField(default=True, null=False)
+    random_mode = models.CharField(
+        max_length=10,
+        choices=RANDOM_MODE_CHOICES,
+        blank=False,
+        default=RANDOM_MODE_LIST,
+    )
+    random_target = models.CharField(
+        max_length=10,
+        choices=RANDOM_TARGET_CHOICES,
+        blank=False,
+        default=RANDOM_TARGET_URL,
+    )
+
     # Summary display preferences
     SUM_MODE_CALENDAR = "calendar"
     SUM_MODE_HEATMAP = "heatmap"
@@ -1562,6 +1595,9 @@ class UserProfileForm(forms.ModelForm):
             "sticky_side_panel",
             "show_sidebar",
             "hide_bundles",
+            "enable_random_button",
+            "random_mode",
+            "random_target",
         ]
 
 
@@ -1618,6 +1654,9 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             "sticky_header_controls",
             "sticky_pagination",
             "sticky_side_panel",
+            "enable_random_button",
+            "random_mode",
+            "random_target",
         ]
 
     def __init__(self, *args, **kwargs):

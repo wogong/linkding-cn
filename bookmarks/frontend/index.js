@@ -23,6 +23,7 @@ import "./components/tag-autocomplete.js";
 import "./components/upload-button.js";
 import "./components/responsive-pagination.js";
 import "./components/update-checker.js";
+import "./components/random-button.js";
 import "./shortcuts.js";
 import { setupViewportHeightVar } from "./utils/viewport.js";
 

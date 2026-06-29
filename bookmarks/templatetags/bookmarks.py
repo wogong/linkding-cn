@@ -158,11 +158,12 @@ def random_sort(context, search):
         dict: 包含 search 和 filtered_params 的字典
               - search: BookmarkSearch 对象
               - filtered_params: 过滤后的查询参数字典
+              - profile: UserProfile 对象（包含随机按钮设置）
     """
     request = context.get("request")
     # 空安全检查：如果 request 不存在，返回空参数
     if not request:
-        return {"search": search, "filtered_params": {}}
+        return {"search": search, "filtered_params": {}, "profile": None}
 
     # 使用白名单过滤参数，排除空值，确保安全性
     filtered_params = {
@@ -170,4 +171,5 @@ def random_sort(context, search):
         for k, v in request.GET.items()
         if k in RANDOM_SORT_ALLOWED_PARAMS and v  # 排除空值
     }
-    return {"search": search, "filtered_params": filtered_params}
+    profile = getattr(request, "user_profile", None)
+    return {"search": search, "filtered_params": filtered_params, "profile": profile}

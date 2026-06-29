@@ -1,3 +1,4 @@
+import random as rng
 import time
 import urllib.parse
 
@@ -494,6 +495,48 @@ def search_action(request: HttpRequest):
             request.user_profile.search_preferences = search.preferences_dict
 
         request.user_profile.save()
+
+    # Handle single random bookmark request
+    if "random_single" in request.POST:
+
+        search = BookmarkSearch.from_request(
+            request, request.POST, request.user_profile.search_preferences
+        )
+        # 使用当前筛选条件查询书签，排除 sort=random
+        search.sort = BookmarkSearch.SORT_ADDED_DESC
+        bookmark_query = queries.query_bookmarks(request.user, request.user_profile, search)
+        bookmark_ids = list(bookmark_query.values_list("id", flat=True))
+
+        if not bookmark_ids:
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return JsonResponse({"url": request.path})
+            return HttpResponseRedirect(request.path)
+
+        # 随机选取一个
+        random_id = rng.choice(bookmark_ids)
+        bookmark = Bookmark.objects.get(id=random_id)
+
+        target = request.POST.get("random_target", "url")
+
+        if target == "url":
+            url = bookmark.url
+        elif target == "reader":
+            url = reverse("linkding:bookmarks.read", args=[bookmark.id])
+        elif target == "snapshot":
+            if bookmark.latest_snapshot:
+                url = reverse("linkding:assets.view", args=[bookmark.latest_snapshot.id])
+            else:
+                # 无快照时回退到阅读模式
+                url = reverse("linkding:bookmarks.read", args=[bookmark.id])
+        elif target == "details":
+            # 回到书签列表并打开详情弹窗（通过 query param details=xxx）
+            url = f"{request.path}?details={random_id}"
+        else:
+            url = bookmark.url
+
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"url": url})
+        return HttpResponseRedirect(url)
 
     # Handle random sort request
     if "sort" in request.POST and request.POST["sort"] == "random":

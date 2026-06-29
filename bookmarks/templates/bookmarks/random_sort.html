@@ -1,12 +1,17 @@
 {% load i18n %}
-<form action="" method="post" style="display: inline;">
-  {% csrf_token %}
-  <input type="hidden" name="sort" value="random">
-  {# 传递经过白名单验证的查询参数，保留所有筛选条件，使用 force_escape 防止 XSS #}
-  {% for key, value in filtered_params.items %}
-    <input type="hidden" name="{{ key|force_escape }}" value="{{ value|force_escape }}">
-  {% endfor %}
-  <button type="submit" class="btn ml-2" title="{% translate 'Random sort' %}">
+{% if profile and not profile.enable_random_button %}
+  {# 随机按钮已禁用 #}
+{% elif profile and profile.random_mode == 'single' %}
+  {# 单条目随机模式：配置通过 data 属性传递给 ld-random-single Behavior #}
+  <button type="button" class="btn ml-2"
+          ld-random-single
+          data-csrf-token="{{ csrf_token }}"
+          data-random-target="{{ profile.random_target }}"
+          data-link-target="{{ profile.bookmark_link_target }}"
+          {% for key, value in filtered_params.items %}
+            data-param-{{ key|force_escape }}="{{ value|force_escape }}"
+          {% endfor %}
+          title="{% translate 'Random bookmark' %}">
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" stroke-width="2"
          stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
       <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
@@ -16,4 +21,23 @@
       <path d="M21 7h-3a5 5 0 0 0 -5 5a5 5 0 0 0 5 5h3"></path>
     </svg>
   </button>
-</form>
+{% else %}
+  {# 列表随机模式（默认，现有行为） #}
+  <form action="" method="post" style="display: inline;">
+    {% csrf_token %}
+    <input type="hidden" name="sort" value="random">
+    {% for key, value in filtered_params.items %}
+      <input type="hidden" name="{{ key|force_escape }}" value="{{ value|force_escape }}">
+    {% endfor %}
+    <button type="submit" class="btn ml-2" title="{% translate 'Random sort' %}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" stroke-width="2"
+           stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+        <path d="M18 4l3 3l-3 3"></path>
+        <path d="M18 20l3 -3l-3 -3"></path>
+        <path d="M3 7h3a5 5 0 0 1 5 5a5 5 0 0 1 -5 5h-3"></path>
+        <path d="M21 7h-3a5 5 0 0 0 -5 5a5 5 0 0 0 5 5h3"></path>
+      </svg>
+    </button>
+  </form>
+{% endif %}

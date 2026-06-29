@@ -69,9 +69,12 @@ export class TagAutocomplete extends TurboLitElement {
     const tags = await cache.getTags();
     const word = getCurrentWord(this.input);
 
+    const search = word.toLowerCase();
     this.suggestions = word
-      ? tags.filter(
-          (tag) => tag.name.toLowerCase().indexOf(word.toLowerCase()) === 0,
+      ? tags.filter((tag) =>
+          tag.name.toLowerCase().indexOf(search) === 0 ||
+          (tag.pinyin_full && tag.pinyin_full.indexOf(search) === 0) ||
+          (tag.pinyin_first && tag.pinyin_first.indexOf(search) === 0),
         )
       : [];
 

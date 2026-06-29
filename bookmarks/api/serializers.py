@@ -1,8 +1,10 @@
 import json
+from functools import lru_cache
 
 from django.db.models import prefetch_related_objects
 from django.templatetags.static import static
 from django.utils.translation import gettext_lazy as _
+from pypinyin import Style, pinyin
 from rest_framework import serializers
 from rest_framework.serializers import ListSerializer
 
@@ -231,11 +233,32 @@ class BookmarkAssetSerializer(serializers.ModelSerializer):
         ]
 
 
+@lru_cache(maxsize=None)
+def _pinyin_full(name):
+    """全拼，无声调，小写。如 '最爱' → 'zuiai'"""
+    return "".join(p[0] for p in pinyin(name, style=Style.NORMAL)).lower()
+
+
+@lru_cache(maxsize=None)
+def _pinyin_first(name):
+    """首字母，小写。如 '最爱' → 'za'"""
+    return "".join(p[0] for p in pinyin(name, style=Style.FIRST_LETTER)).lower()
+
+
 class TagSerializer(serializers.ModelSerializer):
+    pinyin_full = serializers.SerializerMethodField()
+    pinyin_first = serializers.SerializerMethodField()
+
     class Meta:
         model = Tag
-        fields = ["id", "name", "date_added"]
+        fields = ["id", "name", "date_added", "pinyin_full", "pinyin_first"]
         read_only_fields = ["date_added"]
+
+    def get_pinyin_full(self, obj):
+        return _pinyin_full(obj.name)
+
+    def get_pinyin_first(self, obj):
+        return _pinyin_first(obj.name)
 
     def create(self, validated_data):
         return get_or_create_tag(validated_data["name"], self.context["user"])

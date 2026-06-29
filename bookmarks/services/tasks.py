@@ -172,7 +172,7 @@ def _load_favicon_task(bookmark_id: int):
 
     logger.info(f"Refresh favicon for bookmark. url={bookmark.url}")
 
-    new_favicon_file = favicon_loader.refresh_favicon(bookmark.url)
+    new_favicon_file = favicon_loader.refresh_favicon(bookmark.url) or "favicon.svg"
     update_bookmark_favicon(bookmark, new_favicon_file)
 
 

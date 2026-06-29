@@ -661,14 +661,17 @@ def prefetch_favicon(request: HttpRequest):
         if cached_favicon.is_stale:
             try:
                 new_file = favicon_loader.refresh_favicon(url)
-                _update_favicon_for_matching_bookmarks(request.user, url, new_file)
-                return JsonResponse({"status": "success", "favicon_file": new_file})
+                if new_file:
+                    _update_favicon_for_matching_bookmarks(request.user, url, new_file)
+                    return JsonResponse({"status": "success", "favicon_file": new_file})
             except Exception:
                 pass  # refresh 失败则回退到 stale 文件
-        _update_favicon_for_matching_bookmarks(request.user, url, cached_favicon.filename)
-        return JsonResponse(
-            {"status": "success", "favicon_file": cached_favicon.filename}
-        )
+        # Stale file may be a data URI saved before the fix — treat as missing
+        if not cached_favicon.is_stale:
+            _update_favicon_for_matching_bookmarks(request.user, url, cached_favicon.filename)
+            return JsonResponse(
+                {"status": "success", "favicon_file": cached_favicon.filename}
+            )
 
     favicon_file = favicon_loader.load_favicon(url, timeout=5)
 
@@ -676,10 +679,9 @@ def prefetch_favicon(request: HttpRequest):
         _update_favicon_for_matching_bookmarks(request.user, url, favicon_file)
         return JsonResponse({"status": "success", "favicon_file": favicon_file})
     else:
-        _clear_favicon_for_matching_bookmarks(request.user, url)
-        return JsonResponse(
-            {"status": "error", "message": _("Failed to prefetch favicon")}
-        )
+        # Fallback: provider has no real favicon, use built-in placeholder
+        _update_favicon_for_matching_bookmarks(request.user, url, "favicon.svg")
+        return JsonResponse({"status": "success", "favicon_file": "favicon.svg"})
 
 
 def _update_favicon_for_matching_bookmarks(user, url: str, new_favicon_file: str):

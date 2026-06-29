@@ -100,6 +100,12 @@ def _is_stale(path: Path) -> bool:
     return file_age >= max_file_age
 
 
+def _is_data_uri(data: bytes) -> bool:
+    """Check if the response body is a data URI (e.g. data:image/gif;base64,...).
+    Favicon providers return data URIs as fallback when no real favicon is found."""
+    return data.startswith(b"data:")
+
+
 def _load_or_refresh_favicon(
     url: str, timeout: int = 10, force_refresh: bool = False
 ) -> str:
@@ -117,15 +123,22 @@ def _load_or_refresh_favicon(
 
     favicon_url = settings.LD_FAVICON_PROVIDER.format(**url_parameters)
     logger.debug(f"Loading favicon from: {favicon_url}")
-    with requests.get(favicon_url, stream=True, timeout=timeout) as response:
+    with requests.get(favicon_url, timeout=timeout) as response:
         response.raise_for_status()
         content_type = response.headers["Content-Type"]
-        file_extension = mimetypes.guess_extension(content_type) or ".png"
-        favicon_file = f"{favicon_name}{file_extension}"
-        favicon_path = _get_favicon_path(favicon_file)
-        with open(favicon_path, "wb") as file:
-            for chunk in response.iter_content(chunk_size=8192):
-                file.write(chunk)
+        body = response.content
+
+    # Favicon providers return a data URI as fallback when no real favicon is found.
+    # Don't save it — let the caller use a placeholder instead.
+    if _is_data_uri(body):
+        logger.debug(f"Favicon provider returned data URI fallback for {url}")
+        return ""
+
+    file_extension = mimetypes.guess_extension(content_type) or ".png"
+    favicon_file = f"{favicon_name}{file_extension}"
+    favicon_path = _get_favicon_path(favicon_file)
+    with open(favicon_path, "wb") as file:
+        file.write(body)
 
     if force_refresh:
         _remove_existing_favicon_variants(favicon_name, keep_filename=favicon_file)

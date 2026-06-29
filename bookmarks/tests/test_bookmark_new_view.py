@@ -245,17 +245,20 @@ class BookmarkNewViewTestCase(TestCase, BookmarkFactoryMixin):
             count=1,
         )
 
-    def test_prefetch_favicon_should_return_cached_stale_file_without_downloading(self):
+    def test_prefetch_favicon_should_refresh_cached_stale_file(self):
         self.user.profile.enable_favicons = True
         self.user.profile.save()
         with (
             mock.patch.object(
                 favicon_loader, "get_cached_favicon"
             ) as mock_get_cached_favicon,
+            mock.patch.object(
+                favicon_loader, "refresh_favicon", return_value="https_example_com.png"
+            ) as mock_refresh_favicon,
             mock.patch.object(favicon_loader, "load_favicon") as mock_load_favicon,
         ):
             mock_get_cached_favicon.return_value = favicon_loader.CachedFavicon(
-                filename="https_example_com.png",
+                filename="https_example_com_old.png",
                 is_stale=True,
             )
 
@@ -268,6 +271,7 @@ class BookmarkNewViewTestCase(TestCase, BookmarkFactoryMixin):
             payload = response.json()
             self.assertEqual(payload["status"], "success")
             self.assertEqual(payload["favicon_file"], "https_example_com.png")
+            mock_refresh_favicon.assert_called_once()
             mock_load_favicon.assert_not_called()
 
     def test_prefetch_favicon_should_download_when_cache_is_missing(self):

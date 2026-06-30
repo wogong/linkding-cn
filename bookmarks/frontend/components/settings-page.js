@@ -491,6 +491,10 @@ class SettingsPageBehavior extends Behavior {
 
   // 事件处理：表单字段变更后联动状态与保存策略。
   onChange(event) {
+    // 图标选择器关闭时 popup.remove() 会触发搜索框的 change 事件；
+    // selectIcon 中已通过 queueSubmit 提交，此处跳过避免重复 save。
+    if (this._suppressChangeFromIconPicker) return;
+
     const form = event.target.closest("form");
     if (!form || !this.element.contains(form)) {
       return;
@@ -1866,10 +1870,14 @@ class SettingsPageBehavior extends Behavior {
         button.dataset.qtIcon = "";
         button.innerHTML = hashIconSvg(16, "settings-qt-icon-placeholder");
       }
-      popup.remove();
+      // 先执行保存，再移除 popup —— 避免 popup.remove() 触发的 change 事件
+      // (搜索框失焦/移除) 导致 onChange 内产生多余的 queueSubmit 调用。
       const form = button.closest("form");
       this.syncBookmarkQuickTags(form);
       this.queueSubmit(form);
+      this._suppressChangeFromIconPicker = true;
+      popup.remove();
+      this._suppressChangeFromIconPicker = false;
     };
 
     const iconDataMap = window.__ldIconData || {};
@@ -1899,6 +1907,8 @@ class SettingsPageBehavior extends Behavior {
           item.appendChild(icon);
         }
       }
+      // 阻止 mousedown 时浏览器默认的焦点切换行为，避免干扰后续 click 事件触发
+      item.addEventListener("mousedown", (e) => e.preventDefault());
       item.addEventListener("click", () => selectIcon(isDefault ? "" : iconName));
       grid.appendChild(item);
     };

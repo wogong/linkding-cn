@@ -35,6 +35,7 @@ export class ReaderSidebar extends LitElement {
     _renameAssetId: { type: String, state: true }, _renameValue: { type: String, state: true }, _renameOriginal: { type: String, state: true },
     _copyToastId: { type: String, state: true },
     _buttonMode: { type: String, state: true }, _activeAnnId: { type: String, state: true },
+    _tagsEditing: { type: Boolean, state: true },
   };
 
   constructor() {
@@ -50,6 +51,7 @@ export class ReaderSidebar extends LitElement {
     this._copyToastId = null;
     this._buttonMode = loadReaderSettings().buttonMode || "float";
     this._activeAnnId = null;
+    this._tagsEditing = false;
   }
 
   updated(changed) {
@@ -264,57 +266,57 @@ export class ReaderSidebar extends LitElement {
 
   // --- Tags ---
 
-  /** 点击标签显示态 → 动态创建 ld-tag-autocomplete */
+  /** 点击标签显示态 → 设置编辑状态，由渲染系统处理 */
   _clickTags() {
-    const wrapper = this.querySelector(".info-tags-wrapper");
-    if (!wrapper || wrapper._editing) return;
-    wrapper._editing = true;
-    wrapper.classList.add("ld-editing");
+    if (this._tagsEditing) return;
+    this._tagsEditing = true;
 
-    const view = wrapper.querySelector(".info-tags-view");
-    const currentValue = (this.bookmarkData.tag_names || []).join(" ");
+    // 等渲染完成后聚焦并绑定事件
+    this.updateComplete.then(() => {
+      const autocomplete = this.querySelector(".info-tags-wrapper ld-tag-autocomplete");
+      if (!autocomplete || !this._tagsEditing) return;
 
-    const autocomplete = document.createElement("ld-tag-autocomplete");
-    autocomplete.setAttribute("input-value", currentValue);
-    autocomplete.setAttribute("input-placeholder", gettext("Click to edit tags"));
-    wrapper.appendChild(autocomplete);
+      const onReady = () => {
+        const input = autocomplete.querySelector("input");
+        if (!input || !this._tagsEditing) return;
 
-    // 等组件渲染完成后聚焦（LitElement 渲染是异步的）
-    const onReady = () => {
-      const input = autocomplete.querySelector("input");
-      if (!input) return;
-      input.focus();
-      input.setSelectionRange(input.value.length, input.value.length);
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
 
-      input.addEventListener("blur", () => {
-        setTimeout(() => {
-          if (autocomplete.contains(document.activeElement)) return;
+        input.addEventListener("blur", () => {
+          setTimeout(() => {
+            if (autocomplete.contains(document.activeElement)) return;
+            this._finishEditTags(input.value);
+          }, 150);
+        });
 
-          const newTags = (input.value || "").split(/\s+/).map(s => s.trim()).filter(Boolean);
-          const oldTags = this.bookmarkData?.tag_names || [];
-          if (JSON.stringify(newTags) !== JSON.stringify(oldTags)) {
-            this._patchBookmark("tag_names", newTags);
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            // 取消编辑，恢复原值
+            this._tagsEditing = false;
           }
+        });
+      };
 
-          autocomplete.remove();
-          wrapper._editing = false;
-          wrapper.classList.remove("ld-editing");
-          if (view) {
-            if (newTags.length) {
-              view.innerHTML = `<span class="info-tags">${newTags.map(t => `<span class="info-tag">#${t}</span>`).join("")}</span>`;
-            } else {
-              view.innerHTML = `<span class="info-placeholder">${gettext("Click to edit tags")}</span>`;
-            }
-          }
-        }, 150);
-      });
-    };
+      if (autocomplete.updateComplete) {
+        autocomplete.updateComplete.then(onReady);
+      } else {
+        requestAnimationFrame(onReady);
+      }
+    });
+  }
 
-    if (autocomplete.updateComplete) {
-      autocomplete.updateComplete.then(onReady);
-    } else {
-      requestAnimationFrame(onReady);
+  _finishEditTags(inputValue) {
+    if (!this._tagsEditing) return;
+
+    const newTags = (inputValue || "").split(/\s+/).map(s => s.trim()).filter(Boolean);
+    const oldTags = this.bookmarkData?.tag_names || [];
+    if (JSON.stringify(newTags) !== JSON.stringify(oldTags)) {
+      this._patchBookmark("tag_names", newTags);
     }
+
+    this._tagsEditing = false;
   }
 
   // --- File list ---
@@ -446,10 +448,16 @@ export class ReaderSidebar extends LitElement {
       </div>
 
       <div class="info-section">
-        <div class="info-tags-wrapper">
-          <div class="info-tags-view" @click=${() => this._clickTags()}>
-            ${bm.tag_names?.length ? html`<span class="info-tags">${bm.tag_names.map(t => html`<span class="info-tag">#${t}</span>`)}</span>` : html`<span class="info-placeholder">${gettext("Click to edit tags")}</span>`}
-          </div>
+        <div class="info-tags-wrapper ${this._tagsEditing ? 'ld-editing' : ''}">
+          ${this._tagsEditing
+            ? html`<ld-tag-autocomplete
+                input-value="${(bm.tag_names || []).join(' ')}"
+                input-placeholder="${gettext('Click to edit tags')}"
+              ></ld-tag-autocomplete>`
+            : html`<div class="info-tags-view" @click=${() => this._clickTags()}>
+                ${bm.tag_names?.length ? html`<span class="info-tags">${bm.tag_names.map(t => html`<span class="info-tag">#${t}</span>`)}</span>` : html`<span class="info-placeholder">${gettext("Click to edit tags")}</span>`}
+              </div>`
+          }
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 {% load i18n static shared %}
 <!DOCTYPE html>
-<html lang="{{ LANGUAGE_CODE|default:'en' }}" class="reader-mode">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}" class="reader-mode" data-api-base-url="{{ api_base_url }}/">
 <head>
   <meta charset="UTF-8">
   <meta name="csrfmiddlewaretoken" content="{{ csrf_token }}">

@@ -166,7 +166,7 @@ html.reader-mode {
     flex: 1;
     display: flex;
     justify-content: flex-end;
-    gap: var(--unit-1);
+    gap: var(--unit-2);
     flex-shrink: 0;
   }
 
@@ -197,8 +197,8 @@ html.reader-mode {
   }
 
   .toolbar-btn svg {
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
   }
 
   .toolbar-progress {

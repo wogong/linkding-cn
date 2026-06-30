@@ -22,20 +22,13 @@ import Sortable from 'sortablejs';
 function quickTagRowTemplate() {
   return `
     <button type="button" class="settings-module-handle" aria-label="${gettext("Drag to reorder")}">
-      <svg viewBox="0 0 16 16" aria-hidden="true">
-        <circle cx="5" cy="3" r="1.2" fill="currentColor"></circle>
-        <circle cx="11" cy="3" r="1.2" fill="currentColor"></circle>
-        <circle cx="5" cy="8" r="1.2" fill="currentColor"></circle>
-        <circle cx="11" cy="8" r="1.2" fill="currentColor"></circle>
-        <circle cx="5" cy="13" r="1.2" fill="currentColor"></circle>
-        <circle cx="11" cy="13" r="1.2" fill="currentColor"></circle>
-      </svg>
+      <svg width="16" height="16" aria-hidden="true"><use href="#ld-icon-grip"></use></svg>
     </button>
     <div class="settings-qt-controls">
       <button type="button" class="settings-qt-chip-btn" data-qt-field="display_position" data-qt-value="direct" title="${gettext("Display position")}">${gettext("direct")}</button>
       <button type="button" class="settings-qt-chip-btn" data-qt-field="display_mode" data-qt-value="icon" title="${gettext("Display mode")}">${gettext("icon")}</button>
       <button type="button" class="settings-qt-delete-btn" title="${gettext("Delete")}">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        <svg width="14" height="14"><use href="#ld-icon-remove"></use></svg>
       </button>
     </div>
     <label class="form-switch settings-switch">
@@ -2093,7 +2086,7 @@ class SettingsPageBehavior extends Behavior {
     button.setAttribute("aria-label", gettext("More info"));
     button.setAttribute("aria-expanded", "false");
     button.innerHTML =
-      '<svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M580.27008 273.07008c0 37.66272-30.5664 68.27008-68.27008 68.27008s-68.27008-30.59712-68.27008-68.27008a68.27008 68.27008 0 0 1 136.54016 0zM546.12992 750.94016v-307.2A34.10944 34.10944 0 0 0 512 409.6H375.47008v68.27008h102.4v273.07008h-102.4V819.2h273.05984v-68.25984h-102.4z" fill="currentColor"></path></svg>';
+      '<svg width="20" height="20"><use href="#ld-icon-info"></use></svg>';
 
     const popover = document.createElement("div");
     popover.className = "settings-help-popover";

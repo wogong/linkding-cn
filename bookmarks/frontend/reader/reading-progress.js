@@ -494,9 +494,7 @@ export class ReadingProgressController {
       <span class="reader-resume-toast-text-group">
         <span class="reader-resume-toast-text"></span>
         <button type="button" class="reader-resume-help-btn" aria-label="${gettext("Help")}">
-          <svg viewBox="0 0 1024 1024" aria-hidden="true">
-            <path d="M580.27008 273.07008c0 37.66272-30.5664 68.27008-68.27008 68.27008s-68.27008-30.59712-68.27008-68.27008a68.27008 68.27008 0 0 1 136.54016 0zM546.12992 750.94016v-307.2A34.10944 34.10944 0 0 0 512 409.6H375.47008v68.27008h102.4v273.07008h-102.4V819.2h273.05984v-68.25984h-102.4z" fill="currentColor"/>
-          </svg>
+          <svg width="20" height="20"><use href="#ld-icon-info"></use></svg>
         </button>
       </span>
       <span class="reader-resume-toast-buttons">

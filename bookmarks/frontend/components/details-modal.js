@@ -537,6 +537,30 @@ class DetailsModal extends Modal {
           this._updateTagDisplay(newValue);
         }, 150);
       });
+
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          autocomplete.remove();
+          wrapper._editing = false;
+          wrapper.classList.remove("ld-editing");
+          // 恢复原标签显示
+          this._updateTagDisplay(this._data.tag_names);
+        }
+      });
+
+      // 监听 commit 事件（回车键保存）
+      autocomplete.addEventListener("commit", () => {
+        const newValue = (input.value || "").split(/\s+/).map(s => s.trim()).filter(Boolean);
+        if (JSON.stringify(newValue) !== JSON.stringify(this._data.tag_names)) {
+          this._patchBookmark("tag_names", newValue);
+        }
+
+        autocomplete.remove();
+        wrapper._editing = false;
+        wrapper.classList.remove("ld-editing");
+        this._updateTagDisplay(newValue);
+      });
     };
 
     if (autocomplete.updateComplete) {

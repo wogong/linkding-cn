@@ -86,20 +86,24 @@ export class TagAutocomplete extends TurboLitElement {
   }
 
   handleKeyDown(event) {
-    if (this.isOpen && (event.keyCode === 13 || event.keyCode === 9)) {
+    if (this.isOpen && (event.key === "Enter" || event.key === "Tab")) {
       const suggestion = this.suggestions[this.selectedIndex];
       this.complete(suggestion);
       event.preventDefault();
     }
-    if (event.keyCode === 27) {
+    if (event.key === "Escape") {
       this.close();
       event.preventDefault();
     }
-    if (event.keyCode === 38) {
+    // 回车键：当下拉框关闭时，触发 commit 事件（表示保存并退出）
+    if (event.key === "Enter" && !event.defaultPrevented) {
+      this.dispatchEvent(new CustomEvent("commit", { bubbles: true }));
+    }
+    if (event.key === "ArrowUp") {
       this.updateSelection(-1);
       event.preventDefault();
     }
-    if (event.keyCode === 40) {
+    if (event.key === "ArrowDown") {
       this.updateSelection(1);
       event.preventDefault();
     }

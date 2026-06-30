@@ -297,6 +297,11 @@ export class ReaderSidebar extends LitElement {
             this._tagsEditing = false;
           }
         });
+
+        // 监听 commit 事件（回车键保存）
+        autocomplete.addEventListener("commit", () => {
+          this._finishEditTags(input.value);
+        });
       };
 
       if (autocomplete.updateComplete) {

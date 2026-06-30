@@ -725,6 +725,10 @@ class BookmarkItem extends Behavior {
           closeEditor(editor, { save: false });
         }
       });
+      // 监听 commit 事件（回车键保存）
+      autocomplete.addEventListener("commit", () => {
+        closeEditor(editor);
+      });
     };
 
     if (autocomplete.updateComplete) {

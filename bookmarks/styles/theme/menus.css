@@ -37,7 +37,7 @@
       display: contents;
     }
 
-    &:first-of-type {
+    &:nth-child(1 of :not([style*="display:none"])) {
       padding-top: var(--unit-2);
     }
 

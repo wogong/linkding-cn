@@ -433,6 +433,7 @@ class BookmarkItem extends Behavior {
       const newTitle = input.value.trim();
       input.remove();
       titleLink.style.display = "";
+      window.scrollTo(0, savedScrollY);
 
       if (!save || newTitle === currentTitle) return;
 
@@ -465,6 +466,7 @@ class BookmarkItem extends Behavior {
       }
     });
 
+    const savedScrollY = window.scrollY;
     scrollToBookmarkTop(input);
     focusEnd(input);
   }
@@ -537,6 +539,7 @@ class BookmarkItem extends Behavior {
       textarea.remove();
       descText.style.display = "";
       description?.classList.remove("is-editing-description");
+      window.scrollTo(0, savedScrollY);
 
       if (wasTruncated) {
         descContainer.classList.add("truncate");
@@ -563,6 +566,7 @@ class BookmarkItem extends Behavior {
 
     
     autoResizeTextarea(textarea);
+    const savedScrollY = window.scrollY;
     scrollToBookmarkTop(textarea);
     focusEnd(textarea);
   }
@@ -573,6 +577,7 @@ class BookmarkItem extends Behavior {
     }
     if (!this.notesMarkdown || !this.notesEditor) return;
 
+    const wasShowingNotes = this.element.classList.contains("show-notes");
     this.element.classList.add("show-notes");
     this.element.dataset.notesEnabled = "true";
 
@@ -583,6 +588,7 @@ class BookmarkItem extends Behavior {
     this.notesEditor.style.display = "block";
     autoResizeTextarea(this.notesEditor);
 
+    const savedScrollY = window.scrollY;
     scrollToBookmarkTop(this.notesEditor);
     focusEnd(this.notesEditor);
     requestAnimationFrame(() => {
@@ -592,6 +598,11 @@ class BookmarkItem extends Behavior {
     this._activateQuickEditor("notes", ({ save }) => {
       this.notesEditor.removeEventListener("input", this._onNotesInput);
       this._saveNotesAndSwitch({ save });
+      if (!wasShowingNotes) {
+        this.element.classList.remove("show-notes");
+        this.element.dataset.notesEnabled = "false";
+      }
+      window.scrollTo(0, savedScrollY);
     });
 
     this._onNotesInput = () => autoResizeTextarea(this.notesEditor);
@@ -738,12 +749,14 @@ class BookmarkItem extends Behavior {
     );
 
     let input = null;
+    let savedScrollY = null;
     const editor = this._activateQuickEditor("tags", ({ save }) => {
       const newTags = save && input ? parseTags(input.value) : currentTags;
 
       autocomplete.remove();
       tagsContainer._editing = false;
       this._updateTagsDisplay(tagsContainer, newTags);
+      if (savedScrollY != null) window.scrollTo(0, savedScrollY);
 
       if (save && input && !tagsEqual(newTags, currentTags)) {
         patchBookmark(this.bookmarkId, { tag_names: newTags }).catch(
@@ -762,6 +775,7 @@ class BookmarkItem extends Behavior {
       input = autocomplete.querySelector("input");
       if (!input || editor.closed) return;
 
+      savedScrollY = window.scrollY;
       scrollToBookmarkTop(input);
       focusEnd(input);
       input.addEventListener("blur", () => {

@@ -23,7 +23,7 @@ const {
   extractRawMarkdown,
   cleanMarkdownContent,
   countWords,
-} = require("./vendor/defuddle.js");
+} = require("./defuddle.js");
 
 const input = JSON.parse(readFileSync(0, "utf-8"));
 

@@ -116,14 +116,8 @@ def parse_url(url: str) -> dict:
 
 def _parse_html_with_options(html_content: str, url: str, options: dict) -> dict:
     """通过 Node.js 包装脚本调用 defuddle 模块 API（支持 contentSelector 等）。"""
-    from bookmarks.services.defuddle import DefuddleError, _inject_base_tag, _normalize_result
-    import json
-    import subprocess
+    from bookmarks.services.defuddle import _inject_base_tag, _run_defuddle
     import tempfile
-
-    script_path = os.path.join(os.path.dirname(__file__), "vendor", "defuddle_parse.js")
-    if not os.path.exists(script_path):
-        raise DefuddleError(f"Node.js wrapper script not found at {script_path}")
 
     html_content = _inject_base_tag(html_content, url)
 
@@ -134,80 +128,13 @@ def _parse_html_with_options(html_content: str, url: str, options: dict) -> dict
         tmp_path = tmp.name
 
     try:
-        input_data = json.dumps(
-            {"htmlPath": tmp_path, "url": url, "options": options}
-        )
-
-        env = os.environ.copy()
-        env["LANG"] = "en_US.UTF-8"
-
-        result = subprocess.run(
-            ["node", script_path],
-            input=input_data.encode("utf-8"),
-            capture_output=True,
-            timeout=30,
-            cwd=settings.BASE_DIR,
-            env=env,
-        )
-
-        if result.returncode != 0:
-            stderr = result.stderr.decode("utf-8", errors="replace")
-            raise DefuddleError(
-                f"defuddle wrapper exited with code {result.returncode}: {stderr}"
-            )
-
-        output = result.stdout.decode("utf-8").strip()
-        if not output:
-            raise DefuddleError("defuddle wrapper produced no output")
-
-        return _normalize_result(json.loads(output))
-
-    except json.JSONDecodeError as e:
-        raise DefuddleError(f"Failed to parse defuddle wrapper output: {e}") from e
-    except subprocess.TimeoutExpired as e:
-        raise DefuddleError("defuddle wrapper timed out after 30s") from e
+        return _run_defuddle({"htmlPath": tmp_path, "url": url}, options=options, timeout=30)
     finally:
         os.unlink(tmp_path)
 
 
 def _parse_url_with_options(url: str, options: dict) -> dict:
     """通过 Node.js 包装脚本直接解析 URL（支持 contentSelector 等）。"""
-    from bookmarks.services.defuddle import DefuddleError, _normalize_result
-    import json
-    import subprocess
+    from bookmarks.services.defuddle import _run_defuddle
 
-    script_path = os.path.join(os.path.dirname(__file__), "vendor", "defuddle_parse.js")
-    if not os.path.exists(script_path):
-        raise DefuddleError(f"Node.js wrapper script not found at {script_path}")
-
-    input_data = json.dumps({"url": url, "options": options})
-
-    env = os.environ.copy()
-    env["LANG"] = "en_US.UTF-8"
-
-    try:
-        result = subprocess.run(
-            ["node", script_path],
-            input=input_data.encode("utf-8"),
-            capture_output=True,
-            timeout=60,
-            cwd=settings.BASE_DIR,
-            env=env,
-        )
-
-        if result.returncode != 0:
-            stderr = result.stderr.decode("utf-8", errors="replace")
-            raise DefuddleError(
-                f"defuddle wrapper exited with code {result.returncode}: {stderr}"
-            )
-
-        output = result.stdout.decode("utf-8").strip()
-        if not output:
-            raise DefuddleError("defuddle wrapper produced no output")
-
-        return _normalize_result(json.loads(output))
-
-    except json.JSONDecodeError as e:
-        raise DefuddleError(f"Failed to parse defuddle wrapper output: {e}") from e
-    except subprocess.TimeoutExpired as e:
-        raise DefuddleError("defuddle wrapper timed out after 60s") from e
+    return _run_defuddle({"url": url}, options=options)

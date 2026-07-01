@@ -4,8 +4,6 @@ import os
 import subprocess
 import tempfile
 
-from django.conf import settings
-
 logger = logging.getLogger(__name__)
 
 
@@ -38,6 +36,47 @@ def _inject_base_tag(html_content: str, url: str) -> str:
     return html_content
 
 
+def _run_defuddle(input_data: dict, options: dict = None, timeout: int = 60) -> dict:
+    """通过 vendor/defuddle_parse.js wrapper 脚本调用 defuddle。
+
+    所有 subprocess 调用、错误处理和输出解析均在此函数内完成，
+    调用方只需处理 DefuddleError。
+    """
+    script_path = os.path.join(os.path.dirname(__file__), "vendor", "defuddle_parse.js")
+    if not os.path.exists(script_path):
+        raise DefuddleError(f"defuddle wrapper script not found at {script_path}")
+
+    if options:
+        input_data["options"] = options
+
+    env = os.environ.copy()
+    env["LANG"] = "en_US.UTF-8"
+
+    try:
+        result = subprocess.run(
+            ["node", script_path],
+            input=json.dumps(input_data).encode("utf-8"),
+            capture_output=True,
+            timeout=timeout,
+            env=env,
+        )
+    except subprocess.TimeoutExpired as e:
+        raise DefuddleError(f"defuddle timed out after {timeout}s") from e
+
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace")
+        raise DefuddleError(f"defuddle wrapper exited with code {result.returncode}: {stderr}")
+
+    output = result.stdout.decode("utf-8").strip()
+    if not output:
+        raise DefuddleError("defuddle wrapper produced no output")
+
+    try:
+        return _normalize_result(json.loads(output))
+    except json.JSONDecodeError as e:
+        raise DefuddleError(f"Failed to parse defuddle output: {e}") from e
+
+
 def parse_html(html_content: str, url: str = "") -> dict:
     """
     Parse raw HTML with defuddle and return clean article content.
@@ -45,14 +84,8 @@ def parse_html(html_content: str, url: str = "") -> dict:
     Returns dict with keys: title, content, description, author, site, wordCount
     Raises DefuddleError on failure.
     """
-    # Find defuddle CLI
-    defuddle_bin = os.path.join(settings.BASE_DIR, "node_modules", ".bin", "defuddle")
-    if not os.path.exists(defuddle_bin):
-        raise DefuddleError(f"defuddle CLI not found at {defuddle_bin}")
-
     html_content = _inject_base_tag(html_content, url)
 
-    # Write HTML to temp file
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".html", delete=False, encoding="utf-8"
     ) as tmp:
@@ -60,36 +93,7 @@ def parse_html(html_content: str, url: str = "") -> dict:
         tmp_path = tmp.name
 
     try:
-        # Run defuddle parse
-        cmd = [defuddle_bin, "parse", tmp_path, "--json"]
-
-        env = os.environ.copy()
-        env["LANG"] = "en_US.UTF-8"
-
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            timeout=30,
-            cwd=settings.BASE_DIR,
-            env=env,
-        )
-
-        if result.returncode != 0:
-            stderr = result.stderr.decode("utf-8", errors="replace")
-            raise DefuddleError(
-                f"defuddle exited with code {result.returncode}: {stderr}"
-            )
-
-        output = result.stdout.decode("utf-8").strip()
-        if not output:
-            raise DefuddleError("defuddle produced no output")
-
-        return _normalize_result(json.loads(output))
-
-    except json.JSONDecodeError as e:
-        raise DefuddleError(f"Failed to parse defuddle output: {e}") from e
-    except subprocess.TimeoutExpired as e:
-        raise DefuddleError("defuddle timed out after 30s") from e
+        return _run_defuddle({"htmlPath": tmp_path, "url": url}, timeout=30)
     finally:
         os.unlink(tmp_path)
 
@@ -100,36 +104,4 @@ def parse_url(url: str) -> dict:
     Returns dict with keys: title, content, description, author, site, wordCount
     Raises DefuddleError on failure.
     """
-    defuddle_bin = os.path.join(settings.BASE_DIR, "node_modules", ".bin", "defuddle")
-    if not os.path.exists(defuddle_bin):
-        raise DefuddleError(f"defuddle CLI not found at {defuddle_bin}")
-
-    cmd = [defuddle_bin, "parse", url, "--json"]
-    env = os.environ.copy()
-    env["LANG"] = "en_US.UTF-8"
-
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            timeout=60,
-            cwd=settings.BASE_DIR,
-            env=env,
-        )
-
-        if result.returncode != 0:
-            stderr = result.stderr.decode("utf-8", errors="replace")
-            raise DefuddleError(
-                f"defuddle exited with code {result.returncode}: {stderr}"
-            )
-
-        output = result.stdout.decode("utf-8").strip()
-        if not output:
-            raise DefuddleError("defuddle produced no output")
-
-        return _normalize_result(json.loads(output))
-
-    except json.JSONDecodeError as e:
-        raise DefuddleError(f"Failed to parse defuddle output: {e}") from e
-    except subprocess.TimeoutExpired as e:
-        raise DefuddleError("defuddle timed out after 60s") from e
+    return _run_defuddle({"url": url})

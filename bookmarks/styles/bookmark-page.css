@@ -1023,6 +1023,7 @@ ul.bookmark-list {
     flex-basis: 100%;
     order: 3;
     position: relative;
+    z-index: var(--zindex-4);
     margin: var(--unit-1) 0;
     overflow: visible;
     background: var(--body-color-contrast);
@@ -1061,8 +1062,8 @@ ul.bookmark-list {
     max-height: calc(var(--ld-notes-max-lines, 15) * 1.1rem);
     padding: var(--unit-2) var(--unit-3);
     margin: 0;
-    border: none;
-    background: transparent;
+    border: 1px solid var(--primary-color);
+    background: var(--body-color);
     font-family: inherit;
     font-size: inherit;
     line-height: inherit;
@@ -1891,5 +1892,25 @@ ul.bookmark-list {
     & .section-title {
       height: var(--control-size);
     }
+  }
+}
+
+/* 移动端编辑态遮罩 */
+.editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--zindex-4) - 10); /* 低于编辑器元素，高于其他 */
+  background: rgba(0, 0, 0, 0.12);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 编辑器元素需要在遮罩之上 */
+@media (hover: none) and (pointer: coarse) {
+  .quick-edit-title-input,
+  .quick-edit-description-textarea,
+  .inline-edit-textarea,
+  .quick-edit-tags-container {
+    position: relative;
+    z-index: var(--zindex-4);
   }
 }

@@ -84,9 +84,40 @@ function tagsEqual(left, right) {
   return JSON.stringify(leftSorted) === JSON.stringify(rightSorted);
 }
 
+// 移动端编辑态遮罩
+let editorOverlay = null;
+
+function isMobileDevice() {
+  return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+}
+
+function createEditorOverlay() {
+  if (editorOverlay) return;
+  editorOverlay = document.createElement("div");
+  editorOverlay.className = "editor-overlay";
+  editorOverlay.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    closeActiveEditor();
+  }, { passive: false });
+  document.body.appendChild(editorOverlay);
+}
+
+function removeEditorOverlay() {
+  if (editorOverlay) {
+    editorOverlay.remove();
+    editorOverlay = null;
+  }
+}
+
+
 let activeEditor = null;
 
 function activateEditor(bookmarkId, fieldType, closeFn) {
+  // 移动端创建遮罩
+  if (isMobileDevice()) {
+    createEditorOverlay();
+  }
+  
   const editor = {
     bookmarkId,
     fieldType,
@@ -96,6 +127,10 @@ function activateEditor(bookmarkId, fieldType, closeFn) {
       editor.closed = true;
       if (activeEditor === editor) {
         activeEditor = null;
+        // 移动端移除遮罩
+        if (isMobileDevice()) {
+          removeEditorOverlay();
+        }
       }
       closeFn({ save: options.save !== false });
     },
@@ -115,6 +150,10 @@ function closeEditor(editor, options = {}) {
   if (!editor) return;
   if (activeEditor === editor) {
     activeEditor = null;
+    // 移动端移除遮罩
+    if (isMobileDevice()) {
+      removeEditorOverlay();
+    }
   }
   editor.close(options);
 }

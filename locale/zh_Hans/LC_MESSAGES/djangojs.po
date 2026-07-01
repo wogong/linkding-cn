@@ -40,10 +40,8 @@ msgid "Confirm"
 msgstr "确认"
 
 #: bookmarks/frontend/components/bookmark-page.js:566
-#, fuzzy
-#| msgid "Enter tags"
 msgid "Enter notes here"
-msgstr "输入标签"
+msgstr "在此输入笔记"
 
 #: bookmarks/frontend/components/bookmark-page.js:684
 msgid "Enter tags"
@@ -197,20 +195,16 @@ msgid "Search for more icons"
 msgstr "搜索更多图标"
 
 #: bookmarks/frontend/components/settings-page.js:1880
-#, fuzzy
-#| msgid "Adding..."
 msgid "Loading..."
-msgstr "添加中..."
+msgstr "加载中..."
 
 #: bookmarks/frontend/components/settings-page.js:1885
 msgid "No icons found"
 msgstr ""
 
 #: bookmarks/frontend/components/settings-page.js:1891
-#, fuzzy
-#| msgid "Save failed"
 msgid "Search failed"
-msgstr "保存失败"
+msgstr "搜索失败"
 
 #: bookmarks/frontend/components/settings-page.js:2031
 msgid "More info"
@@ -288,16 +282,12 @@ msgstr[0] "%(count)s 条笔记"
 msgstr[1] "%(count)s 条笔记"
 
 #: bookmarks/frontend/reader/reader-sidebar.js:402
-#, fuzzy
-#| msgid "Click to hide action buttons"
 msgid "Hide action buttons"
-msgstr "点击隐藏功能按钮"
+msgstr "隐藏功能按钮"
 
 #: bookmarks/frontend/reader/reader-sidebar.js:402
-#, fuzzy
-#| msgid "Click to show action buttons"
 msgid "Show action buttons"
-msgstr "点击显示功能按钮"
+msgstr "显示功能按钮"
 
 #: bookmarks/frontend/reader/reader-sidebar.js:409
 msgid "The following highlights and notes could not be located"
@@ -390,10 +380,8 @@ msgid "Archive?"
 msgstr "归档？"
 
 #: bookmarks/frontend/reader/reader-sidebar.js:508
-#, fuzzy
-#| msgid "Unarchive?"
 msgid "Unarchive"
-msgstr "取消归档？"
+msgstr "取消归档"
 
 #: bookmarks/frontend/reader/reader-sidebar.js:508
 msgid "Archive"
@@ -432,10 +420,8 @@ msgid "Move to trash?"
 msgstr "移到回收站？"
 
 #: bookmarks/frontend/reader/reader-sidebar.js:547
-#, fuzzy
-#| msgid "Move to trash?"
 msgid "Move to trash"
-msgstr "移到回收站？"
+msgstr "移到回收站"
 
 #: bookmarks/frontend/reader/reader-sidebar.js:579
 msgid "No tags"
@@ -595,16 +581,12 @@ msgid "Failed to load article."
 msgstr ""
 
 #: bookmarks/frontend/reader/reader.js:1211
-#, fuzzy
-#| msgid "%(fast)s~%(slow)s minute"
 msgid "%(fast)s minute"
 msgid_plural "%(fast)s minutes"
-msgstr[0] "%(fast)s-%(slow)s 分钟"
-msgstr[1] "%(fast)s-%(slow)s 分钟"
+msgstr[0] "%(fast)s 分钟"
+msgstr[1] "%(fast)s 分钟"
 
 #: bookmarks/frontend/reader/reader.js:1216
-#, fuzzy
-#| msgid "%(fast)s~%(slow)s minute"
 msgid "%(fast)s~%(slow)s minute"
 msgid_plural "%(fast)s~%(slow)s minutes"
 msgstr[0] "%(fast)s-%(slow)s 分钟"
@@ -674,207 +656,3 @@ msgstr "在 GitHub 上查看"
 #: bookmarks/frontend/components/update-checker.js:114
 msgid "Got it"
 msgstr "知道了"
-
-#: node_modules/defuddle/dist/index.full.js:1
-msgid "#"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "num"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "regexp"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "string"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-#, fuzzy
-#| msgid "Rename"
-msgid "name"
-msgstr "重命名"
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "privateId"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "eof"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "["
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "]"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "{"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "}"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "("
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid ")"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid ","
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid ";"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid ":"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "."
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "?"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "?."
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "=>"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "template"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "invalidTemplate"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "..."
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "`"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "${"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "="
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "_="
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "++/--"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "!/~"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "+/-"
-msgstr ""
-
-#: node_modules/prettier/plugins/acorn.js:3
-msgid "**"
-msgstr ""
-
-#, fuzzy
-#~| msgid "Preview"
-#~ msgid "no-preview"
-#~ msgstr "预览"
-
-#~ msgid "Added %(time)s"
-#~ msgstr "添加于 %(time)s"
-
-#~ msgid "Modified %(time)s"
-#~ msgstr "修改于 %(time)s"
-
-#~ msgid "tag1 tag2 ..."
-#~ msgstr "标签1 标签2 ..."
-
-#~ msgid "Unread"
-#~ msgstr "未读"
-
-#~ msgid "Archive bookmark?"
-#~ msgstr "归档此书签？"
-
-#~ msgid "Unarchive bookmark?"
-#~ msgstr "取消归档此书签？"
-
-#~ msgid "Archive bookmark"
-#~ msgstr "归档书签"
-
-#~ msgid "Trash"
-#~ msgstr "回收站"
-
-#~ msgid "Delete bookmark"
-#~ msgstr "删除书签"
-
-#~ msgid "Decrease"
-#~ msgstr "减小"
-
-#~ msgid "Increase"
-#~ msgstr "增大"
-
-#~ msgid "Always visible"
-#~ msgstr "始终显示"
-
-#~ msgid "Share bookmark?"
-#~ msgstr "分享书签？"
-
-#~ msgid "Unshare bookmark?"
-#~ msgstr "取消分享书签？"
-
-#~ msgid "Mark as read?"
-#~ msgstr "标记为已读？"
-
-#~ msgid "Mark as unread?"
-#~ msgstr "标记为未读？"
-
-#, fuzzy
-#~| msgid "Saving..."
-#~ msgid "saving"
-#~ msgstr "保存中..."
-
-#, fuzzy
-#~| msgid "Saved"
-#~ msgid "saved"
-#~ msgstr "已保存"
-
-#~ msgid "No"
-#~ msgstr "否"
-
-#~ msgid "Yes"
-#~ msgstr "是"
-
-#~ msgid "%(fast)s~%(slow)s minutes"
-#~ msgstr "%(fast)s-%(slow)s 分钟"
-
-#~ msgid "Copied!"
-#~ msgstr "已复制！"
-
-#~ msgid "Copy failed"
-#~ msgstr "复制失败"

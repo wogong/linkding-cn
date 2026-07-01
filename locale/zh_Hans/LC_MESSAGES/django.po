@@ -624,20 +624,14 @@ msgid "Invalid bookmark quick edit configuration."
 msgstr "无效的书签快捷编辑配置。"
 
 #: bookmarks/models.py:1896
-#, fuzzy
-#| msgid "Invalid bookmark quick edit configuration."
 msgid "Invalid bookmark quick tags configuration."
-msgstr "无效的书签快捷编辑配置。"
+msgstr "无效的书签快捷标签配置。"
 
 #: bookmarks/models.py:1964
-#, fuzzy
-#| msgid "Date format"
 msgid "Item format"
-msgstr "日期格式"
+msgstr "条目格式"
 
 #: bookmarks/models.py:1970
-#, fuzzy
-#| msgid "Separate"
 msgid "Separator"
 msgstr "分行"
 
@@ -784,10 +778,8 @@ msgid "Edit tags"
 msgstr "编辑标签"
 
 #: bookmarks/templates/bookmarks/bookmark_list.html:249
-#, fuzzy
-#| msgid "Username"
 msgid "Unnamed"
-msgstr "用户名"
+msgstr "未命名"
 
 #: bookmarks/templates/bookmarks/bookmark_list.html:274
 msgid "Unshare?"
@@ -2392,16 +2384,12 @@ msgid "text"
 msgstr "文字"
 
 #: bookmarks/templates/settings/general.html:1219
-#, fuzzy
-#| msgid "icon"
 msgid "Pick icon"
-msgstr "图标"
+msgstr "选择图标"
 
 #: bookmarks/templates/settings/general.html:1228
-#, fuzzy
-#| msgid "Click to edit notes"
 msgid "Click to edit name"
-msgstr "点击编辑笔记"
+msgstr "点击编辑名称"
 
 #: bookmarks/templates/settings/general.html:1237
 msgid "tag1 tag2"

@@ -713,6 +713,10 @@ msgstr "查看最新快照"
 msgid "Create snapshot"
 msgstr "创建快照"
 
+#: bookmarks/templates/bookmarks/bookmark_list.html:89
+msgid "No snapshot available"
+msgstr "暂无快照"
+
 #: bookmarks/templates/bookmarks/bookmark_list.html:102
 msgid "View snapshot on the Internet Archive Wayback Machine"
 msgstr "在 Internet Archive Wayback Machine 上查看快照"

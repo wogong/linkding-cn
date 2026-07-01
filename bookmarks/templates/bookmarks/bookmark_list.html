@@ -84,11 +84,9 @@
                          target="{{ bookmark_list.link_target }}"
                          rel="noopener">{{ bookmark_item.display_date }}</a>
                     {% else %}
-                      <a href="#"
-                         class="date-link"
-                         data-create-snapshot="{{ bookmark_item.id }}"
-                         title="{% translate 'Create snapshot' %}"
-                         >{{ bookmark_item.display_date }}</a>
+                      <span class="date-link"
+                            title="{% translate 'No snapshot available' %}"
+                            >{{ bookmark_item.display_date }}</span>
                     {% endif %}
                   {% elif bookmark_list.date_route == "reader" %}
                     <a href="{{ bookmark_item.reader_url }}"

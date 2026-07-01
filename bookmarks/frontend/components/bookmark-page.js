@@ -168,7 +168,6 @@ class BookmarkItem extends Behavior {
     // 初始化快捷标签按钮
     this.onQuickTagClick = this.onQuickTagClick.bind(this);
     this.onQuickTagMenuTrigger = this.onQuickTagMenuTrigger.bind(this);
-    this.onCreateSnapshot = this.onCreateSnapshot.bind(this);
     this.quickTagBtns = element.querySelectorAll(".quick-tag-btn");
     this.quickTagBtns.forEach((btn) => {
       btn.addEventListener("click", this.onQuickTagClick);
@@ -184,11 +183,6 @@ class BookmarkItem extends Behavior {
       this.editAction.addEventListener("click", this.onEditClick);
     }
 
-    // 日期点击：创建快照
-    this.snapshotLink = element.querySelector("[data-create-snapshot]");
-    if (this.snapshotLink) {
-      this.snapshotLink.addEventListener("click", this.onCreateSnapshot);
-    }
 
     // 初始化标题浮窗
     this.initTitleTooltip();
@@ -209,8 +203,6 @@ class BookmarkItem extends Behavior {
       this.notesToggle.removeEventListener("click", this.onToggleNotes);
     if (this.editAction)
       this.editAction.removeEventListener("click", this.onEditClick);
-    if (this.snapshotLink)
-      this.snapshotLink.removeEventListener("click", this.onCreateSnapshot);
 
     this.quickEditBtns.forEach((btn) => {
       btn.removeEventListener("mousedown", this.onQuickEditMouseDown);
@@ -990,23 +982,6 @@ class BookmarkItem extends Behavior {
     }
   }
 
-  onCreateSnapshot(event) {
-    event.preventDefault();
-    const link = event.currentTarget;
-    const bookmarkId = link.dataset.createSnapshot;
-    if (!bookmarkId) return;
-
-    const form = link.closest("form.bookmark-actions");
-    if (!form) return;
-
-    // 添加隐藏字段触发快照创建
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = "create_html_snapshot";
-    input.value = bookmarkId;
-    form.appendChild(input);
-    form.submit();
-  }
 
   onTitleClick(event) {
     if (

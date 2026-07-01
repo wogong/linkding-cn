@@ -46,8 +46,24 @@ function autoResizeTextarea(textarea) {
 }
 
 function focusEnd(element) {
-  element.focus();
+  element.focus({ preventScroll: true });
   element.setSelectionRange(element.value.length, element.value.length);
+}
+
+function scrollToBookmarkTop(element) {
+  if (!window.matchMedia("(hover: none) and (pointer: coarse)").matches)
+    return;
+  const li = element.closest("li[ld-bookmark-item]");
+  if (!li) return;
+  const stickyHeader = document.querySelector(
+    '.section-header[data-sticky-on="true"]',
+  );
+  const stickyHeight = stickyHeader ? stickyHeader.offsetHeight : 0;
+  const rect = li.getBoundingClientRect();
+  const currentScroll =
+    window.pageYOffset || document.scrollingElement.scrollTop;
+  const targetTop = rect.top + currentScroll - stickyHeight;
+  window.scrollTo({ top: targetTop, behavior: "instant" });
 }
 
 function parseTags(value) {
@@ -418,6 +434,7 @@ class BookmarkItem extends Behavior {
       }
     });
 
+    scrollToBookmarkTop(input);
     focusEnd(input);
   }
 
@@ -513,8 +530,10 @@ class BookmarkItem extends Behavior {
       }
     });
 
-    focusEnd(textarea);
+    
     autoResizeTextarea(textarea);
+    scrollToBookmarkTop(textarea);
+    focusEnd(textarea);
   }
 
   _startEditNotes() {
@@ -533,7 +552,7 @@ class BookmarkItem extends Behavior {
     this.notesEditor.style.display = "block";
     autoResizeTextarea(this.notesEditor);
 
-    // focus 后浏览器会自动滚动到光标末尾，异步恢复滚动位置
+    scrollToBookmarkTop(this.notesEditor);
     focusEnd(this.notesEditor);
     requestAnimationFrame(() => {
       this.notesEditor.scrollTop = this._savedNotesScrollTop;
@@ -712,6 +731,7 @@ class BookmarkItem extends Behavior {
       input = autocomplete.querySelector("input");
       if (!input || editor.closed) return;
 
+      scrollToBookmarkTop(input);
       focusEnd(input);
       input.addEventListener("blur", () => {
         setTimeout(() => {

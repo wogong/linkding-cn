@@ -310,7 +310,7 @@
 
                   {# Inline-editable note #}
                   <textarea class="highlight-note-textarea"
-                            placeholder="{% translate 'Click to add note' %}"
+                            placeholder="{% translate 'Please enter note' %}"
                             rows="1"
                             data-annotation-id="{{ ann.id }}"
                             {% if not ann.note_content %}data-empty{% endif %}>{{ ann.note_content }}</textarea>
@@ -335,8 +335,8 @@
                         </span>
                       {% endif %}
 
-                      {# 切换批注文本框 #}
-                      <button type="button" class="highlight-action-btn" title="{% translate 'Toggle note' %}"
+                      {# 编辑批注文本框 #}
+                      <button type="button" class="highlight-action-btn" title="{% translate 'Edit note' %}"
                               data-toggle-note>
                         <svg width="16" height="16"><use href="#ld-icon-highlight"></use></svg>
                       </button>
@@ -456,14 +456,12 @@
     if (!ta) return;
     if (ta.hasAttribute('data-empty')) {
       ta.removeAttribute('data-empty');
-      ta.classList.add('note-visible');
-      ta.style.height = 'auto';
-      ta.style.height = ta.scrollHeight + 'px';
-      ta.focus();
-    } else if (!ta.value.trim()) {
-      ta.setAttribute('data-empty', '');
-      ta.classList.remove('note-visible');
     }
+    ta.classList.add('note-visible');
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+    ta.focus();
+    ta.selectionStart = ta.selectionEnd = ta.value.length;
   }
 
   document.querySelectorAll('[data-toggle-note]').forEach(function(btn) {

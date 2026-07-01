@@ -1299,8 +1299,8 @@ msgid "Collapse"
 msgstr "折叠"
 
 #: bookmarks/templates/bookmarks/highlights/index.html:313
-msgid "Click to add note"
-msgstr "点击添加批注"
+msgid "Please enter note"
+msgstr "请输入批注"
 
 #: bookmarks/templates/bookmarks/highlights/index.html:327
 msgid "Locate in article"
@@ -1311,8 +1311,8 @@ msgid "Article unavailable"
 msgstr "文章不可用"
 
 #: bookmarks/templates/bookmarks/highlights/index.html:339
-msgid "Toggle note"
-msgstr "切换批注"
+msgid "Edit note"
+msgstr "编辑批注"
 
 #: bookmarks/templates/bookmarks/highlights/index.html:361
 #: bookmarks/templates/settings/integrations_api_section.html:40

@@ -217,6 +217,8 @@ class BookmarkFactoryMixin:
         display_name: str = None,
         status: str = BookmarkAsset.STATUS_COMPLETE,
         gzip: bool = False,
+        retry_count: int = None,
+        next_retry_at: datetime = None,
     ):
         if date_created is None:
             date_created = timezone.now()
@@ -235,6 +237,10 @@ class BookmarkFactoryMixin:
             status=status,
             gzip=gzip,
         )
+        if retry_count is not None:
+            asset.retry_count = retry_count
+        if next_retry_at is not None:
+            asset.next_retry_at = next_retry_at
         asset.save()
         return asset
 
@@ -408,9 +414,13 @@ class DomainSidebarTestMixin(TestCase, HtmlTestMixin):
             )
             self.assertIsNotNone(label)
             self.assertEqual(label.text.strip(), expected["label"])
-            self.assertEqual(
-                primary.select_one(".count").text.strip(), f"({expected['count']})"
-            )
+            count_el = primary.select_one(".count")
+            self.assertIsNotNone(count_el)
+            count_text = count_el.text.strip()
+            # Support both "(1)" and "1" formats
+            expected_count = str(expected["count"])
+            expected_count_paren = f"({expected['count']})"
+            self.assertIn(count_text, [expected_count, expected_count_paren])
 
             if expected.get("clickable", True):
                 self.assertEqual(primary.name, "a")

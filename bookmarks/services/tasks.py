@@ -472,26 +472,35 @@ def _select_next_html_snapshot_asset(now, next_eligible_at: dict[str, object]):
       - asset 不为 None  → 立即执行
       - asset 为 None     → 所有 pending 均在冷却中，next_wake_at 为最早可唤醒时间
     """
-    pending_assets = (
-        BookmarkAsset.objects.filter(
-            asset_type=BookmarkAsset.TYPE_SNAPSHOT,
-            status=BookmarkAsset.STATUS_PENDING,
-        )
-        .filter(
-            Q(next_retry_at__isnull=True) | Q(next_retry_at__lte=now)
-        )
-        .select_related("bookmark")
-        .order_by("-date_created", "-id")
+    # 所有 pending 资产（包括有重试时间的）
+    all_pending = BookmarkAsset.objects.filter(
+        asset_type=BookmarkAsset.TYPE_SNAPSHOT,
+        status=BookmarkAsset.STATUS_PENDING,
+    ).select_related("bookmark").order_by("-date_created", "-id")
+
+    # 可立即执行的（无重试时间或重试时间已过）
+    executable = all_pending.filter(
+        Q(next_retry_at__isnull=True) | Q(next_retry_at__lte=now)
     )
 
     next_wake_at = None
-    for asset in pending_assets:
+
+    # 先检查可执行的资产
+    for asset in executable:
         domain = get_registrable_domain(asset.bookmark.url)
         eligible_at = next_eligible_at.get(domain)
         if eligible_at is None or eligible_at <= now:
             return asset, None
         if next_wake_at is None or eligible_at < next_wake_at:
             next_wake_at = eligible_at
+
+    # 再检查有未来重试时间的资产，更新 next_wake_at
+    waiting = all_pending.filter(
+        next_retry_at__gt=now
+    )
+    for asset in waiting:
+        if next_wake_at is None or asset.next_retry_at < next_wake_at:
+            next_wake_at = asset.next_retry_at
 
     return None, next_wake_at
 

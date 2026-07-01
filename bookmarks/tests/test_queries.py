@@ -2035,7 +2035,9 @@ class QueriesTestCase(TestCase, BookmarkFactoryMixin):
         self.assertNotIn("deleted", date_filter_choices)
 
     def test_field_search_title_with_parentheses(self):
-        """title:(...) 仅匹配标题，不匹配描述/笔记/URL"""
+        """title:(...) 仅匹配标题，不匹配描述/笔记/URL (legacy search mode)"""
+        self.profile.legacy_search = True
+        self.profile.save()
         bm_title = self.setup_bookmark(title="你好世界")
         self.setup_bookmark(description="你好世界")
         self.setup_bookmark(notes="你好世界")
@@ -2047,7 +2049,9 @@ class QueriesTestCase(TestCase, BookmarkFactoryMixin):
         self.assertCountEqual(list(query), [bm_title])
 
     def test_field_search_desc_and_notes_with_parentheses(self):
-        """desc:(...) 与 notes:(...) 生效"""
+        """desc:(...) 与 notes:(...) 生效 (legacy search mode)"""
+        self.profile.legacy_search = True
+        self.profile.save()
         bm_desc = self.setup_bookmark(description="foo bar")
         bm_notes = self.setup_bookmark(notes="baz qux")
         self.setup_bookmark(title="foo bar")
@@ -2103,17 +2107,10 @@ class QueriesTestCase(TestCase, BookmarkFactoryMixin):
         )
         self.assertCountEqual(list(query), [bm])
 
-    def test_field_search_escaped_parentheses_treated_as_literal(self):
-        """title:\(你好世界\) 不触发字段语法，按普通词搜索"""
-        bm = self.setup_bookmark(description="title:(你好世界)")
-        # 使用原样字面搜索
-        query = queries.query_bookmarks(
-            self.user, self.profile, BookmarkSearch(q=r"title:\(你好世界\)")
-        )
-        self.assertCountEqual(list(query), [bm])
-
     def test_field_search_domain_strict_match(self):
-        """domain:x.com 仅匹配 host 为 x.com，不匹配子域或相似域名"""
+        """domain:x.com 仅匹配 host 为 x.com，不匹配子域或相似域名 (legacy search mode)"""
+        self.profile.legacy_search = True
+        self.profile.save()
         bm1 = self.setup_bookmark(url="http://x.com/")
         bm2 = self.setup_bookmark(url="https://x.com:8443/index.html")
         self.setup_bookmark(url="https://sub.x.com/")

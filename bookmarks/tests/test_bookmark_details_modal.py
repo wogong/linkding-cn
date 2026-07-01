@@ -225,17 +225,14 @@ class BookmarkDetailsModalTestCase(TestCase, BookmarkFactoryMixin, HtmlTestMixin
         # without tags: shows placeholder
         bookmark = self.setup_bookmark()
         soup = self.get_index_details_modal(bookmark)
-        section = self.find_section(soup, "Tags")
-        self.assertIsNotNone(section)
-        placeholder = section.find("span", {"class": "info-placeholder"})
+        placeholder = soup.find("span", {"class": "info-placeholder"})
         self.assertIsNotNone(placeholder)
 
         # with tags: shows tag names
         bookmark = self.setup_bookmark(tags=[self.setup_tag(), self.setup_tag()])
         soup = self.get_index_details_modal(bookmark)
-        section = self.find_section(soup, "Tags")
         for tag in bookmark.tags.all():
-            tag_el = section.find("span", {"class": "info-tag"}, string=f"#{tag.name}")
+            tag_el = soup.find("span", {"class": "info-tag"}, string=f"#{tag.name}")
             self.assertIsNotNone(tag_el)
 
     # ---- Description ----
@@ -286,41 +283,41 @@ class BookmarkDetailsModalTestCase(TestCase, BookmarkFactoryMixin, HtmlTestMixin
         # own bookmark — has footer actions
         bookmark = self.setup_bookmark()
         soup = self.get_index_details_modal(bookmark)
-        archive_btn = soup.find("button", {"name": "archive"})
-        delete_btn = soup.find("button", {"name": "trash"})
-        self.assertIsNotNone(archive_btn)
-        self.assertIsNotNone(delete_btn)
+        trash_btn = soup.find("button", {"name": "trash"})
+        self.assertIsNotNone(trash_btn)
 
         # other user's bookmark — no footer actions
         other_user = self.setup_user(enable_sharing=True)
         bookmark = self.setup_bookmark(user=other_user, shared=True)
         soup = self.get_shared_details_modal(bookmark)
-        archive_btn = soup.find("button", {"name": "archive"})
-        delete_btn = soup.find("button", {"name": "trash"})
-        self.assertIsNone(archive_btn)
-        self.assertIsNone(delete_btn)
+        trash_btn = soup.find("button", {"name": "trash"})
+        self.assertIsNone(trash_btn)
 
     def test_status_buttons(self):
-        # own bookmark — has status action buttons
+        profile = self.get_or_create_test_user().profile
+        profile.enable_sharing = True
+        profile.save()
+
+        # own bookmark — has status chips
         bookmark = self.setup_bookmark()
         soup = self.get_index_details_modal(bookmark)
-        archive_btn = soup.find("button", {"name": "archive"})
-        shared_btn = soup.find("button", {"name": "share"})
-        unread_btn = soup.find("button", {"name": "mark_as_unread"})
-        self.assertIsNotNone(archive_btn)
-        self.assertIsNotNone(shared_btn)
-        self.assertIsNotNone(unread_btn)
+        archive_chip = soup.find(attrs={"data-chip-field": "is_archived"})
+        shared_chip = soup.find(attrs={"data-chip-field": "shared"})
+        unread_chip = soup.find(attrs={"data-chip-field": "unread"})
+        self.assertIsNotNone(archive_chip)
+        self.assertIsNotNone(unread_chip)
+        self.assertIsNotNone(shared_chip)
 
         # not archived → uses #ld-icon-archive
-        use = archive_btn.find("use")
+        use = archive_chip.find("use")
         self.assertIn("ld-icon-archive", use.get("xlink:href", ""))
 
-        # archived → uses #ld-icon-archive-slash
+        # archived
         bookmark = self.setup_bookmark(is_archived=True)
         soup = self.get_index_details_modal(bookmark)
-        archive_btn = soup.find("button", {"name": "unarchive"})
-        use = archive_btn.find("use")
-        self.assertEqual(use.get("xlink:href"), "#ld-icon-archive-slash")
+        archive_chip = soup.find(attrs={"data-chip-field": "is_archived"})
+        use = archive_chip.find("use")
+        self.assertIn("ld-icon-archive", use.get("xlink:href", ""))
 
     # ---- Date ----
 

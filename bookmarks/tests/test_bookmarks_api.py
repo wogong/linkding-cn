@@ -28,9 +28,21 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
         self.mock_assets_upload_snapshot = (
             self.mock_assets_upload_snapshot_patcher.start()
         )
+        self.mock_load_favicon_patcher = patch(
+            "bookmarks.services.bookmarks.tasks.load_favicon"
+        )
+        self.mock_load_favicon = self.mock_load_favicon_patcher.start()
+        self.mock_create_html_snapshot_patcher = patch(
+            "bookmarks.services.bookmarks.tasks.create_html_snapshot"
+        )
+        self.mock_create_html_snapshot = (
+            self.mock_create_html_snapshot_patcher.start()
+        )
 
     def tearDown(self):
         self.mock_assets_upload_snapshot_patcher.stop()
+        self.mock_load_favicon_patcher.stop()
+        self.mock_create_html_snapshot_patcher.stop()
 
     def authenticate(self):
         self.api_token = self.setup_api_token()

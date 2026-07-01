@@ -822,7 +822,7 @@ class BookmarkIndexViewTestCase(
         self.setup_bookmark(url="https://feishu.cn/blog", title="hello root")
 
         response = self.client.get(
-            reverse("linkding:bookmarks.index") + "?q=domain:(feishu.cn+|+.feishu.cn)"
+            reverse("linkding:bookmarks.index") + '?q=domain:"feishu.cn+|+.feishu.cn"'
         )
 
         soup = self.make_soup(response.content.decode())
@@ -1234,8 +1234,14 @@ class BookmarkIndexViewTestCase(
             self.user.date_joined = joined_at
             self.user.save(update_fields=["date_joined"])
 
-            oldest_day = today - timezone.timedelta(days=30)
-            recent_day = today - timezone.timedelta(days=4)
+            # Use dates within the same month to avoid month boundary issues
+            if today.day >= 5:
+                oldest_day = today.replace(day=max(today.day - 20, 1))
+                recent_day = today.replace(day=today.day - 4)
+            else:
+                # today is early in the month, use fixed days
+                oldest_day = today.replace(day=1)
+                recent_day = today.replace(day=2)
             oldest_added = timezone.make_aware(
                 timezone.datetime(
                     oldest_day.year, oldest_day.month, oldest_day.day, 12, 0
@@ -1900,9 +1906,19 @@ class BookmarkIndexViewTestCase(
         with translation.override("zh-hans"):
             self.set_profile_language("zh-hans")
             today = timezone.localdate()
-            # Use 2 consecutive days in the current month for a streak of 2
-            yesterday = today - timezone.timedelta(days=1)
-            activity_days = [yesterday, today]
+            # Use 2 consecutive days within the SAME month for a streak of 2
+            # Avoid month boundary by using day=2 and day=3 when today is day 1
+            if today.day >= 3:
+                day_a = today.replace(day=today.day - 2)
+                day_b = today.replace(day=today.day - 1)
+            elif today.day == 2:
+                day_a = today.replace(day=1)
+                day_b = today
+            else:
+                # today.day == 1, use day 2 and day 3 of the same month
+                day_a = today.replace(day=2)
+                day_b = today.replace(day=3)
+            activity_days = [day_a, day_b]
             expected_count = len(activity_days)
 
             for index, bookmark_day in enumerate(activity_days):
@@ -1950,7 +1966,7 @@ class BookmarkIndexViewTestCase(
                 activity_summary.select_one(".summary-activity-summary-copy").get_text(
                     " ", strip=True
                 ),
-                f"收藏书签 {expected_count} 个，共活跃 {expected_count} 天，最高连续活跃 {expected_count} 天。新增高亮 0 个，新增批注 0 个。",
+                f"收藏书签 {expected_count} 个，共活跃 {expected_count} 天，最高连续活跃 {expected_count} 天。新增高亮 0 个， 0 条批注。",
             )
             self.assertEqual(
                 [
@@ -2030,7 +2046,7 @@ class BookmarkIndexViewTestCase(
                 heatmap_activity_summary.select_one(
                     ".summary-activity-summary-copy"
                 ).get_text(" ", strip=True),
-                f"收藏书签 {week_count} 个，共活跃 {week_count} 天，最高连续活跃 {expected_longest_streak} 天。新增高亮 0 个，新增批注 0 个。",
+                f"收藏书签 {week_count} 个，共活跃 {week_count} 天，最高连续活跃 {expected_longest_streak} 天。新增高亮 0 个， 0 条批注。",
             )
 
     def test_sidebar_summary_follows_selected_date_filter_without_explicit_period(self):
@@ -2108,7 +2124,7 @@ class BookmarkIndexViewTestCase(
             calendar_activity_summary.select_one(
                 ".summary-activity-summary-copy"
             ).get_text(" ", strip=True),
-            "收藏书签 3 个，共活跃 3 天，最高连续活跃 3 天。新增高亮 0 个，新增批注 0 个。",
+            "收藏书签 3 个，共活跃 3 天，最高连续活跃 3 天。新增高亮 0 个， 0 条批注。",
         )
 
         # Toggle mode to heatmap
@@ -2156,7 +2172,7 @@ class BookmarkIndexViewTestCase(
             heatmap_activity_summary.select_one(
                 ".summary-activity-summary-copy"
             ).get_text(" ", strip=True),
-            "收藏书签 3 个，共活跃 3 天，最高连续活跃 3 天。新增高亮 0 个，新增批注 0 个。",
+            "收藏书签 3 个，共活跃 3 天，最高连续活跃 3 天。新增高亮 0 个， 0 条批注。",
         )
         start_heatmap_day = heatmap_summary.select_one(
             f"[data-summary-heatmap-day='{start_day.isoformat()}']"

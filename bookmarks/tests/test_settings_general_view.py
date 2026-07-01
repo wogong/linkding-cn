@@ -312,7 +312,7 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.user.profile.language, "fr")
         self.user.profile.clean_fields(
-            exclude=["search_preferences", "trash_search_preferences"]
+            exclude=["search_preferences", "trash_search_preferences", "highlights_search_preferences", "reader_settings"]
         )
 
     def test_should_hide_default_sharing_when_sharing_is_disabled(self):

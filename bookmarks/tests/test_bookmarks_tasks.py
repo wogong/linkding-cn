@@ -224,7 +224,7 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
             is_stale=True,
         )
 
-        def mock_refresh_favicon(url, timeout=10):
+        def mock_refresh_favicon(url, timeout=10, domain_config=None, custom_domain_root=""):
             bookmark.refresh_from_db()
             self.assertEqual(bookmark.favicon_file, "https_example_com.png")
             return "https_example_updated_com.png"
@@ -267,10 +267,11 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
 
     def test_load_favicon_should_not_save_stale_bookmark_data(self):
         bookmark = self.setup_bookmark()
+        self.mock_get_cached_favicon.return_value = None
 
         # update bookmark during API call to check that saving
         # the favicon does not overwrite updated bookmark data
-        def mock_load_favicon_impl(url):
+        def mock_load_favicon_impl(url, timeout=10, domain_config=None, custom_domain_root=""):
             bookmark.title = "Updated title"
             bookmark.save()
             return "https_example_com.png"
@@ -637,8 +638,8 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
         bookmark = self.setup_bookmark()
 
         with mock.patch(
-            "bookmarks.services.tasks._kick_html_snapshot_dispatcher"
-        ) as mock_kick_html_snapshot_dispatcher:
+            "bookmarks.services.tasks._trigger_html_snapshot_dispatcher"
+        ) as mock_trigger_html_snapshot_dispatcher:
             tasks.create_html_snapshot(bookmark)
             self.assertEqual(BookmarkAsset.objects.count(), 1)
 
@@ -653,7 +654,7 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
                 self.assertIn("New snapshot", asset.display_name)
                 self.assertEqual(asset.status, BookmarkAsset.STATUS_PENDING)
 
-            self.assertEqual(mock_kick_html_snapshot_dispatcher.call_count, 2)
+            self.assertEqual(mock_trigger_html_snapshot_dispatcher.call_count, 2)
             self.mock_assets_create_snapshot.assert_not_called()
 
     @override_settings(LD_ENABLE_SNAPSHOTS=True)
@@ -665,12 +666,12 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
         ]
 
         with mock.patch(
-            "bookmarks.services.tasks._kick_html_snapshot_dispatcher"
-        ) as mock_kick_html_snapshot_dispatcher:
+            "bookmarks.services.tasks._trigger_html_snapshot_dispatcher"
+        ) as mock_trigger_html_snapshot_dispatcher:
             tasks.create_html_snapshots(bookmarks)
 
         self.assertEqual(BookmarkAsset.objects.count(), 3)
-        self.assertEqual(mock_kick_html_snapshot_dispatcher.call_count, 1)
+        self.assertEqual(mock_trigger_html_snapshot_dispatcher.call_count, 1)
 
     @override_settings(LD_ENABLE_SNAPSHOTS=True)
     def test_schedule_html_snapshots_should_kick_dispatcher_for_pending_assets(self):
@@ -682,11 +683,11 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
         )
 
         with mock.patch(
-            "bookmarks.services.tasks._kick_html_snapshot_dispatcher"
-        ) as mock_kick_html_snapshot_dispatcher:
+            "bookmarks.services.tasks._trigger_html_snapshot_dispatcher"
+        ) as mock_trigger_html_snapshot_dispatcher:
             tasks._schedule_html_snapshots_task()
 
-        mock_kick_html_snapshot_dispatcher.assert_called_once_with()
+        mock_trigger_html_snapshot_dispatcher.assert_called_once_with()
 
     @override_settings(LD_ENABLE_SNAPSHOTS=True)
     def test_schedule_html_snapshots_should_not_kick_dispatcher_when_no_pending_assets(
@@ -700,11 +701,11 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
         )
 
         with mock.patch(
-            "bookmarks.services.tasks._kick_html_snapshot_dispatcher"
-        ) as mock_kick_html_snapshot_dispatcher:
+            "bookmarks.services.tasks._trigger_html_snapshot_dispatcher"
+        ) as mock_trigger_html_snapshot_dispatcher:
             tasks._schedule_html_snapshots_task()
 
-        mock_kick_html_snapshot_dispatcher.assert_not_called()
+        mock_trigger_html_snapshot_dispatcher.assert_not_called()
 
     @override_settings(LD_ENABLE_SNAPSHOTS=True)
     def test_select_next_html_snapshot_asset_should_prefer_newest_eligible_asset(self):

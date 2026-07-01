@@ -16,6 +16,7 @@ mock_icon_data = b"mock_icon"
 
 class MockStreamingResponse:
     def __init__(self, data=mock_icon_data, content_type="image/png"):
+        self.content = data
         self.chunks = [data]
         self.headers = {"Content-Type": content_type}
 
@@ -227,7 +228,6 @@ class FaviconLoaderTestCase(TestCase):
             favicon_loader.load_favicon("https://example.com/foo?bar=baz")
             mock_get.assert_called_with(
                 "https://custom.icons.com/?url=https://example.com",
-                stream=True,
                 timeout=10,
             )
 
@@ -239,7 +239,6 @@ class FaviconLoaderTestCase(TestCase):
             favicon_loader.load_favicon("https://example.com/foo?bar=baz")
             mock_get.assert_called_with(
                 "https://custom.icons.com/?url=example.com",
-                stream=True,
                 timeout=10,
             )
 

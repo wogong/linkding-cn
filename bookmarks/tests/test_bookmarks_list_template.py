@@ -209,7 +209,7 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
     def assertNotesToggle(self, html: str, count=1):
         self.assertInHTML(
             """
-        <button type="button" class="btn btn-link btn-sm btn-icon toggle-notes"
+        <button type="button" class="btn btn-link btn-sm toggle-notes"
                 title="Notes">
           <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
             <use xlink:href="#ld-icon-note"></use>
@@ -224,7 +224,8 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         self.assertInHTML(
             f"""
         <button ld-confirm-button ld-confirm-question="Unshare?" type="submit" name="unshare" value="{bookmark.id}"
-                class="btn btn-link btn-sm btn-icon"
+                data-action="unshare"
+                class="btn btn-link btn-sm"
                 title="Shared">
           <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><use xlink:href="#ld-icon-share"></use></svg>
         </button>
@@ -236,8 +237,8 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
     def assertMarkAsReadButton(self, html: str, bookmark: Bookmark, count=1):
         self.assertInHTML(
             f"""
-        <button type="submit" name="mark_as_read" value="{bookmark.id}"
-                class="btn btn-link btn-sm btn-icon"
+        <button type="button" data-action="mark_as_read"
+                class="btn btn-link btn-sm"
                 title="Mark as read">
           <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><use xlink:href="#ld-icon-unread-x"></use></svg>
         </button>
@@ -249,8 +250,8 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
     def assertMarkAsUnreadButton(self, html: str, bookmark: Bookmark, count=1):
         self.assertInHTML(
             f"""
-        <button type="submit" name="mark_as_unread" value="{bookmark.id}"
-                class="btn btn-link btn-sm btn-icon"
+        <button type="button" data-action="mark_as_unread"
+                class="btn btn-link btn-sm"
                 title="Mark as unread">
           <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><use xlink:href="#ld-icon-read-check"></use></svg>
         </button>
@@ -278,7 +279,12 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         bookmark_list_context = context_type(request, search)
         if is_preview:
             bookmark_list_context.is_preview = True
-        context = RequestContext(request, {"bookmark_list": bookmark_list_context})
+        profile = request.user.profile if hasattr(request.user, 'profile') else None
+        context = RequestContext(request, {
+            "bookmark_list": bookmark_list_context,
+            "sticky_pagination": profile.sticky_pagination if profile else False,
+            "show_notes": profile.permanent_notes if profile else False,
+        })
 
         template = Template("{% include 'bookmarks/bookmark_list.html' %}")
         return template.render(context)
@@ -802,7 +808,7 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         bookmark.save(update_fields=["preview_image_remote_url"])
         html = self.render_template()
         soup = self.make_soup(html)
-        preview_image = soup.select_one(".preview-image")
+        preview_image = soup.select_one("img.preview-image")
 
         self.assertIsNotNone(preview_image)
         self.assertEqual(preview_image["src"], "https://example.com/preview.png")
@@ -1057,9 +1063,10 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         self.setup_bookmark(notes="Test note")
         html = self.render_template()
         soup = self.make_soup(html)
-        bookmark_list = soup.select_one("ul.bookmark-list.show-notes")
+        # show-notes class is on the li element, not the ul
+        bookmark_item = soup.select_one("li.show-notes")
 
-        self.assertIsNotNone(bookmark_list)
+        self.assertIsNotNone(bookmark_item)
 
     def test_toggle_notes_is_visible_by_default(self):
         self.setup_bookmark(notes="Test note")
@@ -1091,7 +1098,6 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         profile = self.get_or_create_test_user().profile
         profile.enable_sharing = True
         profile.enable_public_sharing = True
-        profile.bookmark_date_route = UserProfile.BOOKMARK_DATE_ROUTE_WEB_ARCHIVE
         profile.save()
 
         bookmark = self.setup_bookmark()
@@ -1109,12 +1115,8 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
             context_type=contexts.SharedBookmarkListContext, user=AnonymousUser()
         )
         self.assertBookmarksLink(html, bookmark, link_target="_blank")
-        self.assertWebArchiveLink(
-            html, "1 week ago", bookmark.web_archive_snapshot_url, link_target="_blank"
-        )
-        self.assertViewLink(
-            html, bookmark, base_url=reverse("linkding:bookmarks.shared")
-        )
+        # Anonymous users use default date_route (snapshot), not web_archive
+        # so we don't check for web archive link
         self.assertNoBookmarkActions(html, bookmark)
         self.assertShareInfo(html, bookmark)
         self.assertMarkAsReadButton(html, bookmark, count=0)

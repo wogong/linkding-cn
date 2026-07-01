@@ -6,10 +6,12 @@ class Dropdown extends HeadlessElement {
   constructor() {
     super();
     this.opened = false;
+    this._scrollRafId = null;
     this.onClick = this.onClick.bind(this);
     this.onOutsideClick = this.onOutsideClick.bind(this);
     this.onEscape = this.onEscape.bind(this);
     this.onFocusOut = this.onFocusOut.bind(this);
+    this.onScroll = this.onScroll.bind(this);
   }
 
   init() {
@@ -35,6 +37,7 @@ class Dropdown extends HeadlessElement {
     this.toggle?.setAttribute("aria-expanded", "true");
     this._positionMenu();
     document.addEventListener("click", this.onOutsideClick);
+    window.addEventListener("scroll", this.onScroll, true);
   }
 
   close() {
@@ -43,6 +46,21 @@ class Dropdown extends HeadlessElement {
     this.toggle?.setAttribute("aria-expanded", "false");
     this._resetMenuPosition();
     document.removeEventListener("click", this.onOutsideClick);
+    window.removeEventListener("scroll", this.onScroll, true);
+    if (this._scrollRafId) {
+      cancelAnimationFrame(this._scrollRafId);
+      this._scrollRafId = null;
+    }
+  }
+
+  onScroll() {
+    if (this._scrollRafId) return;
+    this._scrollRafId = requestAnimationFrame(() => {
+      this._scrollRafId = null;
+      if (this.opened) {
+        this._positionMenu();
+      }
+    });
   }
 
   _positionMenu() {

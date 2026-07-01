@@ -2,12 +2,49 @@ import { Behavior, registerBehavior } from "./runtime.js";
 import { gettext } from "../utils/i18n.js";
 
 let activePopup = null;
+let scrollRafId = null;
 
 function dismissActive() {
   if (activePopup) {
     activePopup.close();
     activePopup = null;
   }
+}
+
+function updatePopupPosition() {
+  if (!activePopup || !activePopup._button) return;
+  const button = activePopup._button;
+  const rect = button.getBoundingClientRect();
+  const popupWidth = activePopup.offsetWidth;
+  const popupHeight = activePopup.offsetHeight;
+
+  let left = rect.left + rect.width / 2 - popupWidth / 2;
+  if (left < 8) left = 8;
+  if (left + popupWidth > window.innerWidth - 8) {
+    left = window.innerWidth - 8 - popupWidth;
+  }
+
+  const preferUp = rect.top + rect.height / 2 > window.innerHeight / 2;
+  let top;
+  if (preferUp) {
+    top = rect.top - popupHeight - 6;
+    if (top < 8) top = rect.bottom + 6;
+  } else {
+    top = rect.bottom + 6;
+    if (top + popupHeight > window.innerHeight - 8) {
+      top = rect.top - popupHeight - 6;
+    }
+  }
+
+  activePopup.style.cssText = `position:fixed;top:${top}px;left:${left}px;`;
+}
+
+function onScroll() {
+  if (scrollRafId) return;
+  scrollRafId = requestAnimationFrame(() => {
+    scrollRafId = null;
+    updatePopupPosition();
+  });
 }
 
 // Global listeners for dismiss
@@ -92,12 +129,18 @@ class ConfirmPopup extends HTMLElement {
     });
 
     activePopup = this;
+    window.addEventListener("scroll", onScroll, true);
   }
 
   close() {
     this.remove();
     if (activePopup === this) {
       activePopup = null;
+    }
+    window.removeEventListener("scroll", onScroll, true);
+    if (scrollRafId) {
+      cancelAnimationFrame(scrollRafId);
+      scrollRafId = null;
     }
     Behavior.interacting = false;
   }

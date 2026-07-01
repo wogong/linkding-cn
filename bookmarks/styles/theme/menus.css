@@ -176,7 +176,7 @@
     gap: var(--unit-2);
   }
 
-  /* Responsive: narrow screen — fixed to span viewport, stays with sticky header */
+  /* Responsive: narrow screen — fixed to span viewport, scroll handled by JS */
   @media (max-width: 426px) {
     position: fixed !important;
     left: var(--unit-2) !important;

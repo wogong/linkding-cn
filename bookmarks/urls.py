@@ -4,6 +4,7 @@ from django.urls import include, path, re_path
 from django.views.i18n import JavaScriptCatalog, set_language
 
 from bookmarks import feeds, views
+from bookmarks.views import tag_tree
 from bookmarks.admin import linkding_admin_site
 from bookmarks.api import routes as api_routes
 
@@ -76,6 +77,8 @@ urlpatterns = [
     path("bundles/preview", views.bundles.preview, name="bundles.preview"),
     # Tags
     path("tags", views.tags.tags_index, name="tags.index"),
+    # Tag tree AJAX
+    path("tag-tree/children", tag_tree.tag_tree_children, name="tag_tree.children"),
     # Highlights
     path(
         "bookmarks/highlights",

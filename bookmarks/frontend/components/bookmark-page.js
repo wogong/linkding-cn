@@ -1475,6 +1475,146 @@ class DomainTreeBehavior extends Behavior {
 }
 registerBehavior("ld-domain-tree", DomainTreeBehavior);
 
+const TAG_TREE_KEY = "ld:sidebar:tag-tree";
+
+/**
+ * Build the ancestor path (root → … → this node) by walking up the DOM.
+ * Returns a comma-separated string of tag names.
+ */
+function tagTreePath(node) {
+  const parts = [];
+  let el = node;
+  while (el) {
+    const name = el.dataset.tagName;
+    if (name) parts.unshift(name);
+    el = el.parentElement?.closest(".tag-tree-node");
+  }
+  return parts.join(",");
+}
+
+class TagTreeBehavior extends Behavior {
+  constructor(element) {
+    super(element);
+    this.onTreeClick = this.onTreeClick.bind(this);
+    this.element.addEventListener("click", this.onTreeClick);
+    this.restoreTreeState();
+  }
+
+  destroy() {
+    this.element.removeEventListener("click", this.onTreeClick);
+  }
+
+  onTreeClick(event) {
+    const button = event.target.closest(".tag-tree-toggle");
+    if (button && this.element.contains(button)) {
+      const node = button.closest(".tag-tree-node");
+      if (node) { this.toggleNode(node); return; }
+    }
+    const row = event.target.closest(".tag-tree-row");
+    if (row && this.element.contains(row)) {
+      const node = row.closest(".tag-tree-node");
+      if (node?.dataset.hasChildren === "true" && !event.target.closest("a")) {
+        this.toggleNode(node);
+      }
+    }
+  }
+
+  async toggleNode(node) {
+    const expanded = node.dataset.expanded === "true";
+    const newState = !expanded;
+    node.dataset.expanded = newState;
+
+    const button = node.querySelector(":scope > .tag-tree-row .tag-tree-toggle");
+    if (button) button.setAttribute("aria-expanded", newState);
+
+    const path = tagTreePath(node);
+
+    if (newState && node.dataset.loaded !== "true") {
+      // Children not yet loaded — fetch from server.
+      await this.loadChildren(node, path);
+    } else {
+      // Already loaded — just show/hide.
+      const childList = node.querySelector(":scope > ul.tag-tree-children");
+      if (childList) childList.style.display = newState ? "" : "none";
+    }
+
+    this.setNodeState(path, newState);
+  }
+
+  _buildSearchParams(path) {
+    const sp = new URLSearchParams(window.location.search);
+    sp.set("path", path);
+    const p = window.location.pathname;
+    let ctx = "active";
+    if (p.includes("/highlights")) ctx = "highlights";
+    else if (p.includes("/shared")) ctx = "shared";
+    else if (p.includes("/archived")) ctx = "archived";
+    else if (p.includes("/trash")) ctx = "trash";
+    sp.set("ctx", ctx);
+    return sp;
+  }
+
+  async loadChildren(node, path) {
+    const sp = this._buildSearchParams(path);
+    const cacheKey = `tag-tree:${sp.toString()}`;
+    const button = node.querySelector(":scope > .tag-tree-row .tag-tree-toggle");
+
+    // 1. Check sessionStorage cache first
+    let html = null;
+    try { html = sessionStorage.getItem(cacheKey); } catch {}
+
+    if (html === null) {
+      // 2. Cache miss — fetch from server
+      if (button) button.classList.add("loading");
+      try {
+        const resp = await fetch(`/tag-tree/children?${sp.toString()}`);
+        if (!resp.ok) return;
+        html = await resp.text();
+        try { sessionStorage.setItem(cacheKey, html); } catch {}
+      } finally {
+        if (button) button.classList.remove("loading");
+      }
+    }
+
+    // 3. Insert into DOM
+    if (html && html.trim()) {
+      const ul = document.createElement("ul");
+      ul.className = "tag-tree-children";
+      ul.innerHTML = html;
+      node.appendChild(ul);
+      node.dataset.loaded = "true";
+    } else {
+      node.dataset.hasChildren = "false";
+      if (button) button.remove();
+    }
+  }
+
+  setNodeState(path, expanded) {
+    let state = {};
+    try { state = JSON.parse(localStorage.getItem(TAG_TREE_KEY) || "{}"); }
+    catch {}
+    state[path] = expanded;
+    localStorage.setItem(TAG_TREE_KEY, JSON.stringify(state));
+  }
+
+  restoreTreeState() {
+    let state = {};
+    try { state = JSON.parse(localStorage.getItem(TAG_TREE_KEY) || "{}"); }
+    catch {}
+
+    this.element.querySelectorAll(".tag-tree-node[data-has-children='true']").forEach((node) => {
+      const path = tagTreePath(node);
+      if (state[path]) {
+        node.dataset.expanded = "true";
+        const button = node.querySelector(":scope > .tag-tree-row .tag-tree-toggle");
+        if (button) button.setAttribute("aria-expanded", "true");
+        this.loadChildren(node, path);
+      }
+    });
+  }
+}
+registerBehavior("ld-tag-tree", TagTreeBehavior);
+
 // ==========================================
 // 滚动位置记忆
 // ==========================================

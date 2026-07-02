@@ -3042,6 +3042,22 @@ msgstr "关闭聚合"
 msgid "Group alphabetically"
 msgstr "按首字母聚合"
 
+#: bookmarks/views/contexts.py
+msgid "Flat mode"
+msgstr "平铺模式"
+
+#: bookmarks/views/contexts.py
+msgid "Tree mode"
+msgstr "树状模式"
+
+#: bookmarks/views/contexts.py
+msgid "Alphabetical grouping"
+msgstr "按首字母聚合"
+
+#: bookmarks/models.py
+msgid "Smart tree"
+msgstr "智能树状"
+
 #: bookmarks/views/contexts.py:1895
 msgid "Full mode"
 msgstr "完整模式"

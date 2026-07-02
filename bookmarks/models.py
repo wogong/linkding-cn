@@ -925,8 +925,10 @@ class UserProfile(models.Model):
     ]
     TAG_GROUPING_ALPHABETICAL = "alphabetical"
     TAG_GROUPING_DISABLED = "disabled"
+    TAG_GROUPING_SMART_TREE = "smart_tree"
     TAG_GROUPING_CHOICES = [
         (TAG_GROUPING_ALPHABETICAL, _("Alphabetical")),
+        (TAG_GROUPING_SMART_TREE, _("Smart tree")),
         (TAG_GROUPING_DISABLED, _("Disabled")),
     ]
     SIDEBAR_MODULE_SUMMARY = "summary"

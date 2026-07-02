@@ -44,6 +44,19 @@ from bookmarks.views import access
 CJK_RE = re.compile(r"[\u4e00-\u9fff]+")
 
 
+def _tag_sort_key(name: str):
+    """Sort key that orders English tags alphabetically before CJK tags,
+    with CJK tags sorted by their pinyin representation."""
+    if name and CJK_RE.match(name[0]):
+        py = pinyin(name, style=Style.FIRST_LETTER)
+        pinyin_key = "".join(
+            item[0].lower() if item and item[0] else char
+            for item, char in zip(py, name, strict=False)
+        )
+        return (1, pinyin_key)
+    return (0, name.lower())
+
+
 class FaviconLookup:
     """一次查询加载全部 FaviconCache，提供 O(1) 域名→favicon 查表。
 
@@ -1600,6 +1613,9 @@ class TagGroup:
             return TagGroup._create_tag_groups_alphabetical(context, tags)
         elif mode == UserProfile.TAG_GROUPING_DISABLED:
             return TagGroup._create_tag_groups_disabled(context, tags)
+        elif mode == UserProfile.TAG_GROUPING_SMART_TREE:
+            # Smart tree mode uses TagTreeNode instead; return empty groups
+            return []
         else:
             raise ValueError(f"{mode} is not a valid tag grouping mode")
 
@@ -1671,23 +1687,239 @@ class TagGroup:
         if len(tags) == 0:
             return []
 
-        def _sort_key(tag):
-            name = tag.name
-            if CJK_RE.match(name[0]):
-                py = pinyin(name, style=Style.FIRST_LETTER)
-                pinyin_key = "".join(
-                    item[0].lower() if item and item[0] else char
-                    for item, char in zip(py, name, strict=False)
-                )
-                return (1, pinyin_key)
-            return (0, name.lower())
-
-        sorted_tags = sorted(tags, key=_sort_key)
+        sorted_tags = sorted(tags, key=lambda t: _tag_sort_key(t.name))
         group = TagGroup(context, "Ungrouped")
         for tag in sorted_tags:
             group.add_tag(tag)
 
         return [group]
+
+
+# ---- co-occurrence cache ----
+# The raw (bookmark_id, tag_id) pairs for every user are cached so that
+# the expensive SQL query only runs once.  The cache is invalidated by
+# Django signals whenever the user's bookmarks or tags change (see
+# ``signals.py``).  When building the tree for a specific search the
+# cached pairs are filtered in Python, which is fast.
+_CACHE_KEY_PREFIX = "tag_cooccurrence"
+_CACHE_TIMEOUT = 3600  # seconds
+
+
+def _get_cached_pairs(user):
+    """Return all (bookmark_id, tag_id) pairs for *user*, from cache if possible."""
+    from django.core.cache import cache
+
+    key = f"{_CACHE_KEY_PREFIX}:{user.id}"
+    pairs = cache.get(key)
+    if pairs is None:
+        through = Bookmark.tags.through
+        all_bids = Bookmark.objects.filter(owner=user).values_list("id", flat=True)
+        pairs = list(
+            through.objects.filter(bookmark_id__in=all_bids).values_list(
+                "bookmark_id", "tag_id"
+            )
+        )
+        cache.set(key, pairs, _CACHE_TIMEOUT)
+    return pairs
+
+
+def invalidate_tag_cooccurrence_cache(user_id):
+    """Evict the cached co-occurrence pairs for *user_id*."""
+    from django.core.cache import cache
+
+    cache.delete(f"{_CACHE_KEY_PREFIX}:{user_id}")
+
+
+def _build_path_query_string(context, tag_names):
+    """Build a query string that selects all *tag_names* (the full tree path)."""
+    from bookmarks.services.search_query_parser import extract_tag_names_from_query
+
+    params = context.query_params.copy()
+    existing_query = params.get("q", "")
+    profile = context.request.user_profile
+
+    already_selected = {
+        name.lower()
+        for name in extract_tag_names_from_query(existing_query, profile)
+    }
+
+    parts = existing_query.strip() if existing_query else ""
+    for name in tag_names:
+        if name.lower() not in already_selected:
+            if isinstance(context.search_expression, OrExpression):
+                parts = f"({parts})" if parts else ""
+            parts = f"{parts} #{name}".strip()
+
+    params["q"] = parts
+    params.pop("details", None)
+    params.pop("page", None)
+
+    encoded = utils.clean_query_params(params)
+    return f"?{encoded}" if encoded else context.index_url
+
+
+class TagTreeNode:
+    """A node in the recursive tag co-occurrence tree.
+
+    Unified structure for both roots and children:
+    - root nodes: co_count = 0
+    - child nodes: co_count = co-occurrence count with parent
+    """
+
+    def __init__(self, tag_item, count, co_count=0, children=None, path_query_string=""):
+        self.tag = tag_item  # AddTagItem
+        self.name = tag_item.name
+        self.count = count  # Total bookmark count for this tag
+        self.co_count = co_count  # Co-occurrence with parent (0 for roots)
+        self.children = children or []  # List of TagTreeNode
+        self.has_children = len(self.children) > 0
+        # URL that selects every tag on the path from the root to this node
+        self.path_query_string = path_query_string
+
+
+def _build_tag_tree(context, bookmark_queryset, tags):
+    """Build root nodes for the tag co-occurrence tree.
+
+    Only the root level is computed here — children are loaded on demand
+    via the ``/tag-tree/children`` AJAX endpoint.  This keeps the initial
+    page render fast regardless of how many tags or bookmarks the user has.
+
+    Each root node's ``has_children`` flag is determined by a cheap check:
+    does at least one bookmark with this tag also carry a *different* tag?
+    """
+    from collections import defaultdict
+
+    all_pairs = _get_cached_pairs(context.request.user)
+    bookmark_ids = set(bookmark_queryset.values_list("id", flat=True))
+    pairs = [(bid, tid) for bid, tid in all_pairs if bid in bookmark_ids]
+
+    # Build reverse mapping: bookmark -> tags
+    bookmark_tags: dict[int, set[int]] = defaultdict(set)
+    tag_bookmark_count: dict[int, int] = defaultdict(int)
+    for bid, tid in pairs:
+        bookmark_tags[bid].add(tid)
+        tag_bookmark_count[tid] += 1
+
+    # Precompute: which tags appear on a bookmark that has >1 tag?
+    tags_with_children: set[int] = set()
+    for tids in bookmark_tags.values():
+        if len(tids) > 1:
+            tags_with_children.update(tids)
+
+    roots = []
+    for tag in sorted(
+        tags,
+        key=lambda t: (-tag_bookmark_count.get(t.id, 0), _tag_sort_key(t.name)),
+    ):
+        count = tag_bookmark_count.get(tag.id, 0)
+        if count == 0:
+            continue
+
+        root_names = [tag.name]
+        node = TagTreeNode(
+            AddTagItem(context, tag),
+            count,
+            children=[],
+            path_query_string=_build_path_query_string(context, root_names),
+        )
+        node.has_children = tag.id in tags_with_children
+        roots.append(node)
+
+    return roots
+
+
+def get_tag_tree_children(request_context, user, search, path_names):
+    """Compute children for a specific tree path (AJAX endpoint).
+
+    *path_names* is the ordered list of tag names from root to the
+    node whose children are requested.  Returns a list of
+    ``TagTreeNode`` objects (the children), or an empty list if the
+    path is invalid.
+    """
+    from collections import defaultdict
+
+    # Resolve tag names → Tag objects (case-insensitive)
+    all_tags = list(Tag.objects.filter(owner=user))
+    tag_by_name = {t.name.lower(): t for t in all_tags}
+    path_tags = []
+    for name in path_names:
+        tag = tag_by_name.get(name.lower())
+        if tag is None:
+            return []
+        path_tags.append(tag)
+
+    # Load cached pairs & filter by current search
+    all_pairs = _get_cached_pairs(user)
+    search_bids = set(
+        request_context.get_bookmark_query_set(search).values_list("id", flat=True)
+    )
+    pairs = [(bid, tid) for bid, tid in all_pairs if bid in search_bids]
+
+    bookmark_tags: dict[int, set[int]] = defaultdict(set)
+    for bid, tid in pairs:
+        bookmark_tags[bid].add(tid)
+
+    tag_bookmarks: dict[int, set[int]] = defaultdict(set)
+    for bid, tid in pairs:
+        tag_bookmarks[tid].add(bid)
+
+    # Compute ancestor bookmark set: bookmarks with ALL path tags
+    ancestor_bids = search_bids.copy()
+    for tag in path_tags:
+        ancestor_bids &= tag_bookmarks.get(tag.id, set())
+
+    if not ancestor_bids:
+        return []
+
+    visited = {t.id for t in path_tags}
+    tag_map = {t.id: t for t in all_tags}
+
+    # Count co-occurrences
+    co_tag_counts: dict[int, int] = defaultdict(int)
+    for bid in ancestor_bids:
+        for tid in bookmark_tags.get(bid, set()):
+            if tid not in visited and tid in tag_map:
+                co_tag_counts[tid] += 1
+
+    sorted_candidates = sorted(
+        co_tag_counts.items(),
+        key=lambda x: (-x[1], _tag_sort_key(tag_map[x[0]].name)),
+    )
+
+    children = []
+    for co_tag_id, co_count in sorted_candidates:
+        co_tag = tag_map[co_tag_id]
+        child_names = path_names + [co_tag.name]
+        child_bids = ancestor_bids & tag_bookmarks[co_tag_id]
+
+        # Check if this child would have grandchildren (without building them)
+        has_children = False
+        if child_bids:
+            child_visited = visited | {co_tag_id}
+            for bid in child_bids:
+                for tid in bookmark_tags.get(bid, set()):
+                    if tid not in child_visited and tid in tag_map:
+                        has_children = True
+                        break
+                if has_children:
+                    break
+
+        children.append(
+            TagTreeNode(
+                AddTagItem(request_context, co_tag),
+                len(tag_bookmarks.get(co_tag_id, set())),
+                co_count=co_count,
+                children=[],  # loaded on next AJAX call
+                path_query_string=_build_path_query_string(
+                    request_context, child_names
+                ),
+            )
+        )
+        # has_children is computed dynamically based on whether there
+        # are any tags that co-occur with the full child path.
+        children[-1].has_children = has_children
+
+    return children
 
 
 class TagCloudContext:
@@ -1709,26 +1941,40 @@ class TagCloudContext:
         )
         has_selected_tags = len(unique_selected_tags) > 0
         unselected_tags = set(unique_tags).symmetric_difference(unique_selected_tags)
-        groups = TagGroup.create_tag_groups(
-            request_context, user_profile.tag_grouping, unselected_tags
-        )
+
+        self.tag_grouping = user_profile.tag_grouping
+
+        if self.tag_grouping == UserProfile.TAG_GROUPING_SMART_TREE:
+            # Build co-occurrence tree from all visible tags (including selected)
+            bookmark_qs = request_context.get_bookmark_query_set(self.search)
+            self.tag_tree = _build_tag_tree(request_context, bookmark_qs, unique_tags)
+            self.groups = []
+        else:
+            self.tag_tree = []
+            self.groups = TagGroup.create_tag_groups(
+                request_context, self.tag_grouping, unselected_tags
+            )
 
         selected_tag_items = []
         for tag in unique_selected_tags:
             selected_tag_items.append(RemoveTagItem(request_context, tag))
 
         self.tags = unique_tags
-        self.groups = groups
         self.selected_tags = selected_tag_items
         self.has_selected_tags = has_selected_tags
-        self.tag_grouping = user_profile.tag_grouping
 
-        if user_profile.tag_grouping == UserProfile.TAG_GROUPING_ALPHABETICAL:
-            self.toggle_tag_grouping_value = UserProfile.TAG_GROUPING_DISABLED
-            self.toggle_tag_grouping_label = _("Disable grouping")
-        else:
-            self.toggle_tag_grouping_value = UserProfile.TAG_GROUPING_ALPHABETICAL
-            self.toggle_tag_grouping_label = _("Group alphabetically")
+        # --- menu options ---
+        is_tree = self.tag_grouping == UserProfile.TAG_GROUPING_SMART_TREE
+        self.mode_options = [
+            (UserProfile.TAG_GROUPING_ALPHABETICAL, _("Flat mode"), not is_tree),
+            (UserProfile.TAG_GROUPING_SMART_TREE, _("Tree mode"), is_tree),
+        ]
+        self.grouping_options = [
+            (UserProfile.TAG_GROUPING_ALPHABETICAL, _("Alphabetical grouping"),
+             self.tag_grouping == UserProfile.TAG_GROUPING_ALPHABETICAL),
+            (UserProfile.TAG_GROUPING_DISABLED, _("Disable grouping"),
+             self.tag_grouping == UserProfile.TAG_GROUPING_DISABLED),
+        ] if not is_tree else []
 
     def get_selected_tags(self):
         raise NotImplementedError("Must be implemented by subclass")
@@ -2442,24 +2688,38 @@ class HighlightTagCloudContext:
         self.selected_tags = [RemoveTagItem(request_context, tag) for tag in unique_selected_tags]
         self.has_selected_tags = len(self.selected_tags) > 0
 
-        # Build groups from UNSELECTED tags only
-        unselected_tags = set(unique_tags).symmetric_difference(unique_selected_tags)
-        groups = TagGroup.create_tag_groups(request_context, self.tag_grouping, unselected_tags)
+        if self.tag_grouping == UserProfile.TAG_GROUPING_SMART_TREE:
+            # Build co-occurrence tree from annotation bookmark queryset
+            bookmark_qs = Bookmark.objects.filter(
+                id__in=qs.values("bookmark_id")
+            ).distinct()
+            self.tag_tree = _build_tag_tree(request_context, bookmark_qs, unique_tags)
+            self.groups = []
+        else:
+            self.tag_tree = []
+            # Build groups from UNSELECTED tags only
+            unselected_tags = set(unique_tags).symmetric_difference(unique_selected_tags)
+            groups = TagGroup.create_tag_groups(request_context, self.tag_grouping, unselected_tags)
 
-        # Post-process: set highlight counts on tag items
-        for group in groups:
-            for tag_item in group.tags:
-                tag_item.count = tag_count_map.get(tag_item.name.lower(), 0)
+            # Post-process: set highlight counts on tag items
+            for group in groups:
+                for tag_item in group.tags:
+                    tag_item.count = tag_count_map.get(tag_item.name.lower(), 0)
+            self.groups = groups
 
         self.tags = unique_tags
-        self.groups = groups
 
-        if self.tag_grouping == UserProfile.TAG_GROUPING_ALPHABETICAL:
-            self.toggle_tag_grouping_value = UserProfile.TAG_GROUPING_DISABLED
-            self.toggle_tag_grouping_label = _("Disable grouping")
-        else:
-            self.toggle_tag_grouping_value = UserProfile.TAG_GROUPING_ALPHABETICAL
-            self.toggle_tag_grouping_label = _("Group alphabetically")
+        is_tree = self.tag_grouping == UserProfile.TAG_GROUPING_SMART_TREE
+        self.mode_options = [
+            (UserProfile.TAG_GROUPING_ALPHABETICAL, _("Flat mode"), not is_tree),
+            (UserProfile.TAG_GROUPING_SMART_TREE, _("Tree mode"), is_tree),
+        ]
+        self.grouping_options = [
+            (UserProfile.TAG_GROUPING_ALPHABETICAL, _("Alphabetical grouping"),
+             self.tag_grouping == UserProfile.TAG_GROUPING_ALPHABETICAL),
+            (UserProfile.TAG_GROUPING_DISABLED, _("Disable grouping"),
+             self.tag_grouping == UserProfile.TAG_GROUPING_DISABLED),
+        ] if not is_tree else []
 
     def get_selected_tags(self):
         return []

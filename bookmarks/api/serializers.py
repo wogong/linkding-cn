@@ -121,10 +121,26 @@ class BookmarkSerializer(serializers.ModelSerializer):
     date_modified = serializers.DateTimeField(required=False)
 
     def get_favicon_url(self, obj: Bookmark):
-        if not obj.favicon_file:
+        from bookmarks.utils import extract_hostname
+        hostname = extract_hostname(obj.url)
+        if not hostname:
+            return None
+        # 使用预加载的 FaviconLookup 避免 N+1 查询
+        favicon_lookup = self.context.get("_favicon_lookup")
+        if favicon_lookup is None:
+            from bookmarks.views.contexts import FaviconLookup
+            from bookmarks.utils import parse_domain_roots
+            request = self.context.get("request")
+            domain_config = parse_domain_roots(
+                request.user.profile.custom_domain_root if request and request.user.is_authenticated else ""
+            )
+            favicon_lookup = FaviconLookup(domain_config)
+            self.context["_favicon_lookup"] = favicon_lookup
+        favicon_file = favicon_lookup.get(hostname)
+        if not favicon_file:
             return None
         request = self.context.get("request")
-        favicon_file_path = static(obj.favicon_file)
+        favicon_file_path = static(favicon_file)
         favicon_url = request.build_absolute_uri(favicon_file_path)
         return favicon_url
 

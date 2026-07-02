@@ -13,6 +13,7 @@ from django.http import (
 )
 from django.shortcuts import render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from bookmarks import queries, utils
@@ -42,6 +43,7 @@ from bookmarks.services.bookmarks import (
     delete_bookmarks,
     mark_bookmarks_as_read,
     mark_bookmarks_as_unread,
+    refresh_bookmarks_favicons,
     refresh_bookmarks_metadata,
     remove_all_html_articles,
     remove_all_html_snapshots,
@@ -649,100 +651,104 @@ def share(request: HttpRequest, bookmark_id: int | str):
 
 
 def prefetch_favicon(request: HttpRequest):
-    if not request.user.profile.enable_favicons:
+    """前端 onerror / 懒加载的 favicon 获取端点。
+
+    使用 FaviconCache 全局缓存 + favicon_loader 获取。
+    """
+    if not request.user_profile.enable_favicons:
         return JsonResponse({"status": "disabled"})
 
     url = request.GET.get("url")
     if not url:
         return JsonResponse({"error": _("URL parameter is missing")}, status=400)
 
-    from bookmarks.utils import parse_domain_roots
-    domain_config = parse_domain_roots(request.user.profile.custom_domain_root)
+    from bookmarks.models import FaviconCache
+    from bookmarks.utils import extract_hostname, parse_domain_roots, resolve_favicon_domain
 
-    cached_favicon = favicon_loader.get_cached_favicon(url, domain_config=domain_config)
-    if cached_favicon:
-        if cached_favicon.is_stale:
-            try:
-                new_file = favicon_loader.refresh_favicon(url, domain_config=domain_config)
-                if new_file:
-                    _update_favicon_for_matching_bookmarks(request.user, url, new_file, domain_config)
-                    return JsonResponse({"status": "success", "favicon_file": new_file})
-            except Exception:
-                pass  # refresh 失败则回退到 stale 文件
-        # Stale file may be a data URI saved before the fix — treat as missing
-        if not cached_favicon.is_stale:
-            _update_favicon_for_matching_bookmarks(request.user, url, cached_favicon.filename, domain_config)
-            return JsonResponse(
-                {"status": "success", "favicon_file": cached_favicon.filename}
-            )
+    domain_config = parse_domain_roots(request.user_profile.custom_domain_root)
+    hostname = extract_hostname(url)
+    if not hostname:
+        return JsonResponse({"error": _("Invalid URL")}, status=400)
 
-    favicon_file = favicon_loader.load_favicon(url, timeout=5, domain_config=domain_config)
+    domain = resolve_favicon_domain(hostname, config=domain_config)
+
+    # 1. 检查 FaviconCache 状态
+    cache = FaviconCache.objects.filter(domain=domain).first()
+
+    if cache:
+        # SUCCESS: 磁盘文件存在 → 直接返回
+        if cache.status == FaviconCache.STATUS_SUCCESS and cache.favicon_file:
+            if favicon_loader._get_favicon_path(cache.favicon_file).is_file():
+                if cache.fetched_at:
+                    stale_threshold = timezone.now() - timezone.timedelta(days=1)
+                    if cache.fetched_at < stale_threshold:
+                        from bookmarks.services.tasks import _enqueue_favicon_task
+                        _enqueue_favicon_task(request.user.id, domain)
+                return JsonResponse({"status": "success", "favicon_file": cache.favicon_file})
+            # 磁盘文件丢失 → 继续到步骤 2 重新获取
+
+        # PENDING: 其他请求正在获取 → 不重复
+        elif cache.status == FaviconCache.STATUS_PENDING:
+            return JsonResponse({"status": "success", "favicon_file": "", "retry_after": 10})
+
+        # FAILED: 检查退火重试时间
+        elif cache.status == FaviconCache.STATUS_FAILED:
+            if cache.next_retry_at and cache.next_retry_at > timezone.now():
+                retry_after = int((cache.next_retry_at - timezone.now()).total_seconds())
+                return JsonResponse({"status": "success", "favicon_file": "", "retry_after": retry_after})
+            # 到了重试时间 → 继续到步骤 2
+
+        # MISSING: 永久失败 → 不重试
+        elif cache.status == FaviconCache.STATUS_MISSING:
+            return JsonResponse({"status": "success", "favicon_file": "", "retry_after": 2592000})
+
+    # 2. 尝试从 provider 获取
+    favicon_file = favicon_loader.fetch_and_save_favicon(domain, scheme="https")
+    if not favicon_file:
+        favicon_file = favicon_loader.fetch_and_save_favicon(domain, scheme="http")
 
     if favicon_file:
-        _update_favicon_for_matching_bookmarks(request.user, url, favicon_file, domain_config)
+        FaviconCache.objects.update_or_create(
+            domain=domain,
+            defaults={
+                "favicon_file": favicon_file,
+                "status": FaviconCache.STATUS_SUCCESS,
+                "fetched_at": timezone.now(),
+                "retry_count": 0,
+                "next_retry_at": None,
+            },
+        )
         return JsonResponse({"status": "success", "favicon_file": favicon_file})
+
+    # 3. 全部失败 → 退火重试
+    RETRY_DELAYS = FaviconCache.RETRY_DELAYS
+    if cache:
+        new_retry_count = cache.retry_count + 1
     else:
-        # Fallback: provider has no real favicon, use built-in placeholder
-        _update_favicon_for_matching_bookmarks(request.user, url, "favicon.svg", domain_config)
-        return JsonResponse({"status": "success", "favicon_file": "favicon.svg"})
+        new_retry_count = 1
 
-
-def _build_favicon_domain_query(url: str, domain_config=None):
-    """构建匹配书签域名（含别名）的 ORM 查询，返回 (base_url, prefix_query)。"""
-    from django.db.models import Q
-
-    from bookmarks.services.favicon_loader import _get_url_parameters
-    from bookmarks.utils import get_alias_domains_for_root
-
-    url_params = _get_url_parameters(url, domain_config=domain_config)
-    base_url = url_params["url"]  # scheme://hostname (normalized)
-    scheme = urllib.parse.urlparse(url).scheme or "https"
-
-    # Collect all domains (including aliases) that map to the same favicon
-    domains = [url_params["domain"]]
-    if domain_config:
-        domains = get_alias_domains_for_root(url_params["domain"], domain_config)
-
-    # Build prefix filter for all possible domain URLs
-    prefix_query = Q()
-    for domain in domains:
-        prefix_query |= Q(url__startswith=f"{scheme}://{domain}")
-
-    return base_url, prefix_query
-
-
-def _update_favicon_for_matching_bookmarks(user, url: str, new_favicon_file: str, domain_config=None):
-    """Update bookmarks with the same domain that have a different or missing favicon_file."""
-    from bookmarks.services.favicon_loader import _get_url_parameters
-
-    base_url, prefix_query = _build_favicon_domain_query(url, domain_config)
-
-    bookmarks = Bookmark.objects.filter(
-        owner=user,
-    ).filter(prefix_query).exclude(favicon_file=new_favicon_file)
-
-    for bookmark in bookmarks:
-        bookmark_params = _get_url_parameters(bookmark.url, domain_config=domain_config)
-        if bookmark_params["url"] == base_url:
-            bookmark.favicon_file = new_favicon_file
-            bookmark.save(update_fields=["favicon_file"])
-
-
-def _clear_favicon_for_matching_bookmarks(user, url: str, domain_config=None):
-    """Clear favicon_file for bookmarks with the same domain to prevent repeated 404 errors."""
-    from bookmarks.services.favicon_loader import _get_url_parameters
-
-    base_url, prefix_query = _build_favicon_domain_query(url, domain_config)
-
-    bookmarks = Bookmark.objects.filter(
-        owner=user,
-    ).filter(prefix_query).exclude(favicon_file="")
-
-    for bookmark in bookmarks:
-        bookmark_params = _get_url_parameters(bookmark.url, domain_config=domain_config)
-        if bookmark_params["url"] == base_url:
-            bookmark.favicon_file = ""
-            bookmark.save(update_fields=["favicon_file"])
+    if new_retry_count >= len(RETRY_DELAYS):
+        FaviconCache.objects.update_or_create(
+            domain=domain,
+            defaults={
+                "status": FaviconCache.STATUS_MISSING,
+                "favicon_file": "",
+                "retry_count": new_retry_count,
+                "next_retry_at": None,
+            },
+        )
+    else:
+        delay = RETRY_DELAYS[new_retry_count - 1]
+        FaviconCache.objects.update_or_create(
+            domain=domain,
+            defaults={
+                "status": FaviconCache.STATUS_FAILED,
+                "favicon_file": "",
+                "retry_count": new_retry_count,
+                "next_retry_at": timezone.now() + timezone.timedelta(seconds=delay),
+            },
+        )
+    return JsonResponse({"status": "success", "favicon_file": ""})
 
 
 def load_temporary_preview_image(request: HttpRequest):
@@ -944,6 +950,8 @@ def handle_action(request: HttpRequest, query: QuerySet[Bookmark] = None):
             return unshare_bookmarks(bookmark_ids, request.user)
         if bulk_action == "bulk_refresh":
             return refresh_bookmarks_metadata(bookmark_ids, request.user)
+        if bulk_action == "bulk_refresh_favicon":
+            return refresh_bookmarks_favicons(bookmark_ids, request.user)
         if bulk_action == "bulk_trash":
             return trash_bookmarks(bookmark_ids, request.user)
         if bulk_action == "bulk_restore":

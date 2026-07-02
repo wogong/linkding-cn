@@ -6,6 +6,7 @@ from django.http import (
     HttpResponseRedirect,
 )
 from django.shortcuts import render
+from django.utils import timezone
 from django.urls import reverse
 from django.utils.translation import gettext as _
 
@@ -46,11 +47,31 @@ def read(request: HttpRequest, bookmark_id: int):
                 bookmark.url, bookmark.date_added
             )
 
+            from bookmarks.models import FaviconCache
+            from bookmarks.utils import extract_hostname, parse_domain_roots, resolve_favicon_domain
+            hostname = extract_hostname(bookmark.url)
+            favicon_file = ""
+            favicon_unavailable = False
+            if hostname:
+                domain_config = parse_domain_roots(request.user_profile.custom_domain_root)
+                domain = resolve_favicon_domain(hostname, config=domain_config)
+                fc = FaviconCache.objects.filter(domain=domain).first()
+                if fc and fc.status == FaviconCache.STATUS_SUCCESS and fc.favicon_file:
+                    favicon_file = fc.favicon_file
+                elif fc and fc.status == FaviconCache.STATUS_MISSING:
+                    favicon_unavailable = True
+                elif fc and fc.status == FaviconCache.STATUS_FAILED:
+                    # 与 FaviconLookup 逻辑一致：只有未到重试时间的才标记不可用
+                    if fc.next_retry_at and fc.next_retry_at > timezone.now():
+                        favicon_unavailable = True
+
             return render(
                 request,
                 "bookmarks/reader/read_unavailable.html",
                 {
                     "bookmark": bookmark,
+                    "favicon_file": favicon_file,
+                    "favicon_unavailable": favicon_unavailable,
                     "snapshot_url": snapshot_url,
                     "web_archive_url": web_archive_url,
                     "is_authenticated": request.user.is_authenticated,

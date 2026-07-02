@@ -68,7 +68,6 @@ class Bookmark(models.Model):
     # Obsolete field, kept to not remove column when generating migrations
     website_description = models.TextField(blank=True, null=True)
     web_archive_snapshot_url = models.CharField(max_length=2048, blank=True)
-    favicon_file = models.CharField(max_length=512, blank=True)
     preview_image_file = models.CharField(max_length=512, blank=True)
     unread = models.BooleanField(default=False)
     is_archived = models.BooleanField(default=False)
@@ -148,6 +147,46 @@ def bookmark_deleted(sender, instance, **kwargs):
                 logger.error(
                     f"Failed to delete preview image: {filepath}", exc_info=error
                 )
+
+
+class FaviconCache(models.Model):
+    """全局域名级 favicon 缓存，所有用户共享。
+
+    domain 为纯 hostname（已 lowercased，不含 scheme）。
+    同一域名在磁盘上只有一个 favicon 文件，通过此表映射。
+    """
+
+    STATUS_PENDING = "pending"
+    STATUS_SUCCESS = "success"
+    STATUS_FAILED = "failed"
+    STATUS_MISSING = "missing"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_SUCCESS, "Success"),
+        (STATUS_FAILED, "Failed"),
+        (STATUS_MISSING, "Missing"),
+    ]
+
+    # 退火重试延迟序列（秒）：1min, 3min, 5min, 10min, 20min
+    RETRY_DELAYS = [60, 180, 300, 600, 1200]
+
+    domain = models.CharField(max_length=512, unique=True, db_index=True)
+    favicon_file = models.CharField(max_length=512, blank=True, default="")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING
+    )
+    fetched_at = models.DateTimeField(null=True, blank=True)
+    retry_count = models.IntegerField(default=0)
+    next_retry_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status", "next_retry_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.domain} -> {self.favicon_file} ({self.status})"
 
 
 class BookmarkAsset(models.Model):

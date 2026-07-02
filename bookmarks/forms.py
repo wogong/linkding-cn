@@ -34,7 +34,6 @@ class BookmarkForm(forms.ModelForm):
     shared = forms.BooleanField(required=False)
     # Hidden field that determines whether to close window/tab after saving the bookmark
     auto_close = forms.CharField(required=False, widget=forms.HiddenInput())
-    favicon_file = forms.CharField(required=False, widget=forms.HiddenInput())
 
     class Meta:
         model = Bookmark
@@ -48,7 +47,6 @@ class BookmarkForm(forms.ModelForm):
             "unread",
             "shared",
             "auto_close",
-            "favicon_file",
         ]
 
     def __init__(self, request: HttpRequest, instance: Bookmark = None):

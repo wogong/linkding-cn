@@ -491,10 +491,34 @@ def _apply_filters(
             preview_image_remote_url="",
         )
 
-    if search.favicon == BookmarkSearch.FILTER_ASSET_YES:
-        query_set = query_set.exclude(favicon_file="")
-    elif search.favicon == BookmarkSearch.FILTER_ASSET_NO:
-        query_set = query_set.filter(favicon_file="")
+    if search.favicon in (BookmarkSearch.FILTER_ASSET_YES, BookmarkSearch.FILTER_ASSET_NO):
+        from bookmarks.models import FaviconCache
+        from bookmarks.utils import get_alias_domains_for_root, parse_domain_roots
+
+        # 收集所有有 favicon 的域名，加上别名展开（双向）
+        raw_domains = set(
+            FaviconCache.objects.filter(status="success", favicon_file__gt="")
+            .values_list("domain", flat=True)
+        )
+        domain_config = parse_domain_roots(profile.custom_domain_root)
+        match_domains = set(raw_domains)
+        from bookmarks.utils import resolve_favicon_domain
+        for d in raw_domains:
+            # 正向：d 是目标域名，展开其所有别名
+            match_domains.update(get_alias_domains_for_root(d, domain_config))
+            # 反向：d 是别名域名，也加入其归一化目标（兼容旧数据）
+            match_domains.add(resolve_favicon_domain(d, config=domain_config))
+
+        if match_domains:
+            domain_q = Q()
+            for d in match_domains:
+                domain_q |= Q(url__startswith=f"https://{d}") | Q(url__startswith=f"http://{d}")
+            if search.favicon == BookmarkSearch.FILTER_ASSET_YES:
+                query_set = query_set.filter(domain_q)
+            else:
+                query_set = query_set.exclude(domain_q)
+        elif search.favicon == BookmarkSearch.FILTER_ASSET_YES:
+            query_set = query_set.none()
 
     # Highlight filter
     if search.highlight == BookmarkSearch.FILTER_HIGHLIGHT_YES:

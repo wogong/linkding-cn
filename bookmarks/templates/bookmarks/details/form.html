@@ -9,12 +9,15 @@
   <div class="weblinks">
     <a class="weblink" href="{{ details.bookmark.url }}" rel="noopener"
        target="{{ details.profile.bookmark_link_target }}">
-      {% if details.bookmark.favicon_file %}
-        <img class="favicon" src="{% static details.bookmark.favicon_file %}"
-             onerror="handleFaviconError(this,'{{ details.bookmark.url|urlencode }}')"
+      {% if details.favicon_file %}
+        <img class="favicon" src="{% static details.favicon_file %}"
+             onerror="handleFaviconError(this,'{{ details.bookmark.url|escapejs }}')"
              alt="">
-      {% else %}
+      {% elif details.favicon_unavailable %}
         <img class="favicon" src="{% static 'favicon.svg' %}" alt="">
+      {% else %}
+        <img class="favicon" src="{% static 'favicon.svg' %}"
+             data-favicon-url="{{ details.bookmark.url|escape }}" alt="">
       {% endif %}
       <span>{% translate "Original URL" %}</span>
     </a>

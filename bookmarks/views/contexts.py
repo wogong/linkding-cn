@@ -25,6 +25,7 @@ from bookmarks.models import (
     BookmarkAsset,
     BookmarkBundle,
     BookmarkSearch,
+    FaviconCache,
     Tag,
     User,
     UserProfile,
@@ -43,6 +44,48 @@ from bookmarks.views import access
 CJK_RE = re.compile(r"[\u4e00-\u9fff]+")
 
 
+class FaviconLookup:
+    """一次查询加载全部 FaviconCache，提供 O(1) 域名→favicon 查表。
+
+    加载所有状态的记录，区分"有图标"和"已知不可用"：
+    - get(domain) 返回 favicon 文件名，无则返回 ""
+    - is_unavailable(domain) 返回 True 表示该域名已尝试过且失败/缺失，
+      前端不需要再触发懒加载请求。
+    """
+
+    def __init__(self, domain_config=None):
+        self._map: dict[str, str] = {}
+        self._unavailable: set[str] = set()
+        now = timezone.now()
+        for domain, favicon_file, status, next_retry_at in FaviconCache.objects.values_list(
+            "domain", "favicon_file", "status", "next_retry_at"
+        ):
+            if status == FaviconCache.STATUS_SUCCESS and favicon_file:
+                self._map[domain] = favicon_file
+            elif status == FaviconCache.STATUS_MISSING:
+                self._unavailable.add(domain)
+            elif status == FaviconCache.STATUS_FAILED:
+                if next_retry_at and next_retry_at > now:
+                    self._unavailable.add(domain)
+
+        # 别名展开
+        if domain_config:
+            from bookmarks.utils import get_alias_domains_for_root
+            for domain in list(self._map.keys()) + list(self._unavailable):
+                aliases = get_alias_domains_for_root(domain, domain_config)
+                for alias in aliases:
+                    if domain in self._map and alias not in self._map:
+                        self._map[alias] = self._map[domain]
+                    if domain in self._unavailable:
+                        self._unavailable.add(alias)
+
+    def get(self, domain: str) -> str:
+        return self._map.get(domain, "")
+
+    def is_unavailable(self, domain: str) -> bool:
+        return domain in self._unavailable
+
+
 class RequestContext:
     index_view = "linkding:bookmarks.index"
     action_view = "linkding:bookmarks.index.action"
@@ -53,6 +96,8 @@ class RequestContext:
         self.action_url = reverse(self.action_view)
         self.query_params = request.GET.copy()
         self.query_params.pop("details", None)
+        domain_config = utils.parse_domain_roots(request.user_profile.custom_domain_root)
+        self._favicon_lookup = FaviconLookup(domain_config)
 
         self.query_is_valid = True
         self.query_error_message = None
@@ -183,7 +228,9 @@ class BookmarkItem:
                 self.snapshot_url = generate_fallback_webarchive_url(
                     bookmark.url, bookmark.date_added
                 )
-        self.favicon_file = bookmark.favicon_file
+        hostname = utils.extract_hostname(bookmark.url)
+        self.favicon_file = context._favicon_lookup.get(hostname)
+        self.favicon_unavailable = not self.favicon_file and context._favicon_lookup.is_unavailable(hostname)
         self.preview_image_remote_url = bookmark.preview_image_remote_url
         self.preview_image_file = bookmark.preview_image_file
         self.is_archived = bookmark.is_archived
@@ -1868,11 +1915,11 @@ class DomainsContext:
         ]
 
         bookmarks = list(
-            request_context.get_bookmark_query_set(search).values("url", "favicon_file")
+            request_context.get_bookmark_query_set(search).values("url")
         )
         bookmarks.sort(key=lambda bookmark: bookmark["url"])
 
-        root_nodes = self._build_domain_tree(bookmarks, config)
+        root_nodes = self._build_domain_tree(bookmarks, config, request_context._favicon_lookup)
         if self.is_compact_mode:
             root_nodes = self._compact_root_nodes(root_nodes)
         self.roots = self._build_items(
@@ -1888,6 +1935,7 @@ class DomainsContext:
     def _build_domain_tree(
         bookmarks: list[dict],
         config: utils.DomainConfig,
+        favicon_lookup: FaviconLookup | None = None,
     ) -> list[DomainTreeNode]:
         root_nodes: dict[str, DomainTreeNode] = {}
 
@@ -1927,7 +1975,7 @@ class DomainsContext:
                     )
                     current_nodes[node_host] = node
 
-                node.add_bookmark(hostname, bookmark["favicon_file"])
+                node.add_bookmark(hostname, favicon_lookup.get(hostname) if favicon_lookup else "")
                 current_nodes = node.children
 
         return DomainsContext._sorted_nodes(root_nodes.values())
@@ -2085,7 +2133,10 @@ class BookmarkDetailsContext:
         self.is_editable = bookmark.owner == user
         self.sharing_enabled = user_profile.enable_sharing
         self.preview_image_enabled = user_profile.enable_preview_images
-        self.show_link_icons = user_profile.enable_favicons and bookmark.favicon_file
+        hostname = utils.extract_hostname(bookmark.url)
+        self.favicon_file = request_context._favicon_lookup.get(hostname)
+        self.favicon_unavailable = not self.favicon_file and request_context._favicon_lookup.is_unavailable(hostname)
+        self.show_link_icons = user_profile.enable_favicons and bool(self.favicon_file)
         self.snapshots_enabled = settings.LD_ENABLE_SNAPSHOTS
         self.uploads_enabled = not settings.LD_DISABLE_ASSET_UPLOAD
 
@@ -2313,10 +2364,9 @@ class HighlightDomainsContext(DomainsContext):
         )
 
         # Query filtered annotations to get bookmarks and highlight counts
-        # with_related=True needed for bookmark__favicon_file
-        qs = _get_filtered_annotation_qs(request, search, with_related=True)
+        qs = _get_filtered_annotation_qs(request, search, with_related=False)
         bm_hl_counts = (
-            qs.values("bookmark__url", "bookmark__favicon_file")
+            qs.values("bookmark__url")
             .annotate(hl_count=Count("id"))
         )
 
@@ -2329,19 +2379,19 @@ class HighlightDomainsContext(DomainsContext):
 
         # Build domain tree from filtered bookmarks
         bookmarks = [
-            {"url": row["bookmark__url"], "favicon_file": row["bookmark__favicon_file"]}
+            {"url": row["bookmark__url"]}
             for row in bm_hl_counts
         ]
         bookmarks.sort(key=lambda b: b["url"])
-        root_nodes = self._build_domain_tree(bookmarks, config)
+
+        request_context = HighlightRequestContext(request)
+        root_nodes = self._build_domain_tree(bookmarks, config, request_context._favicon_lookup)
 
         # Replace bookmark counts with highlight counts
         _replace_node_counts_with_highlights(root_nodes, hostname_hl_counts)
 
         if self.is_compact_mode:
             root_nodes = self._compact_root_nodes(root_nodes)
-
-        request_context = HighlightRequestContext(request)
 
         # Parse selected domains from search query for DomainItem.is_selected
         parsed_query = queries.parse_query_string(search.q or "")

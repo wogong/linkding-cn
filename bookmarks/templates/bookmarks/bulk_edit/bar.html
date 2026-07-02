@@ -33,6 +33,9 @@
       {% if not 'bulk_refresh' in disable_actions %}
         <option value="bulk_refresh">{% translate "Refresh from website" %}</option>
       {% endif %}
+      {% if not 'bulk_refresh_favicon' in disable_actions %}
+        <option value="bulk_refresh_favicon">{% translate "Refresh favicon" %}</option>
+      {% endif %}
       {% if bookmark_list.snapshot_feature_enabled %}
         {% if not 'bulk_snapshot' in disable_actions %}
           <option value="bulk_snapshot">{% translate "Create HTML snapshot" %}</option>

@@ -290,9 +290,15 @@ USE_SQLITE = default_database["ENGINE"] == "django.db.backends.sqlite3"
 USE_SQLITE_ICU_EXTENSION = USE_SQLITE and os.path.exists(SQLITE_ICU_EXTENSION_PATH)
 
 # Favicons
-LD_DEFAULT_FAVICON_PROVIDER = "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url={url}&size=32"
-LD_DEFAULT_FAVICON_PROVIDER_CN = "https://favicon.im/{domain}?large=true"
-LD_FAVICON_PROVIDER = os.getenv("LD_FAVICON_PROVIDER", LD_DEFAULT_FAVICON_PROVIDER_CN)
+LD_DEFAULT_FAVICON_PROVIDERS = [
+    "https://favicon.im/{domain}?large=true&throw-error-on-404=true",
+    "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url={url}&size=32",
+]
+LD_FAVICON_PROVIDERS = LD_DEFAULT_FAVICON_PROVIDERS
+_favicon_provider_env = os.getenv("LD_FAVICON_PROVIDER", "")
+if _favicon_provider_env:
+    # 支持 | 分隔的多 provider 列表，单个字符串也兼容
+    LD_FAVICON_PROVIDERS = [p.strip() for p in _favicon_provider_env.split("|") if p.strip()] or LD_DEFAULT_FAVICON_PROVIDERS
 LD_FAVICON_FOLDER = os.path.join(BASE_DIR, "data", "favicons")
 LD_ENABLE_REFRESH_FAVICONS = os.getenv("LD_ENABLE_REFRESH_FAVICONS", True) in (
     True,

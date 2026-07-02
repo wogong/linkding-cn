@@ -250,7 +250,6 @@ class BookmarkServiceTestCase(TestCase, BookmarkFactoryMixin):
         with patch.object(tasks, "load_favicon") as mock_load_favicon:
             bookmark_data = Bookmark(
                 url="https://example.com",
-                favicon_file="https_example_com.png",
             )
             bookmark = create_bookmark(bookmark_data, "tag1,tag2", self.user)
 

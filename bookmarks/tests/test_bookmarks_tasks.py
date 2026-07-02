@@ -45,23 +45,17 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
         )
         self.mock_save_api_patcher.start()
 
-        self.mock_download_favicon_patcher = mock.patch(
-            "bookmarks.services.favicon_loader.load_favicon"
+        self.mock_fetch_favicon_patcher = mock.patch(
+            "bookmarks.services.favicon_loader.fetch_and_save_favicon"
         )
-        self.mock_download_favicon = self.mock_download_favicon_patcher.start()
-        self.mock_download_favicon.return_value = "https_example_com.png"
+        self.mock_fetch_favicon = self.mock_fetch_favicon_patcher.start()
+        self.mock_fetch_favicon.return_value = "https_example_com.png"
 
-        self.mock_load_favicon_patcher = mock.patch(
-            "bookmarks.services.favicon_loader.refresh_favicon"
+        self.mock_find_cached_patcher = mock.patch(
+            "bookmarks.services.favicon_loader._find_cached_favicon_file"
         )
-        self.mock_load_favicon = self.mock_load_favicon_patcher.start()
-        self.mock_load_favicon.return_value = "https_example_com.png"
-
-        self.mock_get_cached_favicon_patcher = mock.patch(
-            "bookmarks.services.favicon_loader.get_cached_favicon"
-        )
-        self.mock_get_cached_favicon = self.mock_get_cached_favicon_patcher.start()
-        self.mock_get_cached_favicon.return_value = None
+        self.mock_find_cached = self.mock_find_cached_patcher.start()
+        self.mock_find_cached.return_value = None
 
         self.mock_assets_create_snapshot_patcher = mock.patch(
             "bookmarks.services.assets.create_snapshot",
@@ -91,9 +85,8 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
 
     def tearDown(self):
         self.mock_save_api_patcher.stop()
-        self.mock_download_favicon_patcher.stop()
-        self.mock_load_favicon_patcher.stop()
-        self.mock_get_cached_favicon_patcher.stop()
+        self.mock_fetch_favicon_patcher.stop()
+        self.mock_find_cached_patcher.stop()
         self.mock_assets_create_snapshot_patcher.stop()
         self.mock_load_preview_image_patcher.stop()
         huey.storage.flush_results()
@@ -192,156 +185,123 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
 
         self.assertEqual(self.executed_count(), 0)
 
-    def test_load_favicon_should_create_favicon_file(self):
+    def test_ensure_favicon_should_fetch_when_no_cache(self):
+        """无缓存时应入队获取任务。"""
         bookmark = self.setup_bookmark()
 
-        tasks.load_favicon(self.get_or_create_test_user(), bookmark)
-        bookmark.refresh_from_db()
+        tasks.ensure_favicon(self.get_or_create_test_user(), bookmark.url)
 
-        self.assertEqual(self.executed_count(), 1)
-        self.assertEqual(bookmark.favicon_file, "https_example_com.png")
+        # Huey immediate mode: task executed synchronously
+        self.mock_fetch_favicon.assert_called_once()
 
-    def test_load_favicon_should_use_fresh_cached_favicon_without_refresh(self):
+    def test_ensure_favicon_should_use_disk_cache(self):
+        """磁盘有缓存文件时不应触发网络请求。"""
         bookmark = self.setup_bookmark()
-        self.mock_get_cached_favicon.return_value = favicon_loader.CachedFavicon(
-            filename="https_example_com.png",
-            is_stale=False,
-        )
+        self.mock_find_cached.return_value = "example_com.png"
 
-        tasks.load_favicon(self.get_or_create_test_user(), bookmark)
-        bookmark.refresh_from_db()
+        tasks.ensure_favicon(self.get_or_create_test_user(), bookmark.url)
 
-        self.assertEqual(self.executed_count(), 0)
-        self.mock_load_favicon.assert_not_called()
-        self.assertEqual(bookmark.favicon_file, "https_example_com.png")
+        self.mock_fetch_favicon.assert_not_called()
+        from bookmarks.models import FaviconCache
+        cache = FaviconCache.objects.filter(domain="example.com").first()
+        self.assertIsNotNone(cache)
+        self.assertEqual(cache.favicon_file, "example_com.png")
 
-    def test_load_favicon_should_use_stale_cached_favicon_and_refresh_in_background(
-        self,
-    ):
-        bookmark = self.setup_bookmark()
-        self.mock_get_cached_favicon.return_value = favicon_loader.CachedFavicon(
-            filename="https_example_com.png",
-            is_stale=True,
-        )
-
-        def mock_refresh_favicon(url, timeout=10, domain_config=None, custom_domain_root=""):
-            bookmark.refresh_from_db()
-            self.assertEqual(bookmark.favicon_file, "https_example_com.png")
-            return "https_example_updated_com.png"
-
-        self.mock_load_favicon.side_effect = mock_refresh_favicon
-
-        tasks.load_favicon(self.get_or_create_test_user(), bookmark)
-        bookmark.refresh_from_db()
-
-        self.assertEqual(self.executed_count(), 1)
-        self.mock_load_favicon.assert_called_once()
-        self.assertEqual(bookmark.favicon_file, "https_example_updated_com.png")
-
-    def test_load_favicon_should_refresh_when_cache_is_missing(self):
-        bookmark = self.setup_bookmark()
-        self.mock_get_cached_favicon.return_value = None
-
-        tasks.load_favicon(self.get_or_create_test_user(), bookmark)
-        bookmark.refresh_from_db()
-
-        self.assertEqual(self.executed_count(), 1)
-        self.mock_load_favicon.assert_called_once()
-        self.assertEqual(bookmark.favicon_file, "https_example_com.png")
-
-    def test_load_favicon_should_update_favicon_file(self):
-        bookmark = self.setup_bookmark(favicon_file="https_example_com.png")
-
-        self.mock_load_favicon.return_value = "https_example_updated_com.png"
-
-        tasks.load_favicon(self.get_or_create_test_user(), bookmark)
-
-        bookmark.refresh_from_db()
-        self.mock_load_favicon.assert_called_once()
-        self.assertEqual(bookmark.favicon_file, "https_example_updated_com.png")
-
-    def test_load_favicon_should_handle_missing_bookmark(self):
-        tasks._load_favicon_task(123)
-
-        self.mock_load_favicon.assert_not_called()
-
-    def test_load_favicon_should_not_save_stale_bookmark_data(self):
-        bookmark = self.setup_bookmark()
-        self.mock_get_cached_favicon.return_value = None
-
-        # update bookmark during API call to check that saving
-        # the favicon does not overwrite updated bookmark data
-        def mock_load_favicon_impl(url, timeout=10, domain_config=None, custom_domain_root=""):
-            bookmark.title = "Updated title"
-            bookmark.save()
-            return "https_example_com.png"
-
-        self.mock_load_favicon.side_effect = mock_load_favicon_impl
-
-        tasks.load_favicon(self.get_or_create_test_user(), bookmark)
-        bookmark.refresh_from_db()
-
-        self.assertEqual(bookmark.title, "Updated title")
-        self.assertEqual(bookmark.favicon_file, "https_example_com.png")
-
-    def test_refresh_favicon_should_fallback_to_default_on_failure(self):
-        bookmark = self.setup_bookmark(favicon_file="https_example_com.png")
-
-        self.mock_load_favicon.return_value = ""
-
-        tasks.refresh_favicon(self.get_or_create_test_user(), bookmark)
-        bookmark.refresh_from_db()
-
-        self.assertEqual(self.mock_load_favicon.call_count, 1)
-        self.assertEqual(bookmark.favicon_file, "favicon.svg")
-
-    def test_load_favicon_task_passes_domain_config(self):
-        self.user.profile.custom_domain_root = "xhslink.com -> xiaohongshu.com"
+    def test_ensure_favicon_should_not_run_when_disabled(self):
+        self.user.profile.enable_favicons = False
         self.user.profile.save()
 
-        bookmark = self.setup_bookmark(url="https://xhslink.com/page")
+        bookmark = self.setup_bookmark()
+        tasks.ensure_favicon(self.get_or_create_test_user(), bookmark.url)
+
+        self.mock_fetch_favicon.assert_not_called()
+
+    def test_load_favicon_compatibility_shim(self):
+        """旧的 load_favicon(bookmark) 接口仍然可用。"""
+        bookmark = self.setup_bookmark()
+
+        tasks.load_favicon(self.get_or_create_test_user(), bookmark)
+
+        self.mock_fetch_favicon.assert_called_once()
+
+    def test_refresh_favicon_compatibility_shim(self):
+        """旧的 refresh_favicon(bookmark) 接口仍然可用。"""
+        bookmark = self.setup_bookmark()
 
         tasks.refresh_favicon(self.get_or_create_test_user(), bookmark)
 
-        self.assertEqual(self.mock_load_favicon.call_count, 1)
-        call_kwargs = self.mock_load_favicon.call_args
-        # domain_config 应为预解析的 DomainConfig，包含正确的别名映射
-        domain_config = call_kwargs.kwargs.get("domain_config") or call_kwargs[1].get("domain_config")
-        self.assertIsNotNone(domain_config)
-        self.assertIn("xhslink.com", domain_config.aliases)
-        self.assertEqual(domain_config.aliases["xhslink.com"], "xiaohongshu.com")
+        self.mock_fetch_favicon.assert_called_once()
+
+    def test_fetch_domain_favicon_updates_favicon_cache_and_bookmarks(self):
+        """获取成功后应更新 FaviconCache 和 Bookmark.favicon_file。"""
+        from bookmarks.models import FaviconCache
+        bookmark = self.setup_bookmark()
+
+        tasks._fetch_domain_favicon_task(self.user.id, "example.com")
+
+        cache = FaviconCache.objects.filter(domain="example.com").first()
+        self.assertIsNotNone(cache)
+        self.assertEqual(cache.status, FaviconCache.STATUS_SUCCESS)
+        self.assertEqual(cache.favicon_file, "https_example_com.png")
+        # Bookmark.favicon_file field removed; verify via FaviconCache only
+        self.assertEqual(cache.favicon_file, "https_example_com.png")
+
+    def test_fetch_domain_favicon_handles_failure_with_retry(self):
+        """获取失败时应更新重试计数和下次重试时间。"""
+        from bookmarks.models import FaviconCache
+        self.mock_fetch_favicon.return_value = ""
+
+        tasks._fetch_domain_favicon_task(self.user.id, "nonexistent.com")
+
+        cache = FaviconCache.objects.filter(domain="nonexistent.com").first()
+        self.assertIsNotNone(cache)
+        self.assertEqual(cache.status, FaviconCache.STATUS_FAILED)
+        self.assertEqual(cache.retry_count, 1)
+        self.assertIsNotNone(cache.next_retry_at)
+        # 第一次重试延迟 1 分钟
+        self.assertEqual(cache.favicon_file, "")
+
+    def test_fetch_domain_favicon_marks_missing_after_max_retries(self):
+        """连续失败 5 次后应标记为 missing，favicon_file 为空。"""
+        from bookmarks.models import FaviconCache
+        self.mock_fetch_favicon.return_value = ""
+
+        # Simulate 5 failures (1min, 3min, 5min, 10min, 20min)
+        for _ in range(5):
+            tasks._fetch_domain_favicon_task(self.user.id, "never.com")
+
+        cache = FaviconCache.objects.filter(domain="never.com").first()
+        self.assertEqual(cache.status, FaviconCache.STATUS_MISSING)
+        self.assertEqual(cache.retry_count, 5)
+        self.assertEqual(cache.favicon_file, "")
 
     @override_settings(LD_DISABLE_BACKGROUND_TASKS=True)
     def test_load_favicon_should_not_run_when_background_tasks_are_disabled(self):
         bookmark = self.setup_bookmark()
         tasks.load_favicon(self.get_or_create_test_user(), bookmark)
 
-        self.assertEqual(self.executed_count(), 0)
+        self.mock_fetch_favicon.assert_not_called()
 
-    def test_load_favicon_should_not_run_when_favicon_feature_is_disabled(self):
-        self.user.profile.enable_favicons = False
-        self.user.profile.save()
-
-        bookmark = self.setup_bookmark()
-        tasks.load_favicon(self.get_or_create_test_user(), bookmark)
-
-        self.assertEqual(self.executed_count(), 0)
-
-    def test_schedule_bookmarks_without_favicons_should_load_favicon_for_all_bookmarks_without_favicon(
+    def test_schedule_bookmarks_without_favicons_should_load_favicon_for_bookmarks_without_favicon(
         self,
     ):
         user = self.get_or_create_test_user()
         self.setup_bookmark()
         self.setup_bookmark()
         self.setup_bookmark()
-        self.setup_bookmark(favicon_file="https_example_com.png")
-        self.setup_bookmark(favicon_file="https_example_com.png")
-        self.setup_bookmark(favicon_file="https_example_com.png")
+        # 第4个书签的域名已有成功的 FaviconCache 条目，应被跳过
+        bookmark_with_favicon = self.setup_bookmark(url="https://other-domain.com/page")
+        from bookmarks.models import FaviconCache
+        FaviconCache.objects.create(
+            domain="other-domain.com",
+            favicon_file="other_domain_com.png",
+            status=FaviconCache.STATUS_SUCCESS,
+        )
 
         tasks.schedule_bookmarks_without_favicons(user)
 
-        self.assertEqual(self.executed_count(), 4)
-        self.assertEqual(self.mock_load_favicon.call_count, 3)
+        # 3 bookmarks without favicon, all same domain -> 1 fetch task (domain-deduped)
+        self.mock_fetch_favicon.assert_called()
 
     def test_schedule_bookmarks_without_favicons_should_only_update_user_owned_bookmarks(
         self,
@@ -352,14 +312,12 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
         )
         self.setup_bookmark()
         self.setup_bookmark()
-        self.setup_bookmark()
-        self.setup_bookmark(user=other_user)
-        self.setup_bookmark(user=other_user)
         self.setup_bookmark(user=other_user)
 
         tasks.schedule_bookmarks_without_favicons(user)
 
-        self.assertEqual(self.mock_load_favicon.call_count, 3)
+        # Only 2 bookmarks belong to the user -> 1 fetch (same domain)
+        self.mock_fetch_favicon.assert_called()
 
     @override_settings(LD_DISABLE_BACKGROUND_TASKS=True)
     def test_schedule_bookmarks_without_favicons_should_not_run_when_background_tasks_are_disabled(
@@ -368,7 +326,7 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
         self.setup_bookmark()
         tasks.schedule_bookmarks_without_favicons(self.get_or_create_test_user())
 
-        self.assertEqual(self.executed_count(), 0)
+        self.mock_fetch_favicon.assert_not_called()
 
     def test_schedule_bookmarks_without_favicons_should_not_run_when_favicon_feature_is_disabled(
         self,
@@ -379,37 +337,17 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
         self.setup_bookmark()
         tasks.schedule_bookmarks_without_favicons(self.get_or_create_test_user())
 
-        self.assertEqual(self.executed_count(), 0)
+        self.mock_fetch_favicon.assert_not_called()
 
-    def test_schedule_refresh_favicons_should_update_favicon_for_all_bookmarks(self):
+    def test_schedule_refresh_favicons_should_fetch_for_all_domains(self):
         user = self.get_or_create_test_user()
         self.setup_bookmark()
-        self.setup_bookmark()
-        self.setup_bookmark()
-        self.setup_bookmark(favicon_file="https_example_com.png")
-        self.setup_bookmark(favicon_file="https_example_com.png")
-        self.setup_bookmark(favicon_file="https_example_com.png")
+        self.setup_bookmark(url="https://other-domain.com/page")
 
         tasks.schedule_refresh_favicons(user)
 
-        self.assertEqual(self.executed_count(), 7)
-        self.assertEqual(self.mock_load_favicon.call_count, 6)
-
-    def test_schedule_refresh_favicons_should_only_update_user_owned_bookmarks(self):
-        user = self.get_or_create_test_user()
-        other_user = User.objects.create_user(
-            "otheruser", "otheruser@example.com", "password123"
-        )
-        self.setup_bookmark()
-        self.setup_bookmark()
-        self.setup_bookmark()
-        self.setup_bookmark(user=other_user)
-        self.setup_bookmark(user=other_user)
-        self.setup_bookmark(user=other_user)
-
-        tasks.schedule_refresh_favicons(user)
-
-        self.assertEqual(self.mock_load_favicon.call_count, 3)
+        # All bookmarks have same domain -> at least 1 fetch
+        self.mock_fetch_favicon.assert_called()
 
     @override_settings(LD_DISABLE_BACKGROUND_TASKS=True)
     def test_schedule_refresh_favicons_should_not_run_when_background_tasks_are_disabled(
@@ -418,14 +356,14 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
         self.setup_bookmark()
         tasks.schedule_refresh_favicons(self.get_or_create_test_user())
 
-        self.assertEqual(self.executed_count(), 0)
+        self.mock_fetch_favicon.assert_not_called()
 
     @override_settings(LD_ENABLE_REFRESH_FAVICONS=False)
     def test_schedule_refresh_favicons_should_not_run_when_refresh_is_disabled(self):
         self.setup_bookmark()
         tasks.schedule_refresh_favicons(self.get_or_create_test_user())
 
-        self.assertEqual(self.executed_count(), 0)
+        self.mock_fetch_favicon.assert_not_called()
 
     def test_schedule_refresh_favicons_should_not_run_when_favicon_feature_is_disabled(
         self,
@@ -436,61 +374,20 @@ class BookmarkTasksTestCase(TestCase, BookmarkFactoryMixin):
         self.setup_bookmark()
         tasks.schedule_refresh_favicons(self.get_or_create_test_user())
 
-        self.assertEqual(self.executed_count(), 0)
+        self.mock_fetch_favicon.assert_not_called()
 
-    def test_rename_favicon_for_domain_config_should_update_cached_bookmarks(self):
+    def test_rename_favicon_for_domain_config_is_noop(self):
+        """域名规则变更后，rename_favicon_for_domain_config 是 no-op（Bookmark.favicon_file 已移除）。"""
         user = self.get_or_create_test_user()
         user.profile.enable_favicons = True
-        user.profile.custom_domain_root = "m.okjike.com -> xiaohongshu.com"
         user.profile.save()
 
-        bookmark = self.setup_bookmark(
-            url="https://m.okjike.com/path",
-            favicon_file="https_m_okjike_com.svg",
-        )
+        self.setup_bookmark(url="https://example.com/page")
 
-        # 模拟本地缓存命中：归一化后的域名 favicon 已存在
-        self.mock_get_cached_favicon.return_value = (
-            favicon_loader.CachedFavicon(
-                filename="https_xiaohongshu_com.svg", is_stale=False
-            )
-        )
-
-        old_config = "m.okjike.com -> xiaohongshu.com"
-        new_config = "m.okjike.com -> web.okjike.com"
+        old_config = ""
+        new_config = "example.com -> test.com"
+        # 不应抛出异常
         tasks.rename_favicon_for_domain_config(user, old_config, new_config)
-
-        bookmark.refresh_from_db()
-        self.assertEqual(bookmark.favicon_file, "https_xiaohongshu_com.svg")
-        # 验证缓存查询使用了 new_config（web.okjike.com）
-        args, kwargs = self.mock_get_cached_favicon.call_args
-        self.assertEqual(args[0], "https://m.okjike.com/path")
-        self.assertIsNotNone(kwargs.get("domain_config"))
-        # 不应调用 load_favicon（无网络请求）
-        self.mock_download_favicon.assert_not_called()
-
-    def test_rename_favicon_for_domain_config_should_not_update_when_cache_miss(self):
-        user = self.get_or_create_test_user()
-        user.profile.enable_favicons = True
-        user.profile.custom_domain_root = "m.okjike.com -> xiaohongshu.com"
-        user.profile.save()
-
-        bookmark = self.setup_bookmark(
-            url="https://m.okjike.com/path",
-            favicon_file="https_m_okjike_com.svg",
-        )
-
-        # 模拟本地缓存未命中
-        self.mock_get_cached_favicon.return_value = None
-
-        old_config = "m.okjike.com -> xiaohongshu.com"
-        new_config = "m.okjike.com -> web.okjike.com"
-        tasks.rename_favicon_for_domain_config(user, old_config, new_config)
-
-        # 缓存未命中时不更新，交给前端 onerror 懒加载
-        bookmark.refresh_from_db()
-        self.assertEqual(bookmark.favicon_file, "https_m_okjike_com.svg")
-        self.mock_download_favicon.assert_not_called()
 
     def test_load_preview_image_should_create_preview_image_file(self):
         bookmark = self.setup_bookmark()

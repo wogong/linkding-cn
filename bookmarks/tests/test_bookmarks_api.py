@@ -81,7 +81,6 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
             5,
             with_tags=True,
             with_web_archive_snapshot_url=True,
-            with_favicon_file=True,
             with_preview_image_file=True,
         )
 
@@ -237,7 +236,6 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
             archived=True,
             with_tags=True,
             with_web_archive_snapshot_url=True,
-            with_favicon_file=True,
             with_preview_image_file=True,
         )
 
@@ -321,7 +319,6 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
             user=other_user,
             with_tags=True,
             with_web_archive_snapshot_url=True,
-            with_favicon_file=True,
             with_preview_image_file=True,
         )
 
@@ -1087,12 +1084,15 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
 
     def test_check_returns_bookmark_if_url_is_bookmarked(self):
         self.authenticate()
+        from bookmarks.models import FaviconCache
+        FaviconCache.objects.create(
+            domain="example.com", favicon_file="example_com.png", status="success"
+        )
 
         bookmark = self.setup_bookmark(
             url="https://example.com",
             title="Example title",
             description="Example description",
-            favicon_file="favicon.png",
             preview_image_file="preview.png",
         )
 
@@ -1109,7 +1109,7 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
         self.assertEqual(bookmark.title, bookmark_data["title"])
         self.assertEqual(bookmark.description, bookmark_data["description"])
         self.assertEqual(
-            "http://testserver/static/favicon.png", bookmark_data["favicon_url"]
+            "http://testserver/static/example_com.png", bookmark_data["favicon_url"]
         )
         self.assertEqual(
             "http://testserver/static/preview.png", bookmark_data["preview_image_url"]

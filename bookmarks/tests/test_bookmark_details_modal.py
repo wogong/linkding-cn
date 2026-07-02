@@ -138,7 +138,7 @@ class BookmarkDetailsModalTestCase(TestCase, BookmarkFactoryMixin, HtmlTestMixin
         self.assertEqual(link["href"], bookmark.url)
         self.assertIn(bookmark.url, link.text)
 
-        bookmark = self.setup_bookmark(favicon_file="")
+        bookmark = self.setup_bookmark()
         soup = self.get_index_details_modal(bookmark)
         wrapper = soup.find("div", {"class": "detail-url-view"})
         image = wrapper.select_one("img.favicon")

@@ -129,126 +129,242 @@ def _create_web_archive_snapshot_task(bookmark_id: int, force_update: bool):
 
 
 # ---------------------------------------------------------------------------
-# Favicon 加载与刷新
+# Favicon 加载与刷新（域名级）
 # ---------------------------------------------------------------------------
 
 
 def is_favicon_feature_active(user: User) -> bool:
     background_tasks_enabled = not settings.LD_DISABLE_BACKGROUND_TASKS
-
     return background_tasks_enabled and user.profile.enable_favicons
 
 
-def update_bookmark_favicon(bookmark: Bookmark, new_favicon_file: str):
-    if new_favicon_file != bookmark.favicon_file:
-        bookmark.favicon_file = new_favicon_file
-        bookmark.save(update_fields=["favicon_file"])
-        logger.info(
-            f"Successfully updated favicon for bookmark. url={bookmark.url} icon={new_favicon_file}"
-        )
+def _resolve_domain(url: str, domain_config=None) -> str:
+    """从 URL 提取 hostname 并应用自定义域名归一化。"""
+    from bookmarks.utils import extract_hostname, resolve_favicon_domain
+    hostname = extract_hostname(url)
+    if not hostname:
+        return ""
+    return resolve_favicon_domain(hostname, config=domain_config)
+
+
+def ensure_favicon(user: User, url: str):
+    """确保指定 URL 的域名有 favicon。
+
+    策略：
+    - 磁盘有文件 → 同步 DB 记录，过期则后台静默刷新
+    - 磁盘无文件但 DB 有缓存 → 按状态处理（pending 等待/failed 到期重试/missing 不重试）
+    - 无任何缓存 → 入队获取任务
+
+    stale-while-revalidate：旧缓存在新缓存下载成功前保留，用户始终能看到图标。
+    """
+    if not is_favicon_feature_active(user):
+        return
+
+    domain_config = parse_domain_roots(user.profile.custom_domain_root)
+    domain = _resolve_domain(url, domain_config)
+    if not domain:
+        return
+
+    from bookmarks.models import FaviconCache
+
+    # 1. 先查 DB（轻量，避免不必要的 os.listdir）
+    cache = FaviconCache.objects.filter(domain=domain).first()
+
+    if cache and cache.status == FaviconCache.STATUS_SUCCESS and cache.favicon_file:
+        # DB 有记录 → 验证磁盘文件（isfile 比 os.listdir 快得多）
+        if favicon_loader._get_favicon_path(cache.favicon_file).is_file():
+            if cache.fetched_at:
+                stale_threshold = timezone.now() - timedelta(days=1)
+                if cache.fetched_at < stale_threshold:
+                    _enqueue_favicon_task(user.id, domain)
+            return
+        # 磁盘文件丢失 → 继续到步骤 2 重新获取
+
+    # 2. 磁盘扫描（仅在 DB 无有效记录时执行，支持旧命名迁移和损坏文件清理）
+    cached_file = favicon_loader._find_cached_favicon_file(domain)
+    if cached_file:
+        if cache:
+            cache.favicon_file = cached_file
+            cache.status = FaviconCache.STATUS_SUCCESS
+            if not cache.fetched_at:
+                cache.fetched_at = timezone.now()
+            cache.save(update_fields=["favicon_file", "status", "fetched_at"])
+        else:
+            FaviconCache.objects.create(
+                domain=domain,
+                favicon_file=cached_file,
+                status=FaviconCache.STATUS_SUCCESS,
+                fetched_at=timezone.now(),
+            )
+        return
+
+    # 3. 无磁盘文件 → 按 DB 状态处理
+    if not cache:
+        FaviconCache.objects.create(domain=domain, status=FaviconCache.STATUS_PENDING)
+        _enqueue_favicon_task(user.id, domain)
+        return
+
+    if cache.status == FaviconCache.STATUS_PENDING:
+        return
+
+    if cache.status == FaviconCache.STATUS_FAILED:
+        if cache.next_retry_at and cache.next_retry_at <= timezone.now():
+            _enqueue_favicon_task(user.id, domain)
+        return
+
+    if cache.status == FaviconCache.STATUS_MISSING:
+        return
+
+    # STATUS_SUCCESS 但文件丢失（已在步骤 1 处理，此处兜底）
+    _enqueue_favicon_task(user.id, domain)
+
+
+def refresh_favicon_for_url(user: User, url: str):
+    """强制刷新指定 URL 的域名 favicon（替代原来的 refresh_favicon(bookmark)）。"""
+    if not is_favicon_feature_active(user):
+        return
+    domain_config = parse_domain_roots(user.profile.custom_domain_root)
+    domain = _resolve_domain(url, domain_config)
+    if domain:
+        _enqueue_favicon_task(user.id, domain)
 
 
 def load_favicon(user: User, bookmark: Bookmark, domain_config=None):
-    if is_favicon_feature_active(user):
-        if domain_config is None:
-            domain_config = parse_domain_roots(user.profile.custom_domain_root)
-        cached_favicon = favicon_loader.get_cached_favicon(bookmark.url, domain_config=domain_config)
-        if cached_favicon:
-            update_bookmark_favicon(bookmark, cached_favicon.filename)
-            if not cached_favicon.is_stale:
-                return
-        _load_favicon_task(bookmark.id)
+    """兼容旧接口：书签创建/更新时调用。"""
+    ensure_favicon(user, bookmark.url)
 
 
 def refresh_favicon(user: User, bookmark: Bookmark):
-    if is_favicon_feature_active(user):
-        _load_favicon_task(bookmark.id)
+    """兼容旧接口：强制刷新书签的 favicon。"""
+    refresh_favicon_for_url(user, bookmark.url)
+
+
+def _enqueue_favicon_task(user_id: int, domain: str):
+    """带去重的入队：同一域名同时只有一个任务在执行。"""
+    from django.core.cache import cache as django_cache
+    lock_key = f"favicon_task_lock:{domain}"
+    if django_cache.add(lock_key, "1", timeout=60):
+        _fetch_domain_favicon_task(user_id, domain)
 
 
 @task(retries=3)
-def _load_favicon_task(bookmark_id: int):
-    try:
-        bookmark = Bookmark.objects.get(id=bookmark_id)
-    except Bookmark.DoesNotExist:
-        return
+def _fetch_domain_favicon_task(user_id: int, domain: str):
+    """per-domain 的 favicon 获取任务。
 
-    logger.info(f"Refresh favicon for bookmark. url={bookmark.url}")
+    成功后更新 FaviconCache。
+    失败时更新重试计数和下次重试时间（指数退避）。
+    """
+    from django.core.cache import cache as django_cache
 
-    domain_config = parse_domain_roots(bookmark.owner.profile.custom_domain_root)
-    new_favicon_file = favicon_loader.refresh_favicon(bookmark.url, domain_config=domain_config) or "favicon.svg"
-    update_bookmark_favicon(bookmark, new_favicon_file)
+    from bookmarks.models import FaviconCache
+
+    cache, _ = FaviconCache.objects.get_or_create(
+        domain=domain,
+        defaults={"status": FaviconCache.STATUS_PENDING},
+    )
+
+    logger.info(f"Fetching favicon for domain={domain}")
+    favicon_file = favicon_loader.fetch_and_save_favicon(domain, scheme="https")
+
+    if not favicon_file:
+        # 尝试 http fallback
+        favicon_file = favicon_loader.fetch_and_save_favicon(domain, scheme="http")
+
+    RETRY_DELAYS = FaviconCache.RETRY_DELAYS
+    MAX_RETRIES = len(RETRY_DELAYS)
+
+    if favicon_file:
+        cache.favicon_file = favicon_file
+        cache.status = FaviconCache.STATUS_SUCCESS
+        cache.fetched_at = timezone.now()
+        cache.retry_count = 0
+        cache.next_retry_at = None
+        cache.save()
+    else:
+        cache.retry_count += 1
+        if cache.retry_count >= MAX_RETRIES:
+            cache.status = FaviconCache.STATUS_MISSING
+            cache.favicon_file = ""
+            cache.next_retry_at = None
+            logger.info(f"Favicon not found for domain={domain} after {MAX_RETRIES} retries, marking as missing")
+        else:
+            cache.status = FaviconCache.STATUS_FAILED
+            delay_seconds = RETRY_DELAYS[cache.retry_count - 1]
+            cache.next_retry_at = timezone.now() + timedelta(seconds=delay_seconds)
+            logger.info(f"Favicon fetch failed for domain={domain}, retry #{cache.retry_count} in {delay_seconds}s")
+        cache.save()
+
+    # 释放锁
+    django_cache.delete(f"favicon_task_lock:{domain}")
 
 
 def schedule_bookmarks_without_favicons(user: User):
-    if is_favicon_feature_active(user):
-        _batch_load_favicons_task(user.id)
+    """为用户所有缺少 favicon 的书签入队获取任务（去重到域名级）。"""
+    if not is_favicon_feature_active(user):
+        return
+    _batch_load_favicons_task(user.id)
 
 
 @task()
 def _batch_load_favicons_task(user_id: int):
+    from bookmarks.models import FaviconCache
+
     user = User.objects.get(id=user_id)
-    bookmarks = Bookmark.objects.filter(favicon_file__exact="", owner=user)
     domain_config = parse_domain_roots(user.profile.custom_domain_root)
 
-    # TODO: Implement bulk task creation
-    for bookmark in bookmarks:
-        load_favicon(user, bookmark, domain_config=domain_config)
+    # 收集所有已成功的域名
+    success_domains = set(
+        FaviconCache.objects.filter(
+            status=FaviconCache.STATUS_SUCCESS
+        ).values_list("domain", flat=True)
+    )
+
+    # 先收集所有唯一域名（避免逐条调用 _resolve_domain + ensure_favicon）
+    raw_urls = Bookmark.objects.filter(
+        owner=user, is_deleted=False
+    ).values_list("url", flat=True).iterator()
+    domains_to_fetch = set()
+    for url in raw_urls:
+        domain = _resolve_domain(url, domain_config)
+        if domain and domain not in success_domains and domain not in domains_to_fetch:
+            domains_to_fetch.add(domain)
+
+    # 为缺少 favicon 的域名入队
+    for domain in domains_to_fetch:
+        _enqueue_favicon_task(user.id, domain)
+
+    logger.info(f"Queued favicon tasks for {len(domains_to_fetch)} unique domains")
 
 
 def schedule_refresh_favicons(user: User):
-    if is_favicon_feature_active(user) and settings.LD_ENABLE_REFRESH_FAVICONS:
-        _batch_refresh_favicons_task(user.id)
-
-
-def rename_favicon_for_domain_config(user, old_config_str: str, new_config_str: str):
-    """自定义域名规则变更后，更新受影响书签的 favicon_file。
-    仅处理本地缓存命中的书签（纯 SQL），未命中的交给前端 onerror 懒加载。"""
-    if not is_favicon_feature_active(user):
+    """手动触发：刷新该用户所有域名的 favicon。"""
+    if not is_favicon_feature_active(user) or not settings.LD_ENABLE_REFRESH_FAVICONS:
         return
-
-    old_config = parse_domain_roots(old_config_str)
-    new_config = parse_domain_roots(new_config_str)
-
-    # 收集新旧规则中所有受影响的域名
-    affected = set()
-    for domains in (old_config.aliases.keys(), new_config.aliases.keys()):
-        for hostname in domains:
-            affected.add(f"https://{hostname}")
-            for rd in get_matching_domain_roots(hostname, old_config) + \
-                       get_matching_domain_roots(hostname, new_config):
-                affected.add(f"https://{rd}")
-
-    if not affected:
-        return
-
-    from django.db.models import Q
-    prefix_query = Q()
-    for url_prefix in affected:
-        prefix_query |= Q(url__startswith=url_prefix)
-
-    bookmarks = Bookmark.objects.filter(owner=user).filter(prefix_query)
-    updates = []
-
-    for bookmark in bookmarks:
-        cached = favicon_loader.get_cached_favicon(
-            bookmark.url, domain_config=new_config
-        )
-        if cached and cached.filename != bookmark.favicon_file:
-            bookmark.favicon_file = cached.filename
-            updates.append(bookmark)
-
-    if updates:
-        Bookmark.objects.bulk_update(updates, ["favicon_file"])
+    _batch_refresh_favicons_task(user.id)
 
 
 @task()
 def _batch_refresh_favicons_task(user_id: int):
+    """刷新该用户书签涉及的所有域名的 favicon。"""
     user = User.objects.get(id=user_id)
-    bookmarks = Bookmark.objects.filter(owner=user)
+    domain_config = parse_domain_roots(user.profile.custom_domain_root)
 
-    # TODO: Implement bulk task creation
-    for bookmark in bookmarks:
-        refresh_favicon(user, bookmark)
+    domains_seen = set()
+    for bm in Bookmark.objects.filter(owner=user, is_deleted=False).values("url").iterator():
+        domain = _resolve_domain(bm["url"], domain_config)
+        if domain and domain not in domains_seen:
+            domains_seen.add(domain)
+            _enqueue_favicon_task(user.id, domain)
+
+    logger.info(f"Refreshed favicons for {len(domains_seen)} unique domains")
+
+
+def rename_favicon_for_domain_config(user, old_config_str: str, new_config_str: str):
+    """自定义域名规则变更后，无需操作。
+
+    FaviconCache 是全局的，Bookmark.favicon_file 已移除。
+    规则变更只是改变了查询 key，渲染时自动使用新规则查表。
+    """
 
 
 # ---------------------------------------------------------------------------

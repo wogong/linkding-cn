@@ -63,7 +63,6 @@ class BookmarkFactoryMixin:
         description: str = "",
         notes: str = "",
         web_archive_snapshot_url: str = "",
-        favicon_file: str = "",
         preview_image_file: str = "",
         added: datetime = None,
         modified: datetime = None,
@@ -93,7 +92,6 @@ class BookmarkFactoryMixin:
             unread=unread,
             shared=shared,
             web_archive_snapshot_url=web_archive_snapshot_url,
-            favicon_file=favicon_file,
             preview_image_file=preview_image_file,
         )
         bookmark.save()
@@ -113,7 +111,6 @@ class BookmarkFactoryMixin:
         shared: bool = False,
         with_tags: bool = False,
         with_web_archive_snapshot_url: bool = False,
-        with_favicon_file: bool = False,
         with_preview_image_file: bool = False,
         user: User = None,
     ):
@@ -154,9 +151,6 @@ class BookmarkFactoryMixin:
             web_archive_snapshot_url = ""
             if with_web_archive_snapshot_url:
                 web_archive_snapshot_url = f"https://web.archive.org/web/{i}"
-            favicon_file = ""
-            if with_favicon_file:
-                favicon_file = f"favicon_{i}.png"
             preview_image_file = ""
             if with_preview_image_file:
                 preview_image_file = f"preview_image_{i}.png"
@@ -168,8 +162,7 @@ class BookmarkFactoryMixin:
                 shared=shared,
                 tags=tags,
                 web_archive_snapshot_url=web_archive_snapshot_url,
-                favicon_file=favicon_file,
-                preview_image_file=preview_image_file,
+                    preview_image_file=preview_image_file,
                 user=user,
             )
             bookmarks.append(bookmark)

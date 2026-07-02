@@ -697,11 +697,10 @@ class BookmarkIndexViewTestCase(
     @unittest.skip("Pre-existing: domain count format changed (no parentheses in icon mode)")
     def test_list_domains_without_normalization_rules(self):
         self.setup_bookmark(
-            url="https://example.com/alpha", favicon_file="https_example_com.png"
+            url="https://example.com/alpha"
         )
         self.setup_bookmark(
             url="https://sub.example.com/beta",
-            favicon_file="https_sub_example_com.png",
         )
 
         response = self.client.get(reverse("linkding:bookmarks.index"))
@@ -734,14 +733,12 @@ class BookmarkIndexViewTestCase(
 
         self.setup_bookmark(
             url="https://docs.feishu.cn/123",
-            favicon_file="https_docs_feishu_cn.png",
         )
         self.setup_bookmark(
-            url="https://feishu.cn/blog", favicon_file="https_feishu_cn.png"
+            url="https://feishu.cn/blog"
         )
         self.setup_bookmark(
             url="https://131312.feishu.cn",
-            favicon_file="https_131312_feishu_cn.png",
         )
 
         response = self.client.get(reverse("linkding:bookmarks.index"))
@@ -1096,7 +1093,6 @@ class BookmarkIndexViewTestCase(
             for count in range(17 - index):
                 self.setup_bookmark(
                     url=f"https://domain-{index}.example.com/{count}",
-                    favicon_file=f"https_domain_{index}_example_com.png",
                 )
 
         response = self.client.get(reverse("linkding:bookmarks.index"))
@@ -1194,7 +1190,6 @@ class BookmarkIndexViewTestCase(
             for count in range(17 - index):
                 self.setup_bookmark(
                     url=f"https://domain-{index}.example.com/{count}",
-                    favicon_file=f"https_domain_{index}_example_com.png",
                 )
 
         response = self.client.get(

@@ -245,65 +245,63 @@ class BookmarkNewViewTestCase(TestCase, BookmarkFactoryMixin):
             count=1,
         )
 
-    def test_prefetch_favicon_should_refresh_cached_stale_file(self):
+    def test_prefetch_favicon_should_use_cached_favicon(self):
+        """FaviconCache 有成功记录且磁盘文件存在时直接返回。"""
         self.user.profile.enable_favicons = True
         self.user.profile.save()
-        with (
-            mock.patch.object(
-                favicon_loader, "get_cached_favicon"
-            ) as mock_get_cached_favicon,
-            mock.patch.object(
-                favicon_loader, "refresh_favicon", return_value="https_example_com.png"
-            ) as mock_refresh_favicon,
-            mock.patch.object(favicon_loader, "load_favicon") as mock_load_favicon,
-        ):
-            mock_get_cached_favicon.return_value = favicon_loader.CachedFavicon(
-                filename="https_example_com_old.png",
-                is_stale=True,
-            )
-
-            response = self.client.get(
-                reverse("linkding:bookmarks.prefetch_favicon")
-                + "?url=https://example.com"
-            )
-
-            self.assertEqual(response.status_code, 200)
-            payload = response.json()
-            self.assertEqual(payload["status"], "success")
-            self.assertEqual(payload["favicon_file"], "https_example_com.png")
-            mock_refresh_favicon.assert_called_once()
-            mock_load_favicon.assert_not_called()
-
-    def test_prefetch_favicon_should_download_when_cache_is_missing(self):
-        self.user.profile.enable_favicons = True
-        self.user.profile.save()
-        with (
-            mock.patch.object(
-                favicon_loader, "get_cached_favicon", return_value=None
-            ) as mock_get_cached_favicon,
-            mock.patch.object(
-                favicon_loader, "load_favicon", return_value="https_example_com.png"
-            ) as mock_load_favicon,
+        from bookmarks.models import FaviconCache
+        FaviconCache.objects.create(
+            domain="example.com", favicon_file="example_com.png", status="success"
+        )
+        with mock.patch.object(
+            favicon_loader, "_find_cached_favicon_file", return_value="example_com.png"
         ):
             response = self.client.get(
                 reverse("linkding:bookmarks.prefetch_favicon")
                 + "?url=https://example.com"
             )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.assertEqual(payload["favicon_file"], "example_com.png")
 
-            self.assertEqual(response.status_code, 200)
-            payload = response.json()
-            self.assertEqual(payload["status"], "success")
-            self.assertEqual(payload["favicon_file"], "https_example_com.png")
-            mock_get_cached_favicon.assert_called_once()
-            args, kwargs = mock_get_cached_favicon.call_args
-            self.assertEqual(args[0], "https://example.com")
-            self.assertIn("domain_config", kwargs)
+    def test_prefetch_favicon_should_fetch_when_cache_is_missing(self):
+        """FaviconCache 无记录时应尝试获取。"""
+        self.user.profile.enable_favicons = True
+        self.user.profile.save()
+        with mock.patch.object(
+            favicon_loader, "fetch_and_save_favicon", return_value="example_com.png"
+        ) as mock_fetch:
+            response = self.client.get(
+                reverse("linkding:bookmarks.prefetch_favicon")
+                + "?url=https://example.com"
+            )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.assertEqual(payload["favicon_file"], "example_com.png")
+        mock_fetch.assert_called_with("example.com", scheme="https")
 
-            mock_load_favicon.assert_called_once()
-            args, kwargs = mock_load_favicon.call_args
-            self.assertEqual(args[0], "https://example.com")
-            self.assertEqual(kwargs["timeout"], 5)
-            self.assertIn("domain_config", kwargs)
+    def test_prefetch_favicon_updates_bookmark_for_domain(self):
+        """获取成功后应更新该域名下的书签 favicon_file。"""
+        self.user.profile.enable_favicons = True
+        self.user.profile.save()
+
+        bookmark = self.setup_bookmark(url="https://example.com/page")
+
+        with mock.patch.object(
+            favicon_loader, "fetch_and_save_favicon", return_value="example_com.png"
+        ):
+            response = self.client.get(
+                reverse("linkding:bookmarks.prefetch_favicon")
+                + "?url=https://example.com"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        from bookmarks.models import FaviconCache
+        cache = FaviconCache.objects.filter(domain="example.com").first()
+        self.assertIsNotNone(cache)
+        self.assertEqual(cache.favicon_file, "example_com.png")
 
     def test_prefetch_favicon_updates_alias_bookmark(self):
         """通过别名域名获取 favicon 时，应能更新该别名域名的书签"""
@@ -312,18 +310,11 @@ class BookmarkNewViewTestCase(TestCase, BookmarkFactoryMixin):
         self.user.profile.save()
 
         bookmark = self.setup_bookmark(
-            url="https://m.okjike.com/path", favicon_file=""
+            url="https://m.okjike.com/path"
         )
 
-        with (
-            mock.patch.object(
-                favicon_loader, "get_cached_favicon", return_value=None
-            ),
-            mock.patch.object(
-                favicon_loader,
-                "load_favicon",
-                return_value="https_xiaohongshu_com.svg",
-            ),
+        with mock.patch.object(
+            favicon_loader, "fetch_and_save_favicon", return_value="xiaohongshu_com.svg"
         ):
             response = self.client.get(
                 reverse("linkding:bookmarks.prefetch_favicon")
@@ -333,9 +324,11 @@ class BookmarkNewViewTestCase(TestCase, BookmarkFactoryMixin):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], "success")
-        self.assertEqual(payload["favicon_file"], "https_xiaohongshu_com.svg")
-        bookmark.refresh_from_db()
-        self.assertEqual(bookmark.favicon_file, "https_xiaohongshu_com.svg")
+        self.assertEqual(payload["favicon_file"], "xiaohongshu_com.svg")
+        from bookmarks.models import FaviconCache
+        cache = FaviconCache.objects.filter(domain="xiaohongshu.com").first()
+        self.assertIsNotNone(cache)
+        self.assertEqual(cache.favicon_file, "xiaohongshu_com.svg")
 
     def test_should_show_respective_share_hint(self):
         self.user.profile.enable_sharing = True

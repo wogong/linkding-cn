@@ -1732,9 +1732,15 @@ class QueriesTestCase(TestCase, BookmarkFactoryMixin):
     def test_query_bookmarks_with_bundle_favicon_filter(self):
         with_favicon = self.setup_bookmark(
             title="With favicon",
-            favicon_file="favicon.png",
+            url="https://fav-domain.com/page",
         )
         without_favicon = self.setup_bookmark(title="Without favicon")
+        from bookmarks.models import FaviconCache
+        FaviconCache.objects.create(
+            domain="fav-domain.com",
+            favicon_file="favicon.png",
+            status=FaviconCache.STATUS_SUCCESS,
+        )
 
         bundle = self.setup_bundle()
         bundle.search_params = {"favicon": BookmarkSearch.FILTER_ASSET_YES}
@@ -1752,10 +1758,15 @@ class QueriesTestCase(TestCase, BookmarkFactoryMixin):
         self.assertQueryResult(query, [[without_favicon]])
 
     def test_query_bookmarks_with_bundle_asset_filters_and_unread_filter(self):
+        from bookmarks.models import FaviconCache
+        FaviconCache.objects.create(
+            domain="example.com",
+            favicon_file="favicon.png",
+            status=FaviconCache.STATUS_SUCCESS,
+        )
         matching = self.setup_bookmark(
             title="Needs review",
             unread=True,
-            favicon_file="favicon.png",
             preview_image_file="preview.png",
         )
         snapshot = self.setup_asset(bookmark=matching)
@@ -1765,7 +1776,6 @@ class QueriesTestCase(TestCase, BookmarkFactoryMixin):
         wrong_unread = self.setup_bookmark(
             title="Read item",
             unread=False,
-            favicon_file="favicon.png",
             preview_image_file="preview.png",
         )
         snapshot = self.setup_asset(bookmark=wrong_unread)
@@ -1775,7 +1785,6 @@ class QueriesTestCase(TestCase, BookmarkFactoryMixin):
         self.setup_bookmark(
             title="Missing snapshot",
             unread=True,
-            favicon_file="favicon.png",
             preview_image_file="preview.png",
         )
 

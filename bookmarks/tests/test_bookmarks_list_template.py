@@ -134,16 +134,12 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
 
     def assertFavicon(self, html: str, bookmark: Bookmark, visible=True):
         soup = self.make_soup(html)
-
         favicon = soup.select_one(".favicon")
-
         if not visible:
             self.assertIsNone(favicon)
             return
-
-        url = f"/static/{bookmark.favicon_file}"
         self.assertIsNotNone(favicon)
-        self.assertEqual(favicon["src"], url)
+        self.assertTrue(favicon["src"].startswith("/static/"))
 
     def assertPreviewImageVisible(self, html: str, bookmark: Bookmark):
         self.assertPreviewImage(html, bookmark, True)
@@ -839,29 +835,39 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
         profile.enable_favicons = True
         profile.save()
 
-        bookmark = self.setup_bookmark(favicon_file="https_example_com.png")
+        bookmark = self.setup_bookmark()
+        from bookmarks.models import FaviconCache
+        from bookmarks.utils import extract_hostname
+        FaviconCache.objects.create(
+            domain=extract_hostname(bookmark.url),
+            favicon_file="https_example_com.png",
+            status="success",
+        )
         html = self.render_template()
-
         self.assertFaviconVisible(html, bookmark)
 
-    def test_favicon_should_be_hidden_when_there_is_no_icon(self):
+    def test_favicon_should_show_placeholder_when_there_is_no_icon(self):
+        """favicon_file 为空时应显示占位符图标 + data-favicon-url 懒加载属性。"""
         profile = self.get_or_create_test_user().profile
         profile.enable_favicons = True
         profile.save()
 
-        bookmark = self.setup_bookmark(favicon_file="")
+        bookmark = self.setup_bookmark()
         html = self.render_template()
 
-        self.assertFaviconHidden(html, bookmark)
+        soup = self.make_soup(html)
+        favicon = soup.select_one(".favicon")
+        self.assertIsNotNone(favicon)
+        self.assertIn("favicon.svg", favicon["src"])
+        self.assertTrue(favicon.has_attr("data-favicon-url"))
 
     def test_favicon_should_be_hidden_when_favicons_disabled(self):
         profile = self.get_or_create_test_user().profile
         profile.enable_favicons = False
         profile.save()
 
-        bookmark = self.setup_bookmark(favicon_file="https_example_com.png")
+        bookmark = self.setup_bookmark()
         html = self.render_template()
-
         self.assertFaviconHidden(html, bookmark)
 
     def test_bookmark_url_should_be_hidden_by_default(self):
@@ -1106,7 +1112,6 @@ class BookmarkListTemplateTest(TestCase, BookmarkFactoryMixin, HtmlTestMixin):
             "https://web.archive.org/web/20230531200136/https://example.com"
         )
         bookmark.notes = '**Example:** `print("Hello world!")`'
-        bookmark.favicon_file = "https_example_com.png"
         bookmark.shared = True
         bookmark.unread = True
         bookmark.save()

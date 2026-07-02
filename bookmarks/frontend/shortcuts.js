@@ -26,7 +26,7 @@ document.addEventListener("keydown", (event) => {
     } else {
       nextItem = items[0];
     }
-    nextItem?.querySelector("a")?.focus();
+    nextItem?.querySelector("a.title-link")?.focus();
   }
 
   if (event.key === "e") {

@@ -86,6 +86,11 @@ export class TagAutocomplete extends TurboLitElement {
   }
 
   handleKeyDown(event) {
+    // Ignore keys while an IME is composing (e.g. Chinese Pinyin).
+    if (event.isComposing) {
+      return;
+    }
+
     if (this.isOpen && (event.key === "Enter" || event.key === "Tab")) {
       const suggestion = this.suggestions[this.selectedIndex];
       this.complete(suggestion);

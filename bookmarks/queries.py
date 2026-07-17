@@ -1,7 +1,5 @@
 import contextlib
 import datetime
-import random
-import time
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -11,14 +9,15 @@ from django.db.models import (
     CharField,
     Count,
     Exists,
-    IntegerField,
+    F,
     OuterRef,
     Q,
     QuerySet,
+    Value,
     When,
 )
 from django.db.models.expressions import RawSQL
-from django.db.models.functions import Lower
+from django.db.models.functions import Lower, Mod
 
 from bookmarks.models import (
     Annotation,
@@ -642,31 +641,29 @@ def _base_bookmarks_query(
     if user:
         query_set = query_set.filter(owner=user)
 
-    # 对于随机排序，需要先进行排序，再进行其他过滤
-    if search.sort == BookmarkSearch.SORT_RANDOM:
-        base_query = query_set
-        # 生成随机排序
-        if search.request and hasattr(search.request, "session"):
-            seed = search.request.session.get("random_sort_seed", int(time.time()))
-        else:
-            seed = int(time.time())
-        ids = list(base_query.values_list("id", flat=True))
-        rng = random.Random(seed)
-        shuffled = ids[:]
-        rng.shuffle(shuffled)
-        order = Case(
-            *[When(id=pk, then=pos) for pos, pk in enumerate(shuffled)],
-            output_field=IntegerField(),
-        )
-        query_set = query_set.annotate(random_order=order).order_by("random_order")
+    query_set = _apply_filters(query_set, user, profile, search)
 
-        # 然后进行其他过滤
-        query_set = _apply_filters(query_set, user, profile, search)
+    if search.sort == BookmarkSearch.SORT_RANDOM:
+        # Generate a compact, deterministic pseudo-random ordering. The previous
+        # implementation loaded every bookmark ID into Python and generated one
+        # CASE/WHEN clause per ID. With large collections that produced multi-MB
+        # SQL statements and tied up a web worker for over a minute.
+        seed = 0
+        if search.request and hasattr(search.request, "session"):
+            seed = int(search.request.session.get("random_sort_seed", 0))
+
+        modulus = 2_147_483_647
+        multiplier = (seed * 1_103_515_245 + 12_345) % modulus or 1
+        increment = (seed * 214_013 + 2_531_011) % modulus
+        random_order = Mod(
+            F("id") * Value(multiplier) + Value(increment),
+            Value(modulus),
+        )
+        query_set = query_set.annotate(random_order=random_order).order_by(
+            "random_order", "id"
+        )
 
     else:
-        # 对于非随机排序，保持原有的先过滤后排序逻辑
-        query_set = _apply_filters(query_set, user, profile, search)
-
         # Sort
         if (
             search.sort == BookmarkSearch.SORT_TITLE_ASC
@@ -854,7 +851,7 @@ def query_annotation_summary(user: User) -> dict:
 def query_bookmark_tags(
     user: User, profile: UserProfile, search: BookmarkSearch
 ) -> QuerySet:
-    bookmarks_query = query_bookmarks(user, profile, search)
+    bookmarks_query = query_bookmarks(user, profile, search).order_by()
 
     query_set = Tag.objects.filter(bookmark__in=bookmarks_query)
 
@@ -864,7 +861,7 @@ def query_bookmark_tags(
 def query_archived_bookmark_tags(
     user: User, profile: UserProfile, search: BookmarkSearch
 ) -> QuerySet:
-    bookmarks_query = query_archived_bookmarks(user, profile, search)
+    bookmarks_query = query_archived_bookmarks(user, profile, search).order_by()
 
     query_set = Tag.objects.filter(bookmark__in=bookmarks_query)
 
@@ -877,7 +874,9 @@ def query_shared_bookmark_tags(
     search: BookmarkSearch,
     public_only: bool,
 ) -> QuerySet:
-    bookmarks_query = query_shared_bookmarks(user, profile, search, public_only)
+    bookmarks_query = query_shared_bookmarks(
+        user, profile, search, public_only
+    ).order_by()
 
     query_set = Tag.objects.filter(bookmark__in=bookmarks_query)
 
@@ -887,7 +886,7 @@ def query_shared_bookmark_tags(
 def query_trashed_bookmark_tags(
     user: User, profile: UserProfile, search: BookmarkSearch
 ):
-    bookmarks_query = query_trashed_bookmarks(user, profile, search)
+    bookmarks_query = query_trashed_bookmarks(user, profile, search).order_by()
     query_set = Tag.objects.filter(bookmark__in=bookmarks_query)
     return query_set.distinct()
 
@@ -895,7 +894,9 @@ def query_trashed_bookmark_tags(
 def query_shared_bookmark_users(
     profile: UserProfile, search: BookmarkSearch, public_only: bool
 ) -> QuerySet:
-    bookmarks_query = query_shared_bookmarks(None, profile, search, public_only)
+    bookmarks_query = query_shared_bookmarks(
+        None, profile, search, public_only
+    ).order_by()
 
     query_set = User.objects.filter(bookmark__in=bookmarks_query)
 

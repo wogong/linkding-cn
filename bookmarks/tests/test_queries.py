@@ -2,7 +2,7 @@ import datetime
 import operator
 
 from django.db.models import QuerySet
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
 from bookmarks import queries
@@ -1203,6 +1203,46 @@ class QueriesTestCase(TestCase, BookmarkFactoryMixin):
 
         # 验证所有书签都被返回（内容相同，顺序可能不同）
         self.assertCountEqual(result_bookmarks, bookmarks)
+
+    def test_sort_by_random_is_deterministic_for_session_seed(self):
+        bookmarks = [
+            self.setup_bookmark(title=f"bookmark{index}") for index in range(20)
+        ]
+        request = RequestFactory().get("/bookmarks?sort=random")
+        request.session = {"random_sort_seed": 12345}
+        search = BookmarkSearch(
+            sort=BookmarkSearch.SORT_RANDOM,
+            request=request,
+        )
+
+        first_order = list(
+            queries.query_bookmarks(self.user, self.profile, search).values_list(
+                "id", flat=True
+            )
+        )
+        second_order = list(
+            queries.query_bookmarks(self.user, self.profile, search).values_list(
+                "id", flat=True
+            )
+        )
+
+        self.assertEqual(first_order, second_order)
+        self.assertCountEqual(first_order, [bookmark.id for bookmark in bookmarks])
+
+    def test_sort_by_random_uses_constant_size_sql(self):
+        for index in range(100):
+            self.setup_bookmark(title=f"bookmark{index}")
+        request = RequestFactory().get("/bookmarks?sort=random")
+        request.session = {"random_sort_seed": 12345}
+        search = BookmarkSearch(
+            sort=BookmarkSearch.SORT_RANDOM,
+            request=request,
+        )
+
+        sql = str(queries.query_bookmarks(self.user, self.profile, search).query)
+
+        self.assertLess(len(sql), 5_000)
+        self.assertNotIn("CASE WHEN", sql)
 
     def setup_title_sort_data(self):
         # lots of combinations to test effective title logic

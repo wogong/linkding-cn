@@ -2161,7 +2161,7 @@ class DomainsContext:
         ]
 
         bookmarks = list(
-            request_context.get_bookmark_query_set(search).values("url")
+            request_context.get_bookmark_query_set(search).order_by().values("url")
         )
         bookmarks.sort(key=lambda bookmark: bookmark["url"])
 

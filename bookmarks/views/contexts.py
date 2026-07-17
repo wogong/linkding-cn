@@ -2248,10 +2248,6 @@ class DomainsContext:
         visible_nodes = list(root_nodes[: cls.TOP_ROOT_LIMIT])
         overflow_nodes = list(root_nodes[cls.TOP_ROOT_LIMIT :])
 
-        for node in overflow_nodes:
-            cls._mark_under_group(node)
-            cls._offset_levels(node, 1)
-
         other_node = DomainTreeNode(
             "__other__",
             level=0,
@@ -2261,22 +2257,9 @@ class DomainsContext:
             node_id="__other__",
         )
         other_node.total = sum(node.total for node in overflow_nodes)
-        other_node.children = {node.hostname: node for node in overflow_nodes}
 
         visible_nodes.append(other_node)
         return visible_nodes
-
-    @classmethod
-    def _mark_under_group(cls, node: DomainTreeNode) -> None:
-        node.is_under_group_node = True
-        for child in node.children.values():
-            cls._mark_under_group(child)
-
-    @classmethod
-    def _offset_levels(cls, node: DomainTreeNode, delta: int) -> None:
-        node.level += delta
-        for child in node.children.values():
-            cls._offset_levels(child, delta)
 
     @classmethod
     def _build_items(

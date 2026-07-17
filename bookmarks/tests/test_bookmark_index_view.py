@@ -1087,8 +1087,7 @@ class BookmarkIndexViewTestCase(
         self.assertIsNotNone(count)
         self.assertEqual(count.text.strip(), "1")
 
-    @unittest.skip("Pre-existing: domain count format changed (no parentheses in icon mode)")
-    def test_domain_compact_mode_groups_non_top_roots_under_other(self):
+    def test_domain_compact_mode_summarizes_non_top_roots_without_rendering_them(self):
         for index in range(17):
             for count in range(17 - index):
                 self.setup_bookmark(
@@ -1103,7 +1102,6 @@ class BookmarkIndexViewTestCase(
                 "label": f"domain-{index}.example.com",
                 "count": 17 - index,
                 "level": 0,
-                "favicon": f"https_domain_{index}_example_com.png",
             }
             for index in range(10)
         ] + [
@@ -1114,55 +1112,6 @@ class BookmarkIndexViewTestCase(
                 "level": 0,
                 "group": True,
                 "clickable": False,
-            },
-            {
-                "host": "domain-10.example.com",
-                "label": "domain-10.example.com",
-                "count": 7,
-                "level": 1,
-                "favicon": "https_domain_10_example_com.png",
-            },
-            {
-                "host": "domain-11.example.com",
-                "label": "domain-11.example.com",
-                "count": 6,
-                "level": 1,
-                "favicon": "https_domain_11_example_com.png",
-            },
-            {
-                "host": "domain-12.example.com",
-                "label": "domain-12.example.com",
-                "count": 5,
-                "level": 1,
-                "favicon": "https_domain_12_example_com.png",
-            },
-            {
-                "host": "domain-13.example.com",
-                "label": "domain-13.example.com",
-                "count": 4,
-                "level": 1,
-                "favicon": "https_domain_13_example_com.png",
-            },
-            {
-                "host": "domain-14.example.com",
-                "label": "domain-14.example.com",
-                "count": 3,
-                "level": 1,
-                "favicon": "https_domain_14_example_com.png",
-            },
-            {
-                "host": "domain-15.example.com",
-                "label": "domain-15.example.com",
-                "count": 2,
-                "level": 1,
-                "favicon": "https_domain_15_example_com.png",
-            },
-            {
-                "host": "domain-16.example.com",
-                "label": "domain-16.example.com",
-                "count": 1,
-                "level": 1,
-                "favicon": "https_domain_16_example_com.png",
             },
         ]
 
@@ -1178,43 +1127,35 @@ class BookmarkIndexViewTestCase(
             for item in domain_list.select(":scope > li.domain-menu-item")
         ]
         self.assertEqual(root_hosts[-1], "__other__")
+        other_item = domain_list.select_one('li[data-domain-host="__other__"]')
+        self.assertEqual(other_item["data-domain-has-children"], "false")
+        self.assertIsNone(other_item.select_one(":scope > ul.domain-children"))
+        self.assertIsNone(
+            domain_list.select_one('li[data-domain-host="domain-10.example.com"]')
+        )
 
         menu_links = soup.select(
             "section[aria-labelledby='domains-heading'] .menu-link"
         )
         menu_texts = [link.text.strip() for link in menu_links]
-        self.assertEqual(menu_texts, ["Icon mode", "All domains"])
+        self.assertEqual(menu_texts, ["Full mode", "All domains"])
 
-    def test_domain_compact_icon_mode_uses_icon_layout_for_other_children(self):
+    def test_domain_full_mode_renders_domains_omitted_from_compact_mode(self):
         for index in range(17):
             for count in range(17 - index):
                 self.setup_bookmark(
                     url=f"https://domain-{index}.example.com/{count}",
                 )
 
-        response = self.client.get(
-            reverse("linkding:bookmarks.index"),
-            **self.get_domain_headers(view_mode="icon"),
-        )
+        self.post_domain_pref("toggle_domain_compact_mode", "0")
+        response = self.client.get(reverse("linkding:bookmarks.index"))
         soup = self.make_soup(response.content.decode())
 
-        other_item = soup.select_one('li[data-domain-host="__other__"]')
-        self.assertIsNotNone(other_item)
-
-        other_children = other_item.select_one(
-            ":scope > ul.domain-children.domain-children-icon"
-        )
-        self.assertIsNotNone(other_children)
-
-        other_child = other_children.select_one(
-            'li[data-domain-host="domain-10.example.com"]'
-        )
-        self.assertIsNotNone(other_child)
+        domain_list = soup.select_one("ul.domain-menu")
+        self.assertEqual(domain_list["data-domain-compact-mode"], "false")
+        self.assertIsNone(domain_list.select_one('li[data-domain-host="__other__"]'))
         self.assertIsNotNone(
-            other_child.select_one(":scope > .domain-row.domain-row-icon")
-        )
-        self.assertIsNotNone(
-            other_child.select_one(":scope > .domain-row .domain-root-icon-summary")
+            domain_list.select_one('li[data-domain-host="domain-10.example.com"]')
         )
 
     def test_sidebar_summary_renders_compact_stats_and_calendar_shell(self):

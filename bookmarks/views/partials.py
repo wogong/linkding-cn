@@ -1,4 +1,4 @@
-from bookmarks.models import BookmarkSearch
+from bookmarks.models import BookmarkSearch, UserProfile
 from bookmarks.views import contexts, turbo
 
 
@@ -29,8 +29,16 @@ def active_bookmark_update(request):
         request, contexts.ActiveBookmarkDetailsContext
     )
     bundles = contexts.BundlesContext(request)
-    domains = contexts.ActiveDomainsContext(request, search)
-    sidebar_summary = contexts.SidebarUserSummaryContext(request, search)
+    domains = (
+        contexts.ActiveDomainsContext(request, search)
+        if contexts.sidebar_module_enabled(request, UserProfile.SIDEBAR_MODULE_DOMAINS)
+        else None
+    )
+    sidebar_summary = (
+        contexts.SidebarUserSummaryContext(request, search)
+        if contexts.sidebar_module_enabled(request, UserProfile.SIDEBAR_MODULE_SUMMARY)
+        else None
+    )
     return render_bookmark_update(
         request, bookmark_list, tag_cloud, details, bundles, domains, sidebar_summary
     )
@@ -46,7 +54,11 @@ def archived_bookmark_update(request):
         request, contexts.ArchivedBookmarkDetailsContext
     )
     bundles = contexts.BundlesContext(request)
-    domains = contexts.ArchivedDomainsContext(request, search)
+    domains = (
+        contexts.ArchivedDomainsContext(request, search)
+        if contexts.sidebar_module_enabled(request, UserProfile.SIDEBAR_MODULE_DOMAINS)
+        else None
+    )
     return render_bookmark_update(
         request, bookmark_list, tag_cloud, details, bundles, domains
     )
@@ -62,7 +74,11 @@ def shared_bookmark_update(request):
         request, contexts.SharedBookmarkDetailsContext
     )
     bundles = contexts.BundlesContext(request)
-    domains = contexts.SharedDomainsContext(request, search)
+    domains = (
+        contexts.SharedDomainsContext(request, search)
+        if contexts.sidebar_module_enabled(request, UserProfile.SIDEBAR_MODULE_DOMAINS)
+        else None
+    )
     return render_bookmark_update(
         request, bookmark_list, tag_cloud, details, bundles, domains
     )
@@ -78,7 +94,11 @@ def trashed_bookmark_update(request):
         request, contexts.TrashedBookmarkDetailsContext
     )
     bundles = contexts.BundlesContext(request)
-    domains = contexts.TrashedDomainsContext(request, search)
+    domains = (
+        contexts.TrashedDomainsContext(request, search)
+        if contexts.sidebar_module_enabled(request, UserProfile.SIDEBAR_MODULE_DOMAINS)
+        else None
+    )
     return render_bookmark_update(
         request, bookmark_list, tag_cloud, details, bundles, domains
     )

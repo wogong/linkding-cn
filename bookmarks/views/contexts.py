@@ -44,6 +44,14 @@ from bookmarks.views import access
 CJK_RE = re.compile(r"[\u4e00-\u9fff]+")
 
 
+def sidebar_module_enabled(request: HttpRequest, module_key: str) -> bool:
+    """Return whether an optional sidebar module is enabled for this profile."""
+    return any(
+        item["key"] == module_key and item["enabled"]
+        for item in request.user_profile.get_sidebar_modules()
+    )
+
+
 def _tag_sort_key(name: str):
     """Sort key that orders English tags alphabetically before CJK tags,
     with CJK tags sorted by their pinyin representation."""

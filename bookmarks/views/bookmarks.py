@@ -165,7 +165,13 @@ def _handle_preference_toggle(request: HttpRequest):
     )
 
     if action in SUMMARY_ACTIONS:
-        sidebar_summary = contexts.SidebarUserSummaryContext(request, search)
+        sidebar_summary = (
+            contexts.SidebarUserSummaryContext(request, search)
+            if contexts.sidebar_module_enabled(
+                request, UserProfile.SIDEBAR_MODULE_SUMMARY
+            )
+            else None
+        )
         response = turbo.update(
             request,
             "sidebar-user-summary-container",
@@ -222,9 +228,17 @@ def index(request: HttpRequest):
     )
     create_bundle_query_string = _get_create_bundle_query_string(search)
     bookmark_list = contexts.ActiveBookmarkListContext(request, search)
-    sidebar_summary = contexts.SidebarUserSummaryContext(request, search)
+    sidebar_summary = (
+        contexts.SidebarUserSummaryContext(request, search)
+        if contexts.sidebar_module_enabled(request, UserProfile.SIDEBAR_MODULE_SUMMARY)
+        else None
+    )
     bundles = contexts.BundlesContext(request)
-    domains = contexts.ActiveDomainsContext(request, search)
+    domains = (
+        contexts.ActiveDomainsContext(request, search)
+        if contexts.sidebar_module_enabled(request, UserProfile.SIDEBAR_MODULE_DOMAINS)
+        else None
+    )
     tag_cloud = contexts.ActiveTagCloudContext(request, search)
     bookmark_details = contexts.get_details_context(
         request, contexts.ActiveBookmarkDetailsContext
@@ -269,7 +283,11 @@ def archived(request: HttpRequest):
     create_bundle_query_string = _get_create_bundle_query_string(search)
     bookmark_list = contexts.ArchivedBookmarkListContext(request, search)
     bundles = contexts.BundlesContext(request)
-    domains = contexts.ArchivedDomainsContext(request, search)
+    domains = (
+        contexts.ArchivedDomainsContext(request, search)
+        if contexts.sidebar_module_enabled(request, UserProfile.SIDEBAR_MODULE_DOMAINS)
+        else None
+    )
     tag_cloud = contexts.ArchivedTagCloudContext(request, search)
     bookmark_details = contexts.get_details_context(
         request, contexts.ArchivedBookmarkDetailsContext
@@ -311,7 +329,11 @@ def shared(request: HttpRequest):
     )
     create_bundle_query_string = _get_create_bundle_query_string(search)
     bookmark_list = contexts.SharedBookmarkListContext(request, search)
-    domains = contexts.SharedDomainsContext(request, search)
+    domains = (
+        contexts.SharedDomainsContext(request, search)
+        if contexts.sidebar_module_enabled(request, UserProfile.SIDEBAR_MODULE_DOMAINS)
+        else None
+    )
     tag_cloud = contexts.SharedTagCloudContext(request, search)
     bookmark_details = contexts.get_details_context(
         request, contexts.SharedBookmarkDetailsContext
@@ -366,7 +388,11 @@ def trashed(request: HttpRequest):
     create_bundle_query_string = _get_create_bundle_query_string(search)
     bookmark_list = contexts.TrashedBookmarkListContext(request, search)
     bundles = contexts.BundlesContext(request)
-    domains = contexts.TrashedDomainsContext(request, search)
+    domains = (
+        contexts.TrashedDomainsContext(request, search)
+        if contexts.sidebar_module_enabled(request, UserProfile.SIDEBAR_MODULE_DOMAINS)
+        else None
+    )
     tag_cloud = contexts.TrashedTagCloudContext(request, search)
     bookmark_details = contexts.get_details_context(
         request, contexts.TrashedBookmarkDetailsContext

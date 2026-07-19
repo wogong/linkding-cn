@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -17,6 +17,9 @@ class ImportResult:
     total: int = 0
     success: int = 0
     failed: int = 0
+    # Normalized URLs successfully processed during this import. Keeping this
+    # across batches prevents duplicate entries in the same exported file.
+    imported_urls: set = field(default_factory=set)
 
 
 @dataclass
@@ -147,12 +150,23 @@ def _import_batch(
     # Create or update bookmarks from parsed Netscape bookmarks
     bookmarks_to_create = []
     bookmarks_to_update = []
+    imported_in_batch = []
 
     for netscape_bookmark in netscape_bookmarks:
         result.total = result.total + 1
         try:
-            # Lookup existing bookmark by normalized URL
+            # An export can contain the same URL more than once. Treat the
+            # first occurrence as authoritative and skip subsequent entries.
             normalized_url = normalize_url(netscape_bookmark.href)
+            if normalized_url in result.imported_urls:
+                logger.warning(
+                    "Skipping duplicate bookmark from imported HTML: %s",
+                    normalized_url,
+                )
+                result.failed = result.failed + 1
+                continue
+
+            # Lookup existing bookmark by normalized URL
             bookmark = next(
                 (
                     bookmark
@@ -178,6 +192,8 @@ def _import_batch(
                 bookmarks_to_create.append(bookmark)
 
             result.success = result.success + 1
+            result.imported_urls.add(normalized_url)
+            imported_in_batch.append(netscape_bookmark)
         except Exception:
             shortened_bookmark_tag_str = str(netscape_bookmark)[:100] + "..."
             logging.exception("Error importing bookmark: " + shortened_bookmark_tag_str)
@@ -212,7 +228,7 @@ def _import_batch(
     BookmarkToTagRelationShip = Bookmark.tags.through
     relationships = []
 
-    for netscape_bookmark in netscape_bookmarks:
+    for netscape_bookmark in imported_in_batch:
         # Lookup bookmark by normalized URL again
         normalized_url = normalize_url(netscape_bookmark.href)
         bookmark = next(

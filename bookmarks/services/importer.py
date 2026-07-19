@@ -160,10 +160,13 @@ def _import_batch(
             normalized_url = normalize_url(netscape_bookmark.href)
             if normalized_url in result.imported_urls:
                 logger.warning(
-                    "Skipping duplicate bookmark from imported HTML: %s",
+                    "Skipping duplicate bookmark data from imported HTML: %s",
                     normalized_url,
                 )
-                result.failed = result.failed + 1
+                # Keep duplicate entries for tag assignment. Exports can list
+                # one URL more than once with different tags; the bookmark
+                # itself must only be created once, while all tags are merged.
+                imported_in_batch.append(netscape_bookmark)
                 continue
 
             # Lookup existing bookmark by normalized URL

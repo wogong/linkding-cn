@@ -15,10 +15,25 @@ class LinkdingE2ETestCase(LiveServerTestCase, BookmarkFactoryMixin):
         user.profile.save(update_fields=["enable_favicons"])
         self.client.force_login(user)
         self.cookie = self.client.cookies["sessionid"]
+        self._browsers = []
+        self._contexts = []
+        self.page = None
+
+    def tearDown(self) -> None:
+        # Stop browser pages before LiveServerTestCase tears down the database.
+        # Open pages can otherwise keep issuing fetch requests against the live
+        # server while the next test rolls back SQLite savepoints.
+        for context in self._contexts:
+            context.close()
+        for browser in self._browsers:
+            browser.close()
+        super().tearDown()
 
     def setup_browser(self, playwright) -> BrowserContext:
         browser = playwright.chromium.launch(headless=True)
         context = browser.new_context()
+        self._browsers.append(browser)
+        self._contexts.append(context)
         context.add_cookies(
             [
                 {

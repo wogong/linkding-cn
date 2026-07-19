@@ -704,13 +704,14 @@ def prefetch_favicon(request: HttpRequest):
     if cache:
         # SUCCESS: 磁盘文件存在 → 直接返回
         if cache.status == FaviconCache.STATUS_SUCCESS and cache.favicon_file:
-            if favicon_loader._get_favicon_path(cache.favicon_file).is_file():
+            cached_file = favicon_loader._find_cached_favicon_file(domain)
+            if cached_file:
                 if cache.fetched_at:
                     stale_threshold = timezone.now() - timezone.timedelta(days=1)
                     if cache.fetched_at < stale_threshold:
                         from bookmarks.services.tasks import _enqueue_favicon_task
                         _enqueue_favicon_task(request.user.id, domain)
-                return JsonResponse({"status": "success", "favicon_file": cache.favicon_file})
+                return JsonResponse({"status": "success", "favicon_file": cached_file})
             # 磁盘文件丢失 → 继续到步骤 2 重新获取
 
         # PENDING: 其他请求正在获取 → 不重复

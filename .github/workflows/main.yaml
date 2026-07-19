@@ -38,10 +38,6 @@ jobs:
   e2e_tests:
     name: E2E Tests
     runs-on: ubuntu-latest
-    # The fork's E2E fixtures include upstream UI assumptions that are not
-    # valid for the localized navigation and partial-update components. Keep
-    # the suite running for visibility without blocking the unit-test gate.
-    continue-on-error: true
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4

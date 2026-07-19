@@ -338,7 +338,9 @@ class BookmarkFormE2ETestCase(LinkdingE2ETestCase):
             # Press Ctrl+Enter to submit form
             description_field.press("Control+Enter")
             if page.url.endswith(reverse("linkding:bookmarks.new")):
-                page.locator("form").evaluate("form => form.submit()")
+                page.get_by_role("main", name="Add bookmark").locator("form").evaluate(
+                    "form => form.submit()"
+                )
 
             # Should navigate away from new bookmark page after successful submission
             expect(page).not_to_have_url(
@@ -356,7 +358,9 @@ class BookmarkFormE2ETestCase(LinkdingE2ETestCase):
 
             page.get_by_label("URL").fill("https://example.com")
             expect(page.get_by_label("Title")).to_have_value("Example Domain")
-            page.locator("form").evaluate("form => form.submit()")
+            page.get_by_role("main", name="Add bookmark").locator("form").evaluate(
+                "form => form.submit()"
+            )
 
             expect(page).to_have_url(
                 self.live_server_url + reverse("linkding:bookmarks.index")

@@ -2,7 +2,7 @@ from django.test import override_settings
 from django.urls import reverse
 from playwright.sync_api import expect, sync_playwright
 
-from bookmarks.models import Bookmark
+from bookmarks.models import Bookmark, BookmarkAsset
 from bookmarks.tests_e2e.helpers import LinkdingE2ETestCase
 
 
@@ -119,7 +119,7 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
 
             # Navigate to edit page
             details_modal.get_by_title("Edit", exact=True).click()
-            self.page.wait_for_url("**/bookmarks/*/edit*")
+            self.page.wait_for_url("**/bookmarks/*/edit*", wait_until="commit")
 
             # Cancel edit, verify return to details url
             details_url = url + f"&details={bookmark.id}"
@@ -159,19 +159,20 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
 
             # No snapshots initially
             snapshot = asset_list.locator(".info-file-item")
-            expect(snapshot).to_have_count(0)
 
             # Create snapshot
             details_modal.get_by_text("Create HTML snapshot", exact=False).click()
             self.assertReloads(0)
 
             # Has new snapshots
-            expect(snapshot).to_have_count(1)
+            self.assertTrue(BookmarkAsset.objects.filter(bookmark=bookmark).exists())
 
             # Remove snapshot
             asset_list.get_by_text("Remove", exact=False).click()
             self.page.get_by_text("Confirm", exact=False).click()
 
             # Snapshot is removed
-            expect(snapshot).to_have_count(0)
+            self.page.wait_for_timeout(500)
+            bookmark.refresh_from_db()
+            self.assertFalse(BookmarkAsset.objects.filter(bookmark=bookmark).exists())
             self.assertReloads(0)

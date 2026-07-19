@@ -146,7 +146,6 @@ class BookmarkPagePartialUpdatesE2ETestCase(LinkdingE2ETestCase):
             self.locate_bookmark("Bookmark 2").locator(
                 "button[data-action='mark_as_read']"
             ).click()
-            self.page.get_by_text("Confirm", exact=True).click()
 
             expect(self.locate_bookmark("Bookmark 2")).not_to_have_class("unread")
             self.assertReloads(0)

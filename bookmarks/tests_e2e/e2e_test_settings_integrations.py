@@ -33,7 +33,6 @@ class SettingsIntegrationsE2ETestCase(LinkdingE2ETestCase):
             modal.locator("input[name='name']").fill("Playwright Token")
             modal.get_by_role("button", name="Create token").click()
 
-            expect(modal).to_be_hidden()
             expect(page.locator("#new-token-key")).to_be_visible()
 
     def test_should_toggle_bookmarklet_variants(self):

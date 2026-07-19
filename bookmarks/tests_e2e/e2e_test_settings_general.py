@@ -196,7 +196,7 @@ class SettingsGeneralE2ETestCase(LinkdingE2ETestCase):
                   document.dispatchEvent(
                     new KeyboardEvent("keydown", { key: "End", bubbles: true })
                   );
-                  const scroller = document.querySelector(".body-container");
+                  const scroller = document.querySelector(".settings-content");
                   scroller.scrollTop = scroller.scrollHeight;
                   scroller.dispatchEvent(new Event("scroll"));
                   window.setTimeout(() => {

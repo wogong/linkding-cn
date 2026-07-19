@@ -16,7 +16,7 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
             self.open(reverse("linkding:bookmarks.index"), p)
 
             details_modal = self.open_details_modal(bookmark)
-            title = details_modal.locator("h2")
+            title = details_modal.locator("textarea.bookmark-title-input")
             expect(title).to_have_text(bookmark.title)
 
     def test_close_details(self):
@@ -50,7 +50,7 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
             self.open(url, p)
 
             details_modal = self.open_details_modal(bookmark)
-            details_modal.get_by_role("checkbox", name="Archived").click()
+            details_modal.locator("[data-chip-field='is_archived']").click()
             expect(self.locate_bookmark(bookmark.title)).not_to_be_visible()
             self.assertReloads(0)
 
@@ -60,7 +60,7 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
             self.resetReloads()
 
             details_modal = self.open_details_modal(bookmark)
-            details_modal.get_by_role("checkbox", name="Archived").click()
+            details_modal.locator("[data-chip-field='is_archived']").click()
             expect(self.locate_bookmark(bookmark.title)).not_to_be_visible()
             self.assertReloads(0)
 
@@ -74,13 +74,13 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
 
             details_modal = self.open_details_modal(bookmark)
 
-            details_modal.get_by_role("checkbox", name="Unread").click()
+            details_modal.locator("[data-chip-field='unread']").click()
             bookmark_item = self.locate_bookmark(bookmark.title)
             expect(bookmark_item).to_have_class("unread")
             self.assertReloads(0)
 
             # mark as read
-            details_modal.get_by_role("checkbox", name="Unread").click()
+            details_modal.locator("[data-chip-field='unread']").click()
             bookmark_item = self.locate_bookmark(bookmark.title)
             expect(bookmark_item).not_to_have_class("unread")
             self.assertReloads(0)
@@ -99,13 +99,13 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
 
             details_modal = self.open_details_modal(bookmark)
 
-            details_modal.get_by_role("checkbox", name="Shared").click()
+            details_modal.locator("[data-chip-field='shared']").click()
             bookmark_item = self.locate_bookmark(bookmark.title)
             expect(bookmark_item).to_have_class("shared")
             self.assertReloads(0)
 
             # unshare bookmark
-            details_modal.get_by_role("checkbox", name="Shared").click()
+            details_modal.locator("[data-chip-field='shared']").click()
             bookmark_item = self.locate_bookmark(bookmark.title)
             expect(bookmark_item).not_to_have_class("shared")
             self.assertReloads(0)
@@ -138,7 +138,7 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
             details_modal = self.open_details_modal(bookmark)
 
             # Delete bookmark, verify return url
-            details_modal.get_by_text("Delete...").click()
+            details_modal.locator("[data-action='trash']").click()
             self.page.get_by_text("Confirm").wait_for(state="visible")
             with self.page.expect_navigation(url=self.live_server_url + url):
                 self.page.get_by_text("Confirm").click()

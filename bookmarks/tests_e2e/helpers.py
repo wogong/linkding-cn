@@ -92,6 +92,12 @@ class LinkdingE2ETestCase(LiveServerTestCase, BookmarkFactoryMixin):
 
     def navigate_menu(self, main_menu_item: str, sub_menu_item: str | None = None):
         nav = self.page.locator("nav")
+        # Upstream calls the bookmark dropdown “Categories”; this fork labels
+        # it “Bookmarks”. Keep the test intent independent of that wording.
+        if main_menu_item == "Categories":
+            main_menu_item = "Bookmarks"
+        if sub_menu_item == "Bookmarks":
+            sub_menu_item = "All bookmarks"
         if sub_menu_item:
             nav.get_by_role("button", name=main_menu_item).click()
             nav.locator("ul.menu:visible").get_by_text(

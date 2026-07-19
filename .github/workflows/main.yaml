@@ -67,4 +67,4 @@ jobs:
           npm run build
           uv run manage.py collectstatic
       - name: Run tests
-        run: uv run manage.py test bookmarks.tests_e2e --pattern="e2e_test_*.py"
+        run: uv run manage.py test bookmarks.tests_e2e --pattern="e2e_test_*.py" --settings=bookmarks.settings.e2e

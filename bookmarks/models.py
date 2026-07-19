@@ -2115,6 +2115,34 @@ class ApiToken(models.Model):
         return f"{self.name} ({self.user.username})"
 
 
+class RssSubscription(models.Model):
+    """An RSS/Atom feed that is periodically imported as bookmarks."""
+
+    owner = models.ForeignKey(
+        User, related_name="rss_subscriptions", on_delete=models.CASCADE
+    )
+    url = models.URLField(max_length=2048)
+    tags = models.JSONField(default=list, blank=True)
+    enabled = models.BooleanField(default=True)
+    etag = models.CharField(max_length=512, blank=True)
+    last_modified = models.CharField(max_length=512, blank=True)
+    last_checked = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+    date_added = models.DateTimeField(auto_now_add=True)
+    date_modified = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "url"], name="unique_rss_subscription_per_user"
+            )
+        ]
+        ordering = ["-date_added"]
+
+    def __str__(self):
+        return f"{self.url} ({self.owner.username})"
+
+
 class GlobalSettings(models.Model):
     LANDING_PAGE_LOGIN = "login"
     LANDING_PAGE_SHARED_BOOKMARKS = "shared_bookmarks"

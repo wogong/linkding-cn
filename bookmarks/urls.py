@@ -115,6 +115,7 @@ urlpatterns = [
     # API
     path("api/", include(api_routes.default_router.urls)),
     path("api/bookmarks/", include(api_routes.bookmark_router.urls)),
+    path("api/rss-subscriptions/", include(api_routes.rss_router.urls)),
     path(
         "api/bookmarks/<int:bookmark_id>/assets/",
         include(api_routes.bookmark_asset_router.urls),

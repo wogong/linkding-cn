@@ -465,6 +465,34 @@ DELETE /api/bundles/<id>/
 
 Deletes a bundle by ID.
 
+### RSS subscriptions
+
+RSS and Atom subscriptions import each new item as a bookmark. Tags are
+applied to every bookmark created by that subscription. The worker checks
+enabled subscriptions every 15 minutes; a sync can also be triggered
+immediately.
+
+**Create**
+
+```http
+POST /api/rss-subscriptions/
+Authorization: Token <Token>
+Content-Type: application/json
+
+{"url": "https://www.instapaper.com/rss/1984883/SSbu7zWciU9nR2kZpl3XP9PVIEA", "tags": ["instapaper"]}
+```
+
+**Sync immediately**
+
+```http
+POST /api/rss-subscriptions/<id>/sync/
+Authorization: Token <Token>
+```
+
+Use `GET`, `PATCH`, and `DELETE` on `/api/rss-subscriptions/<id>/` to manage a
+subscription. Repeated syncs are safe: an existing URL for the same user is
+skipped.
+
 ### User
 
 **Profile**

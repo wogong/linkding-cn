@@ -14,6 +14,7 @@ from bookmarks.models import (
     BookmarkAsset,
     BookmarkBundle,
     ReadingProgress,
+    RssSubscription,
     Tag,
     UserProfile,
     build_tag_string,
@@ -221,6 +222,49 @@ class BookmarkSerializer(serializers.ModelSerializer):
                 )
 
         return attrs
+
+
+class RssSubscriptionSerializer(serializers.ModelSerializer):
+    tags = TagListField(required=False)
+
+    class Meta:
+        model = RssSubscription
+        fields = [
+            "id",
+            "url",
+            "tags",
+            "enabled",
+            "last_checked",
+            "last_error",
+            "date_added",
+            "date_modified",
+        ]
+        read_only_fields = [
+            "id",
+            "last_checked",
+            "last_error",
+            "date_added",
+            "date_modified",
+        ]
+
+    def validate_tags(self, value):
+        return sorted(
+            {str(tag).strip().replace(" ", "-") for tag in value if str(tag).strip()},
+            key=str.lower,
+        )
+
+    def validate_url(self, value):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(value)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise serializers.ValidationError("Feed URL must use http or https.")
+        return value
+
+    def create(self, validated_data):
+        return RssSubscription.objects.create(
+            owner=self.context["user"], **validated_data
+        )
 
 
 class BookmarkAssetSerializer(serializers.ModelSerializer):

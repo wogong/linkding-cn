@@ -30,8 +30,9 @@ from huey.contrib.djhuey import HUEY as huey
 from huey.exceptions import TaskLockedException
 from waybackpy.exceptions import TooManyRequestsError, WaybackError
 
-from bookmarks.models import Bookmark, BookmarkAsset, UserProfile
+from bookmarks.models import Bookmark, BookmarkAsset, RssSubscription, UserProfile
 from bookmarks.services import assets, favicon_loader, preview_image_loader
+from bookmarks.services.rss import RssFeedError, sync_subscription
 from bookmarks.services.website_loader import load_website_metadata
 from bookmarks.utils import get_matching_domain_roots, get_registrable_domain, parse_domain_roots
 
@@ -69,6 +70,30 @@ def task(retries=5, retry_delay=15, retry_backoff=4):
         return huey.task(retries=retries, retry_delay=retry_delay, context=True)(inner)
 
     return deco
+
+
+@task(retries=2, retry_delay=60, retry_backoff=4)
+def sync_rss_subscription(subscription_id: int):
+    """Synchronize one RSS subscription in the Huey worker."""
+    try:
+        subscription = RssSubscription.objects.select_related("owner").get(
+            id=subscription_id, enabled=True
+        )
+    except RssSubscription.DoesNotExist:
+        return
+    try:
+        return sync_subscription(subscription)
+    except RssFeedError:
+        logger.exception("RSS subscription sync failed: id=%s", subscription_id)
+        raise
+
+
+@huey.periodic_task(crontab(minute="*/15"))
+def _schedule_rss_subscription_sync():
+    for subscription_id in RssSubscription.objects.filter(enabled=True).values_list(
+        "id", flat=True
+    ):
+        sync_rss_subscription(subscription_id)
 
 
 # ---------------------------------------------------------------------------

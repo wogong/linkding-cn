@@ -22,6 +22,7 @@ from bookmarks.api.serializers import (
     BookmarkBundleSerializer,
     BookmarkSerializer,
     ReadingProgressSerializer,
+    RssSubscriptionSerializer,
     TagSerializer,
     UserProfileSerializer,
 )
@@ -32,6 +33,7 @@ from bookmarks.models import (
     BookmarkBundle,
     BookmarkSearch,
     ReadingProgress,
+    RssSubscription,
     Tag,
     User,
 )
@@ -43,6 +45,7 @@ from bookmarks.services import (
     tasks,
     website_loader,
 )
+from bookmarks.services.rss import RssFeedError, sync_subscription
 from bookmarks.type_defs import HttpRequest
 from bookmarks.utils import normalize_url
 from bookmarks.views import access
@@ -257,6 +260,33 @@ class BookmarkViewSet(
         html = render_markdown({}, bookmark.notes)
         return Response({"html": str(html)})
 
+
+class RssSubscriptionViewSet(
+    viewsets.GenericViewSet,
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+):
+    serializer_class = RssSubscriptionSerializer
+
+    def get_queryset(self):
+        return RssSubscription.objects.filter(owner=self.request.user)
+
+    def get_serializer_context(self):
+        return {"request": self.request, "user": self.request.user}
+
+    @action(detail=True, methods=["post"])
+    def sync(self, request, pk=None):
+        subscription = self.get_object()
+        try:
+            result = sync_subscription(subscription)
+        except RssFeedError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        return Response({"subscription": self.get_serializer(subscription).data, **result})
+
+
 class BookmarkAssetViewSet(
     viewsets.GenericViewSet,
     mixins.ListModelMixin,
@@ -412,6 +442,9 @@ default_router = DefaultRouter()
 
 bookmark_router = SimpleRouter()
 bookmark_router.register("", BookmarkViewSet, basename="bookmark")
+
+rss_router = SimpleRouter()
+rss_router.register("", RssSubscriptionViewSet, basename="rss_subscription")
 
 
 class AnnotationViewSet(

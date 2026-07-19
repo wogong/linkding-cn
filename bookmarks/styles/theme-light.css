@@ -30,6 +30,7 @@
 @import "reader-mode.css";
 @import "auth.css";
 @import "settings.css";
+@import "rss-subscriptions.css";
 @import "bundles.css";
 @import "tags.css";
 @import "highlights.css";

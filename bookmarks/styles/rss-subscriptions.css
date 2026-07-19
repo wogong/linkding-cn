@@ -1,0 +1,37 @@
+.rss-subscriptions-page {
+  max-width: 900px;
+
+  .rss-subscriptions-feedback { margin-bottom: var(--unit-4); min-height: 0; &:empty { display: none; } }
+  .settings-section-heading { display: flex; align-items: start; justify-content: space-between; gap: var(--unit-4); }
+  .settings-section-heading h2 { margin-bottom: var(--unit-1); }
+  .settings-section-heading p { margin: 0; }
+  .rss-subscription-form { display: grid; gap: var(--unit-5); }
+  .rss-subscription-form-fields { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(180px, 0.8fr); gap: var(--unit-5); }
+  .rss-subscription-form-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--unit-4); border-top: var(--border-width) solid var(--secondary-border-color); padding-top: var(--unit-4); }
+  .rss-subscription-form-footer .form-input-hint { margin: 0; }
+  .rss-subscription-form-footer button, .rss-refresh-button { display: inline-flex; align-items: center; gap: var(--unit-2); }
+  .rss-subscriptions-list-heading { align-items: center; }
+  .rss-subscriptions-loading { color: var(--secondary-text-color); padding: var(--unit-6) 0; }
+  .rss-subscriptions-empty { margin-top: 0; }
+  .rss-subscription-list { display: grid; gap: var(--unit-3); }
+  .rss-subscription-row { display: flex; align-items: center; justify-content: space-between; gap: var(--unit-5); padding: var(--unit-4) var(--unit-5); }
+  .rss-subscription-main { min-width: 0; flex: 1; }
+  .rss-subscription-title-line { display: flex; align-items: center; gap: var(--unit-2); min-width: 0; }
+  .rss-subscription-icon { color: var(--primary-color); display: inline-flex; flex: 0 0 auto; }
+  .rss-subscription-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .rss-subscription-meta { color: var(--secondary-text-color); display: flex; flex-wrap: wrap; gap: var(--unit-3); margin-top: var(--unit-1); font-size: var(--font-size-sm); }
+  .rss-subscription-error { color: var(--error-color); margin-top: var(--unit-2); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
+  .rss-subscription-actions { display: flex; align-items: center; gap: var(--unit-1); flex: 0 0 auto; }
+  .rss-subscription-switch { margin: 0 var(--unit-2) 0 0; }
+  .rss-subscription-switch .form-icon { margin-right: 0; }
+}
+
+@media (max-width: 640px) {
+  .rss-subscriptions-page {
+    .rss-subscription-form-fields { grid-template-columns: 1fr; gap: var(--unit-3); }
+    .rss-subscription-form-footer { align-items: stretch; flex-direction: column; }
+    .rss-subscription-form-footer button { justify-content: center; }
+    .rss-subscription-row { align-items: stretch; flex-direction: column; gap: var(--unit-3); }
+    .rss-subscription-actions { justify-content: flex-end; }
+  }
+}

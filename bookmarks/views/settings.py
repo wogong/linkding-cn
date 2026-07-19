@@ -471,6 +471,7 @@ def integrations(request):
     api_success_message = _find_message_with_tag(
         messages.get_messages(request), "api_success_message"
     )
+
     feed_token = FeedToken.objects.get_or_create(user=request.user)[0]
     all_feed_url = reverse("linkding:feeds.all", args=[feed_token.key])
     unread_feed_url = reverse("linkding:feeds.unread", args=[feed_token.key])
@@ -491,6 +492,12 @@ def integrations(request):
             "public_shared_feed_url": public_shared_feed_url,
         },
     )
+
+
+@login_required
+def rss_subscriptions(request: HttpRequest):
+    """Render the RSS subscription manager."""
+    return render(request, "settings/rss_subscriptions.html")
 
 
 @login_required

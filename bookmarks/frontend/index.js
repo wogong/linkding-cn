@@ -9,6 +9,7 @@ import "./components/sidebar-user-summary.js";
 import "./components/date-filter-fields.js";
 import "./components/annotation-filter.js";
 import "./components/settings-page.js";
+import "./components/rss-subscriptions-page.js";
 import "./components/bundle-page.js";
 import "./components/clear-button.js";
 import "./components/confirm-dropdown.js";

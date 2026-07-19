@@ -99,6 +99,11 @@ urlpatterns = [
         name="settings.integrations",
     ),
     path(
+        "settings/rss-subscriptions",
+        views.settings.rss_subscriptions,
+        name="settings.rss_subscriptions",
+    ),
+    path(
         "settings/integrations/create-api-token",
         views.settings.create_api_token,
         name="settings.integrations.create_api_token",

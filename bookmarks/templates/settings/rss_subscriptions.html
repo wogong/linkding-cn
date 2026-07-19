@@ -1,0 +1,100 @@
+{% extends "bookmarks/layout.html" %}
+{% load i18n %}
+
+{% block head %}
+  {% translate "RSS subscriptions - Linkding" as page_title %}
+  {% with page_title=page_title %}
+    {{ block.super }}
+  {% endwith %}
+{% endblock %}
+
+{% block content %}
+  <main class="settings-page rss-subscriptions-page" aria-labelledby="main-heading" ld-rss-subscriptions-page>
+    <div class="settings-page-header">
+      <h1 id="main-heading">{% translate "RSS subscriptions" %}</h1>
+      <p class="settings-page-summary">
+        {% translate "Subscribe to RSS or Atom feeds and import new items as bookmarks automatically." %}
+      </p>
+    </div>
+
+    <div class="rss-subscriptions-feedback" data-rss-feedback role="status" aria-live="polite"></div>
+
+    <section class="settings-section" aria-labelledby="add-subscription-heading">
+      <div class="settings-section-heading">
+        <h2 id="add-subscription-heading">{% translate "Add a subscription" %}</h2>
+        <p class="form-input-hint">{% translate "New items are checked periodically. You can also sync a feed whenever you like." %}</p>
+      </div>
+      <form class="settings-card rss-subscription-form" data-rss-add-form>
+        <div class="rss-subscription-form-fields">
+          <div class="form-group">
+            <label class="form-label" for="rss-feed-url">{% translate "Feed URL" %}</label>
+            <input id="rss-feed-url" class="form-input" type="url" name="url" required
+                   placeholder="https://example.com/feed.xml" autocomplete="url">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="rss-feed-tags">{% translate "Tags" %}</label>
+            <input id="rss-feed-tags" class="form-input" type="text" name="tags"
+                   placeholder="news, reading" autocomplete="off">
+            <div class="form-input-hint">{% translate "Optional. Separate tags with commas." %}</div>
+          </div>
+        </div>
+        <div class="rss-subscription-form-footer">
+          <div class="form-input-hint">{% translate "Imported bookmarks keep the feed URL as their source." %}</div>
+          <button class="btn btn-primary" type="submit" data-rss-submit>
+            <svg width="16" height="16" aria-hidden="true"><use href="#ld-icon-plus"></use></svg>
+            {% translate "Subscribe" %}
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="settings-section" aria-labelledby="your-subscriptions-heading">
+      <div class="settings-section-heading rss-subscriptions-list-heading">
+        <div>
+          <h2 id="your-subscriptions-heading">{% translate "Your subscriptions" %}</h2>
+          <p class="form-input-hint" data-rss-count></p>
+        </div>
+        <button type="button" class="btn btn-link rss-refresh-button" data-rss-refresh>
+          <svg width="16" height="16" aria-hidden="true"><use href="#ld-icon-refresh"></use></svg>
+          {% translate "Refresh" %}
+        </button>
+      </div>
+
+      <div class="rss-subscription-list" data-rss-list>
+        <div class="rss-subscriptions-loading" data-rss-loading>{% translate "Loading subscriptions…" %}</div>
+      </div>
+      <div class="empty rss-subscriptions-empty" data-rss-empty hidden>
+        <p class="empty-title h5">{% translate "No RSS subscriptions yet" %}</p>
+        <p class="empty-subtitle">{% translate "Add a feed above to start collecting new bookmarks." %}</p>
+      </div>
+    </section>
+
+    <template data-rss-row-template>
+      <article class="settings-card rss-subscription-row" data-rss-row>
+        <div class="rss-subscription-main">
+          <div class="rss-subscription-title-line">
+            <span class="rss-subscription-icon" aria-hidden="true">
+              <svg width="18" height="18"><use href="#ld-icon-rss"></use></svg>
+            </span>
+            <a class="rss-subscription-url" data-rss-url target="_blank" rel="noopener"></a>
+            <span class="label label-success rss-enabled-label" data-rss-enabled-label hidden>{% translate "Active" %}</span>
+            <span class="label rss-paused-label" data-rss-paused-label hidden>{% translate "Paused" %}</span>
+          </div>
+          <div class="rss-subscription-meta">
+            <span data-rss-tags></span>
+            <span data-rss-last-checked></span>
+          </div>
+          <div class="rss-subscription-error" data-rss-error hidden></div>
+        </div>
+        <div class="rss-subscription-actions">
+          <label class="form-switch rss-subscription-switch" title="{% translate 'Enable subscription' %}">
+            <input type="checkbox" data-rss-enabled>
+            <i class="form-icon"></i>
+          </label>
+          <button type="button" class="btn btn-link" data-rss-sync>{% translate "Sync now" %}</button>
+          <button type="button" class="btn btn-link" data-rss-delete>{% translate "Delete" %}</button>
+        </div>
+      </article>
+    </template>
+  </main>
+{% endblock %}

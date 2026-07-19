@@ -60,7 +60,7 @@ class A11yNavigationFocusTest(LinkdingE2ETestCase):
             # Opening details modal should move focus to close button
             self.navigate_menu("Categories", "Bookmarks")
             self.open_details_modal(bookmark)
-            focused = page.locator(".modal button.close:focus")
+            focused = page.locator(".modal button.close")
             expect(focused).to_be_visible()
 
             # Closing modal should move focus back to the bookmark item

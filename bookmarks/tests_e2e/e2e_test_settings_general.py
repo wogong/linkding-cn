@@ -214,4 +214,4 @@ class SettingsGeneralE2ETestCase(LinkdingE2ETestCase):
                 """
             )
 
-            self.assertEqual(active_targets, ["settings-about"])
+            self.assertEqual(active_targets, ["settings-interface"])

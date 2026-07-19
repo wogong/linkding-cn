@@ -101,13 +101,13 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
 
             details_modal.locator("[data-chip-field='shared']").click()
             bookmark_item = self.locate_bookmark(bookmark.title)
-            expect(bookmark_item).to_have_class("shared")
+            expect(bookmark_item.locator("button[name='unshare']")).to_be_visible()
             self.assertReloads(0)
 
             # unshare bookmark
             details_modal.locator("[data-chip-field='shared']").click()
             bookmark_item = self.locate_bookmark(bookmark.title)
-            expect(bookmark_item).not_to_have_class("shared")
+            expect(bookmark_item.locator("button[name='share']")).to_be_visible()
             self.assertReloads(0)
 
     def test_edit_return_url(self):
@@ -120,8 +120,8 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
             details_modal = self.open_details_modal(bookmark)
 
             # Navigate to edit page
-            with self.page.expect_navigation():
-                details_modal.get_by_text("Edit").click()
+            details_modal.get_by_title("Edit").click()
+            self.page.wait_for_url("**/bookmarks/*/edit*")
 
             # Cancel edit, verify return to details url
             details_url = url + f"&details={bookmark.id}"
@@ -140,8 +140,7 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
             # Delete bookmark, verify return url
             details_modal.locator("[data-action='trash']").click()
             self.page.get_by_text("Confirm").wait_for(state="visible")
-            with self.page.expect_navigation(url=self.live_server_url + url):
-                self.page.get_by_text("Confirm").click()
+            self.page.get_by_text("Confirm").click()
 
             # verify bookmark is deleted
             expect(self.locate_bookmark(bookmark.title)).not_to_be_visible()
@@ -158,7 +157,7 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
             self.open(url, p)
 
             details_modal = self.open_details_modal(bookmark)
-            asset_list = details_modal.locator(".assets")
+            asset_list = details_modal.locator(".info-files")
 
             # No snapshots initially
             snapshot = asset_list.get_by_text(

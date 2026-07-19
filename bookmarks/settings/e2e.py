@@ -2,7 +2,7 @@
 
 # ruff: noqa
 
-from .dev import *
+from .test import *
 
 # SQLite's shared in-memory test database reuses one connection across the
 # test and live-server threads. Concurrent browser requests can corrupt Django

@@ -22,7 +22,7 @@ class BookmarkPagePartialUpdatesE2ETestCase(LinkdingE2ETestCase):
         )
 
     def assertVisibleBookmarks(self, titles: list[str]):
-        bookmark_tags = self.page.locator("li[ld-bookmark-item]")
+        bookmark_tags = self.page.locator("li[ld-bookmark-item]:visible")
         expect(bookmark_tags).to_have_count(len(titles))
 
         for title in titles:
@@ -30,7 +30,7 @@ class BookmarkPagePartialUpdatesE2ETestCase(LinkdingE2ETestCase):
             expect(matching_tag).to_be_visible()
 
     def assertVisibleTags(self, titles: list[str]):
-        tag_tags = self.page.locator(".tag-cloud .unselected-tags a")
+        tag_tags = self.page.locator(".tag-cloud .unselected-tags a:visible")
         expect(tag_tags).to_have_count(len(titles))
 
         for title in titles:
@@ -58,13 +58,13 @@ class BookmarkPagePartialUpdatesE2ETestCase(LinkdingE2ETestCase):
             url = reverse("linkding:bookmarks.index") + "?sort=title_asc"
             page = self.open(url, p)
 
-            first_item = page.locator("li[ld-bookmark-item]").first
+            first_item = page.locator("li[ld-bookmark-item]:visible").first
             expect(first_item).to_contain_text("foo 1")
 
             first_item.get_by_text("Archive").click()
             self.page.get_by_text("Confirm").click()
 
-            first_item = page.locator("li[ld-bookmark-item]").first
+            first_item = page.locator("li[ld-bookmark-item]:visible").first
             expect(first_item).to_contain_text("foo 2")
 
     def test_partial_update_respects_page(self):
@@ -144,16 +144,10 @@ class BookmarkPagePartialUpdatesE2ETestCase(LinkdingE2ETestCase):
             self.open(reverse("linkding:bookmarks.index"), p)
 
             expect(self.locate_bookmark("Bookmark 2")).to_have_class("unread")
-            self.page.wait_for_function(
-                """() => {
-                    const button = document.querySelector('button[name="mark_as_read"]');
-                    return Boolean(button && button.__behaviors && button.__behaviors.length);
-                }"""
-            )
             self.locate_bookmark("Bookmark 2").locator(
                 'button[name="mark_as_read"]'
             ).click()
-            self.page.get_by_text("Yes", exact=True).click()
+            self.page.get_by_text("Confirm", exact=True).click()
 
             expect(self.locate_bookmark("Bookmark 2")).not_to_have_class("unread")
             self.assertReloads(0)
@@ -168,14 +162,8 @@ class BookmarkPagePartialUpdatesE2ETestCase(LinkdingE2ETestCase):
             self.open(reverse("linkding:bookmarks.index"), p)
 
             expect(self.locate_bookmark("Bookmark 2")).to_have_class("shared")
-            self.page.wait_for_function(
-                """() => {
-                    const button = document.querySelector('button[name="unshare"]');
-                    return Boolean(button && button.__behaviors && button.__behaviors.length);
-                }"""
-            )
             self.locate_bookmark("Bookmark 2").locator('button[name="unshare"]').click()
-            self.page.get_by_text("Yes", exact=True).click()
+            self.page.get_by_text("Confirm", exact=True).click()
 
             expect(self.locate_bookmark("Bookmark 2")).not_to_have_class("shared")
             self.assertReloads(0)

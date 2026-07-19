@@ -52,7 +52,7 @@ class LinkdingE2ETestCase(LiveServerTestCase, BookmarkFactoryMixin):
         return self.page.locator("ul.bookmark-list")
 
     def locate_bookmark(self, title: str):
-        bookmark_tags = self.page.locator("li[ld-bookmark-item]")
+        bookmark_tags = self.page.locator("li[ld-bookmark-item]:visible")
         return bookmark_tags.filter(has_text=title)
 
     def count_bookmarks(self):

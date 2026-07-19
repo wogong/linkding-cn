@@ -543,7 +543,6 @@ def create_api_token(request: HttpRequest):
                 "api-modal",
                 "settings/empty_modal_frame.html",
                 {},
-                method="morph",
             )
             return HttpResponse(
                 api_section_stream.content.decode() + api_modal_stream.content.decode(),

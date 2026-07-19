@@ -358,9 +358,10 @@ class BookmarkFormE2ETestCase(LinkdingE2ETestCase):
 
             page.get_by_label("URL").fill("https://example.com")
             expect(page.get_by_label("Title")).to_have_value("Example Domain")
-            page.get_by_role("main", name="Add bookmark").locator("form").evaluate(
-                "form => form.submit()"
-            )
+            with page.expect_navigation():
+                page.get_by_role("main", name="Add bookmark").locator(
+                    "form"
+                ).evaluate("form => form.submit()")
 
             expect(page).to_have_url(
                 self.live_server_url + reverse("linkding:bookmarks.index")

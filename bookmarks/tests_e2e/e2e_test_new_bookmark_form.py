@@ -332,6 +332,7 @@ class BookmarkFormE2ETestCase(LinkdingE2ETestCase):
 
             url_field.fill("https://example.com")
             description_field.fill("Test description")
+            expect(page.get_by_label("Title")).to_have_value("Example Domain")
             description_field.focus()
 
             # Press Ctrl+Enter to submit form
@@ -352,6 +353,7 @@ class BookmarkFormE2ETestCase(LinkdingE2ETestCase):
             page = self.open(reverse("linkding:bookmarks.new"), p)
 
             page.get_by_label("URL").fill("https://example.com")
+            expect(page.get_by_label("Title")).to_have_value("Example Domain")
             page.locator("input[type='submit']").click()
 
             expect(page).to_have_url(

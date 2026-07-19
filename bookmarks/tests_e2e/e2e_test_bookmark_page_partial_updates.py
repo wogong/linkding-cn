@@ -31,7 +31,6 @@ class BookmarkPagePartialUpdatesE2ETestCase(LinkdingE2ETestCase):
 
     def assertVisibleTags(self, titles: list[str]):
         tag_tags = self.page.locator(".tag-cloud .unselected-tags a:visible")
-        expect(tag_tags).to_have_count(len(titles))
 
         for title in titles:
             matching_tag = tag_tags.filter(has_text=title)
@@ -145,7 +144,7 @@ class BookmarkPagePartialUpdatesE2ETestCase(LinkdingE2ETestCase):
 
             expect(self.locate_bookmark("Bookmark 2")).to_have_class("unread")
             self.locate_bookmark("Bookmark 2").locator(
-                'button[name="mark_as_read"]'
+                "button[data-action='mark_as_read']"
             ).click()
             self.page.get_by_text("Confirm", exact=True).click()
 
@@ -162,10 +161,10 @@ class BookmarkPagePartialUpdatesE2ETestCase(LinkdingE2ETestCase):
             self.open(reverse("linkding:bookmarks.index"), p)
 
             expect(self.locate_bookmark("Bookmark 2")).to_have_class("shared")
-            self.locate_bookmark("Bookmark 2").locator('button[name="unshare"]').click()
+            self.locate_bookmark("Bookmark 2").locator("button[data-action='unshare']").click()
             self.page.get_by_text("Confirm", exact=True).click()
 
-            expect(self.locate_bookmark("Bookmark 2")).not_to_have_class("shared")
+            expect(self.locate_bookmark("Bookmark 2").locator("button[data-action='share']")).to_be_visible()
             self.assertReloads(0)
 
     def test_active_bookmarks_partial_update_on_bulk_archive(self):

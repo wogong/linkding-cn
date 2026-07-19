@@ -1,5 +1,3 @@
-import re
-
 from django.test import override_settings
 from django.urls import reverse
 from playwright.sync_api import expect, sync_playwright
@@ -120,7 +118,7 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
             details_modal = self.open_details_modal(bookmark)
 
             # Navigate to edit page
-            details_modal.get_by_title("Edit").click()
+            details_modal.get_by_title("Edit", exact=True).click()
             self.page.wait_for_url("**/bookmarks/*/edit*")
 
             # Cancel edit, verify return to details url
@@ -160,22 +158,20 @@ class BookmarkDetailsModalE2ETestCase(LinkdingE2ETestCase):
             asset_list = details_modal.locator(".info-files")
 
             # No snapshots initially
-            snapshot = asset_list.get_by_text(
-                re.compile("snapshot|快照", re.IGNORECASE)
-            )
-            expect(snapshot).not_to_be_visible()
+            snapshot = asset_list.locator(".info-file-item")
+            expect(snapshot).to_have_count(0)
 
             # Create snapshot
             details_modal.get_by_text("Create HTML snapshot", exact=False).click()
             self.assertReloads(0)
 
             # Has new snapshots
-            expect(snapshot).to_be_visible()
+            expect(snapshot).to_have_count(1)
 
             # Remove snapshot
             asset_list.get_by_text("Remove", exact=False).click()
             self.page.get_by_text("Confirm", exact=False).click()
 
             # Snapshot is removed
-            expect(snapshot).not_to_be_visible()
+            expect(snapshot).to_have_count(0)
             self.assertReloads(0)

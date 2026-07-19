@@ -7,6 +7,9 @@
   .settings-section-heading p { margin: 0; }
   .rss-subscription-form { display: grid; gap: var(--unit-5); }
   .rss-subscription-form-fields { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(180px, 0.8fr); gap: var(--unit-5); }
+  /* The shared form stylesheet adds top margin to the first form group;
+     reset it here so the two side-by-side fields share one baseline. */
+  .rss-subscription-form-fields > .form-group { margin-top: 0; margin-bottom: 0; }
   .rss-subscription-form-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--unit-4); border-top: var(--border-width) solid var(--secondary-border-color); padding-top: var(--unit-4); }
   .rss-subscription-form-footer .form-input-hint { margin: 0; }
   .rss-subscription-form-footer button, .rss-refresh-button { display: inline-flex; align-items: center; gap: var(--unit-2); }

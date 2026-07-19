@@ -6,7 +6,14 @@ from bookmarks.tests.helpers import BookmarkFactoryMixin
 
 class LinkdingE2ETestCase(LiveServerTestCase, BookmarkFactoryMixin):
     def setUp(self) -> None:
-        self.client.force_login(self.get_or_create_test_user())
+        user = self.get_or_create_test_user()
+        # Browser pages lazily request missing favicons. Those requests run on
+        # the live-server thread and can outlive a test, racing SQLite teardown
+        # and corrupting transaction savepoints. Individual favicon tests can
+        # still enable the setting explicitly when needed.
+        user.profile.enable_favicons = False
+        user.profile.save(update_fields=["enable_favicons"])
+        self.client.force_login(user)
         self.cookie = self.client.cookies["sessionid"]
 
     def setup_browser(self, playwright) -> BrowserContext:

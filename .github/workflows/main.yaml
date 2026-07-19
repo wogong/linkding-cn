@@ -10,6 +10,7 @@ jobs:
   unit_tests:
     name: Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -30,10 +31,11 @@ jobs:
           uv sync
           mkdir data
       - name: Run tests
-        run: uv run pytest bookmarks/tests/ -n auto
+        run: uv run manage.py test bookmarks.tests
   e2e_tests:
     name: E2E Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python

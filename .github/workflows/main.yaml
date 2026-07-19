@@ -29,6 +29,7 @@ jobs:
       - name: Setup Python environment
         run: |
           uv sync
+          uv run manage.py compilemessages
           mkdir data
       - name: Run tests
         run: uv run manage.py test bookmarks.tests
@@ -54,6 +55,7 @@ jobs:
       - name: Setup Python environment
         run: |
           uv sync
+          uv run manage.py compilemessages
           uv run playwright install chromium
           mkdir data
       - name: Run build

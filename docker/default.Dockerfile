@@ -68,11 +68,13 @@ COPY . .
 COPY --from=node-build /etc/linkding/bookmarks/static bookmarks/static/
 # copy bundled defuddle for server-side reader processing
 COPY --from=node-build /etc/linkding/bookmarks/services/vendor/defuddle.js bookmarks/services/vendor/defuddle.js
+COPY --from=node-build /etc/linkding/node_modules/defuddle/README.md /tmp/defuddle-README.md
 # Activate virtual env
 ENV VIRTUAL_ENV=/etc/linkding/.venv
 ENV PATH="/etc/linkding/.venv/bin:$PATH"
 # Generate static files
-RUN mkdir data && \
+RUN \
+    mkdir -p data && \
     python manage.py compilemessages && \
     python manage.py collectstatic
 
@@ -127,6 +129,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # install single-file from fork for now, which contains several hotfixes
 RUN --mount=type=cache,target=/root/.npm,sharing=locked \
     npm install -g https://github.com/sissbruecker/single-file-cli/tarball/4c54b3bc704cfb3e96cec2d24854caca3df0b3b6
+# playwright Python package (needed by browser_fallback in chromium mode)
+RUN pip install --no-cache-dir playwright>=1.59.0
+# node_modules for JS runtime scripts (playwright-core)
+COPY package.json package-lock.json /tmp/npm-runtime/
+RUN cd /tmp/npm-runtime && npm ci --no-cache --omit=dev && mkdir -p /opt/node-runtime && mv node_modules /opt/node-runtime/ && rm -rf /tmp/npm-runtime
+ENV NODE_PATH=/opt/node-runtime/node_modules
 # copy uBlock
 COPY --from=ublock-build /etc/linkding/uBOLite.chromium.mv3 uBOLite.chromium.mv3/
 # create chromium profile folder for user running background tasks and set permissions
@@ -135,7 +143,68 @@ RUN mkdir -p chromium-profile &&  \
     chown -R www-data:www-data uBOLite.chromium.mv3
 # enable snapshot support
 ENV LD_ENABLE_SNAPSHOTS=True
+ENV LD_BROWSER_ENGINE=chromium
 # 确保chromium可以运行
 # 参考[这个issue](https://github.com/hardkoded/puppeteer-sharp/issues/2633)
+ENV XDG_CONFIG_HOME=/tmp/.chromium
+ENV XDG_CACHE_HOME=/tmp/.chromium
+
+
+# ---------------------------------------------------------------------------
+# CloakBrowser 构建阶段：安装 cloakbrowser Python 包并缓存二进制
+# ---------------------------------------------------------------------------
+FROM python:3.13.7-slim-bookworm AS cloakbrowser-build
+ARG CLOAKBROWSER_LICENSE_KEY=""
+ARG CLOAKBROWSER_CACHE_DIR=/opt/cloakbrowser-cache
+ENV CLOAKBROWSER_CACHE_DIR=${CLOAKBROWSER_CACHE_DIR}
+ENV CLOAKBROWSER_LICENSE_KEY=${CLOAKBROWSER_LICENSE_KEY}
+COPY --from=build-deps /etc/linkding/.venv /etc/linkding/.venv
+ENV VIRTUAL_ENV=/etc/linkding/.venv
+ENV PATH="/etc/linkding/.venv/bin:$PATH"
+RUN pip install --no-cache-dir cloakbrowser==0.5.1 && \
+    python -c "from cloakbrowser import ensure_binary; print(ensure_binary())"
+
+
+# ---------------------------------------------------------------------------
+# CloakBrowser 变体：用 stealth Chromium 替代系统 chromium
+# 构建: docker build --target linkding-plus-cloakbrowser ...
+# 可选: --build-arg CLOAKBROWSER_LICENSE_KEY=xxx
+# ---------------------------------------------------------------------------
+FROM linkding AS linkding-plus-cloakbrowser
+ARG CLOAKBROWSER_CACHE_DIR=/opt/cloakbrowser-cache
+ENV CLOAKBROWSER_CACHE_DIR=${CLOAKBROWSER_CACHE_DIR}
+# 覆盖 venv（包含 cloakbrowser 包）
+COPY --from=cloakbrowser-build /etc/linkding/.venv /etc/linkding/.venv
+# 复制缓存的浏览器二进制
+COPY --from=cloakbrowser-build ${CLOAKBROWSER_CACHE_DIR} ${CLOAKBROWSER_CACHE_DIR}/
+# 安装 node + singlefile
+ENV NODE_MAJOR=20
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && \
+    apt-get -y install \
+        gnupg2 \
+        apt-transport-https \
+        ca-certificates && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && \
+    apt-get -y install nodejs
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm install -g https://github.com/sissbruecker/single-file-cli/tarball/4c54b3bc704cfb3e96cec2d24854caca3df0b3b6
+# node_modules for JS runtime scripts (cloakbrowser npm + playwright-core)
+COPY package.json package-lock.json /tmp/npm-runtime/
+RUN cd /tmp/npm-runtime && npm ci --no-cache && mkdir -p /opt/node-runtime && mv node_modules /opt/node-runtime/ && rm -rf /tmp/npm-runtime
+ENV NODE_PATH=/opt/node-runtime/node_modules
+COPY --from=ublock-build /etc/linkding/uBOLite.chromium.mv3 uBOLite.chromium.mv3/
+RUN mkdir -p chromium-profile && \
+    chown -R www-data:www-data chromium-profile && \
+    chown -R www-data:www-data uBOLite.chromium.mv3
+# 为 singlefile 创建 chromium symlink（指向 cloakbrowser 缓存的二进制）
+RUN CB_BIN=$(python -c "from cloakbrowser import ensure_binary; print(ensure_binary())") && \
+    ln -sf "$CB_BIN" /usr/bin/chromium && \
+    ln -sf "$CB_BIN" /usr/local/bin/chromium
+ENV LD_ENABLE_SNAPSHOTS=True
+ENV LD_BROWSER_ENGINE=cloakbrowser
 ENV XDG_CONFIG_HOME=/tmp/.chromium
 ENV XDG_CACHE_HOME=/tmp/.chromium

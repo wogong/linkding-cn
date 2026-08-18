@@ -17,6 +17,7 @@ dependencies = [
     "pypinyin>=0.55.0",
     "requests>=2.33.1",
     "supervisor>=4.3.0",
+    "tldextract>=5.3.1",
     "uwsgi>=2.0.31",
     "waybackpy>=3.0.6",
     "cryptography>=41.0.0",

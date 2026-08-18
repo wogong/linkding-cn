@@ -68,6 +68,6 @@ class CollapseSidePanelE2ETestCase(LinkdingE2ETestCase):
             self.page.locator("[data-sidebar-toggle]").click()
             self.assertSidePanelIsVisible()
 
-            # Click toggle to hide again
-            self.page.locator("[data-sidebar-toggle]").click()
+            # Overlay covers the toggle; close via the sidebar close bar
+            self.page.locator("[data-sidebar-close]").click()
             self.assertSidePanelIsHidden()

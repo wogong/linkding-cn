@@ -433,6 +433,17 @@ def save(request: HttpRequest):
     return _build_form_success_response(request, form_id)
 
 
+def _version_tuple(version: str):
+    return tuple(int(part) for part in version.strip().split("."))
+
+
+def _is_newer_version(candidate: str, current: str) -> bool:
+    try:
+        return _version_tuple(candidate) > _version_tuple(current)
+    except ValueError:
+        return candidate != current
+
+
 # Cache API call response, for one hour when using get_ttl_hash with default params
 @lru_cache(maxsize=1)
 def get_version_info(ttl_hash=None):
@@ -449,10 +460,11 @@ def get_version_info(ttl_hash=None):
         pass
 
     latest_version_info = ""
-    if latest_version == app_version:
-        latest_version_info = " (latest)"
-    elif latest_version is not None:
-        latest_version_info = f" (latest: {latest_version})"
+    if latest_version is not None:
+        if _is_newer_version(latest_version, app_version):
+            latest_version_info = f" (latest: {latest_version})"
+        else:
+            latest_version_info = " (latest)"
 
     return f"{app_version}{latest_version_info}"
 

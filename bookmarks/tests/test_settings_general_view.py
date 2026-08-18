@@ -853,6 +853,14 @@ class SettingsGeneralViewTestCase(TestCase, BookmarkFactoryMixin):
             version_info = get_version_info(random.random())
             self.assertEqual(version_info, f"{app_version} (latest: 123.0.1)")
 
+    def test_get_version_info_displays_latest_when_local_version_is_newer(self):
+        latest_version_response_mock = Mock(
+            status_code=200, json=lambda: {"name": "v0.0.1"}
+        )
+        with patch.object(requests, "get", return_value=latest_version_response_mock):
+            version_info = get_version_info(random.random())
+            self.assertEqual(version_info, f"{app_version} (latest)")
+
     def test_get_version_info_silently_ignores_request_errors(self):
         with patch.object(requests, "get", side_effect=RequestException()):
             version_info = get_version_info(random.random())

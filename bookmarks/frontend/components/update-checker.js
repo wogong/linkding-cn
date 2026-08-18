@@ -34,6 +34,20 @@ function parseVersion(v) {
   return v.replace(/^v/, "").trim();
 }
 
+// True when `candidate` is a strictly newer semantic version than `current`.
+// Falls back to string inequality when either side is not numeric.
+function isNewer(candidate, current) {
+  const a = candidate.split(".").map(Number);
+  const b = current.split(".").map(Number);
+  if (a.some(isNaN) || b.some(isNaN)) return candidate !== current;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] || 0;
+    const y = b[i] || 0;
+    if (x !== y) return x > y;
+  }
+  return false;
+}
+
 function shouldCheck(state) {
   if (!state.lastCheck) return true;
   return Date.now() - state.lastCheck > CHECK_INTERVAL;
@@ -202,7 +216,7 @@ class UpdateCheckerBehavior extends Behavior {
     }
 
     const latest = parseVersion(release.version);
-    if (!latest || latest === current) {
+    if (!latest || !isNewer(latest, current)) {
       delete this.state.release;
       saveState(this.state);
       this._syncVisibility();
@@ -229,7 +243,7 @@ class UpdateCheckerBehavior extends Behavior {
   _syncVisibility() {
     const { release, dismissedVersion } = this.state;
     const current = parseVersion(getCurrentVersion());
-    const hasUpdate = release && parseVersion(release.version) !== current;
+    const hasUpdate = release && isNewer(parseVersion(release.version), current);
     const dotDismissed =
       hasUpdate && parseVersion(release.version) === parseVersion(dismissedVersion || "");
 

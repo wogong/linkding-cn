@@ -1,13 +1,17 @@
+import mimetypes
 import random as rng
 import time
 import urllib.parse
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db.models import QuerySet
 from django.http import (
+    FileResponse,
     HttpResponseBadRequest,
     HttpResponseForbidden,
+    HttpResponseNotFound,
     HttpResponseRedirect,
     JsonResponse,
 )
@@ -25,7 +29,6 @@ from bookmarks.middlewares import (
 )
 from bookmarks.models import (
     Bookmark,
-    BookmarkAsset,
     BookmarkSearch,
     UserProfile,
 )
@@ -151,6 +154,8 @@ def _handle_preference_toggle(request: HttpRequest):
         request.user_profile = profile
     else:
         profile.save()
+    # Update request.user_profile so the current request uses the new settings
+    request.user_profile = profile
 
     # For nav_month/nav_week, inject the target value into GET so the context picks it up
     if action == "nav_month":
@@ -375,15 +380,13 @@ def trashed(request: HttpRequest):
             {"details": details},
         )
 
-    # 如果用户的回收站搜索偏好为空，设置默认的删除时间降序
-    if not request.user_profile.trash_search_preferences:
-        request.user_profile.trash_search_preferences = {
-            "sort": BookmarkSearch.SORT_DELETED_DESC
-        }
-        request.user_profile.save()
+    # Use inline default if user has no trash search preferences yet
+    trash_prefs = request.user_profile.trash_search_preferences or {
+        "sort": BookmarkSearch.SORT_DELETED_DESC
+    }
 
     search = BookmarkSearch.from_request(
-        request, request.GET, request.user_profile.trash_search_preferences
+        request, request.GET, trash_prefs
     )
     create_bundle_query_string = _get_create_bundle_query_string(search)
     bookmark_list = contexts.TrashedBookmarkListContext(request, search)
@@ -413,7 +416,37 @@ def trashed(request: HttpRequest):
     )
 
 
+def _should_lazy_load_sidebar(request) -> bool:
+    """
+    判断是否应该懒加载侧边栏内容。
+    只在以下条件同时满足时才懒加载：
+    1. 用户设置 show_sidebar=False
+    2. Cookie 中没有记录侧边栏为打开状态（即用户从未打开过侧边栏）
+    """
+    if request.user_profile.show_sidebar:
+        return False
+    
+    # 检查 Cookie：如果用户曾经打开过侧边栏，Cookie 会记录为 "1"
+    cookie_name = "ld_sidebar_bookmarks"
+    if hasattr(request, 'path') and '/highlights' in request.path:
+        cookie_name = "ld_sidebar_highlights"
+    
+    sidebar_cookie = request.COOKIES.get(cookie_name)
+    if sidebar_cookie == "1":
+        return False
+    
+    return True
+
+
 def render_bookmarks_view(request: HttpRequest, template_name, context):
+    # 懒加载：当用户设置关闭且从未打开过侧边栏时，跳过昂贵的侧边栏查询
+    if _should_lazy_load_sidebar(request):
+        context.setdefault("sidebar_summary", None)
+        context.setdefault("bundles", None)
+        context.setdefault("domains", None)
+        context.setdefault("tag_cloud", None)
+        context["sidebar_lazy_load"] = True
+    
     context["sidebar_modules"] = _build_sidebar_modules(request, context)
     profile = request.user_profile
     context.setdefault("show_sidebar", profile.show_sidebar)
@@ -676,112 +709,81 @@ def share(request: HttpRequest, bookmark_id: int | str):
     bookmark.save()
 
 
-def prefetch_favicon(request: HttpRequest):
-    """前端 onerror / 懒加载的 favicon 获取端点。
+def favicon_image(request: HttpRequest, domain: str):
+    """Favicon serving 端点。
 
-    使用 FaviconCache 全局缓存 + favicon_loader 获取。
+    查找 FaviconCache → 有文件则返回图片，无则返回默认 favicon.svg。
+    浏览器通过 Cache-Control 缓存，减少重复请求。
     """
-    if not request.user_profile.enable_favicons:
-        return JsonResponse({"status": "disabled"})
-
-    url = request.GET.get("url")
-    if not url:
-        return JsonResponse({"error": _("URL parameter is missing")}, status=400)
-
     from bookmarks.models import FaviconCache
-    from bookmarks.utils import extract_hostname, parse_domain_roots, resolve_favicon_domain
 
-    domain_config = parse_domain_roots(request.user_profile.custom_domain_root)
-    hostname = extract_hostname(url)
-    if not hostname:
-        return JsonResponse({"error": _("Invalid URL")}, status=400)
+    # 基本输入校验
+    if not domain or len(domain) > 253 or "/" in domain or "\\" in domain:
+        return HttpResponseNotFound()
 
-    domain = resolve_favicon_domain(hostname, config=domain_config)
+    # 启用 favicon 功能的用户才触发后台获取
+    enable_favicons = request.user_profile.enable_favicons
 
-    # 1. 检查 FaviconCache 状态
     cache = FaviconCache.objects.filter(domain=domain).first()
 
-    if cache:
-        # SUCCESS: 磁盘文件存在 → 直接返回
-        if cache.status == FaviconCache.STATUS_SUCCESS and cache.favicon_file:
-            cached_file = favicon_loader._find_cached_favicon_file(domain)
-            if cached_file:
-                if cache.fetched_at:
-                    stale_threshold = timezone.now() - timezone.timedelta(days=1)
-                    if cache.fetched_at < stale_threshold:
-                        from bookmarks.services.tasks import _enqueue_favicon_task
-                        _enqueue_favicon_task(request.user.id, domain)
-                return JsonResponse({"status": "success", "favicon_file": cached_file})
-            # 磁盘文件丢失 → 继续到步骤 2 重新获取
+    # 判断是否需要触发后台获取（在返回旧图标之前，确保 MISSING/FAILED 能触发重试）
+    should_fetch = False
+    if enable_favicons and request.user.is_authenticated:
+        if not cache:
+            should_fetch = True
+        elif cache.status == FaviconCache.STATUS_SUCCESS and cache.favicon_file:
+            # DB 说成功但磁盘文件丢失（不一致），重新获取
+            filepath = favicon_loader.get_favicon_path(cache.favicon_file)
+            if not filepath.is_file():
+                should_fetch = True
+        elif cache.status == FaviconCache.STATUS_FAILED or cache.status == FaviconCache.STATUS_MISSING:
+            if cache.next_retry_at and cache.next_retry_at <= timezone.now():
+                should_fetch = True
+    if should_fetch:
+        from bookmarks.services.tasks import _enqueue_favicon_task
+        _enqueue_favicon_task(request.user.id, domain)
 
-        # PENDING: 其他请求正在获取 → 不重复
-        elif cache.status == FaviconCache.STATUS_PENDING:
-            return JsonResponse({"status": "success", "favicon_file": "", "retry_after": 10})
+    # 有缓存文件且磁盘存在 → 返回图片（无论状态，过期图标仍可使用）
+    if cache and cache.favicon_file:
+        filepath = favicon_loader.get_favicon_path(cache.favicon_file)
+        if filepath.is_file():
+            content_type = mimetypes.guess_type(str(filepath))[0] or 'image/png'
+            resp = FileResponse(filepath.open('rb'), content_type=content_type)
+            resp['Cache-Control'] = 'public, max-age=86400'
+            return resp
 
-        # FAILED: 检查退火重试时间
-        elif cache.status == FaviconCache.STATUS_FAILED:
-            if cache.next_retry_at and cache.next_retry_at > timezone.now():
-                retry_after = int((cache.next_retry_at - timezone.now()).total_seconds())
-                return JsonResponse({"status": "success", "favicon_file": "", "retry_after": retry_after})
-            # 到了重试时间 → 继续到步骤 2
-
-        # MISSING: 永久失败 → 不重试
-        elif cache.status == FaviconCache.STATUS_MISSING:
-            return JsonResponse({"status": "success", "favicon_file": "", "retry_after": 2592000})
-
-    # 2. 尝试从 provider 获取
-    favicon_file = favicon_loader.fetch_and_save_favicon(domain, scheme="https")
-    if not favicon_file:
-        favicon_file = favicon_loader.fetch_and_save_favicon(domain, scheme="http")
-
-    if favicon_file:
-        FaviconCache.objects.update_or_create(
-            domain=domain,
-            defaults={
-                "favicon_file": favicon_file,
-                "status": FaviconCache.STATUS_SUCCESS,
-                "fetched_at": timezone.now(),
-                "retry_count": 0,
-                "next_retry_at": None,
-            },
-        )
-        return JsonResponse({"status": "success", "favicon_file": favicon_file})
-
-    # 3. 全部失败 → 退火重试
-    RETRY_DELAYS = FaviconCache.RETRY_DELAYS
-    if cache:
-        new_retry_count = cache.retry_count + 1
+    # 返回默认 favicon.svg
+    from django.contrib.staticfiles.finders import find
+    default_path = find('favicon.svg')
+    if default_path:
+        resp = FileResponse(Path(default_path).open('rb'), content_type='image/svg+xml')
     else:
-        new_retry_count = 1
-
-    if new_retry_count >= len(RETRY_DELAYS):
-        FaviconCache.objects.update_or_create(
-            domain=domain,
-            defaults={
-                "status": FaviconCache.STATUS_MISSING,
-                "favicon_file": "",
-                "retry_count": new_retry_count,
-                "next_retry_at": None,
-            },
-        )
-    else:
-        delay = RETRY_DELAYS[new_retry_count - 1]
-        FaviconCache.objects.update_or_create(
-            domain=domain,
-            defaults={
-                "status": FaviconCache.STATUS_FAILED,
-                "favicon_file": "",
-                "retry_count": new_retry_count,
-                "next_retry_at": timezone.now() + timezone.timedelta(seconds=delay),
-            },
-        )
-    return JsonResponse({"status": "success", "favicon_file": ""})
+        resp = HttpResponseNotFound()
+    resp['Cache-Control'] = 'public, max-age=3600'
+    return resp
 
 
 def load_temporary_preview_image(request: HttpRequest):
     image_url = request.GET.get("url")
     if not image_url:
         return HttpResponseBadRequest(_("URL parameter is missing"))
+    # SSRF protection: validate URL scheme and reject private IPs
+    try:
+        import ipaddress
+        from urllib.parse import urlparse
+        parsed = urlparse(image_url)
+        if parsed.scheme not in ("http", "https"):
+            return HttpResponseBadRequest(_("Only HTTP(S) URLs are allowed"))
+        hostname = parsed.hostname
+        if hostname:
+            try:
+                addr = ipaddress.ip_address(hostname)
+                if addr.is_private or addr.is_loopback or addr.is_link_local:
+                    return HttpResponseBadRequest(_("URL targets a private address"))
+            except ValueError:
+                pass  # hostname is a domain name, not an IP literal
+    except Exception:
+        pass
     try:
         image_name = preview_image_loader.load_temporary_preview_image(image_url)
         image_path = preview_image_loader._get_temporary_image_path(image_name)
@@ -789,8 +791,6 @@ def load_temporary_preview_image(request: HttpRequest):
 
         temp_path = settings.STATIC_URL + "tmp" + "/" + image_name
         result = {"temp_path": temp_path}
-        print(result)
-        print(JsonResponse(result))
         return JsonResponse(result)
     except Exception as e:
         return HttpResponseBadRequest(
@@ -885,15 +885,12 @@ def shared_action(request: HttpRequest):
 
 @login_required
 def trashed_action(request: HttpRequest):
-    # 如果用户的回收站搜索偏好为空，设置默认的删除时间降序
-    if not request.user_profile.trash_search_preferences:
-        request.user_profile.trash_search_preferences = {
-            "sort": BookmarkSearch.SORT_DELETED_DESC
-        }
-        request.user_profile.save()
+    trash_prefs = request.user_profile.trash_search_preferences or {
+        "sort": BookmarkSearch.SORT_DELETED_DESC
+    }
 
     search = BookmarkSearch.from_request(
-        request, request.GET, request.user_profile.trash_search_preferences
+        request, request.GET, trash_prefs
     )
     query = queries.query_trashed_bookmarks(request.user, request.user_profile, search)
 

@@ -33,6 +33,7 @@ ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
     "bookmarks.apps.BookmarksConfig",
+    "site_adapters.apps.SiteAdaptersConfig",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -292,7 +293,7 @@ USE_SQLITE_ICU_EXTENSION = USE_SQLITE and os.path.exists(SQLITE_ICU_EXTENSION_PA
 
 # Favicons
 LD_DEFAULT_FAVICON_PROVIDERS = [
-    "https://favicon.im/{domain}?large=true&throw-error-on-404=true",
+    "https://twenty-icons.com/{domain}/32",
     "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url={url}&size=32",
 ]
 LD_FAVICON_PROVIDERS = LD_DEFAULT_FAVICON_PROVIDERS
@@ -339,6 +340,16 @@ LD_CUSTOM_SNAPSHOT_PROCESSOR_SETTINGS = os.getenv(
 )
 LD_CUSTOM_READER_PROCESSOR_SETTINGS = os.getenv(
     "LD_CUSTOM_READER_PROCESSOR_SETTINGS", "data/reader_processor/settings.json"
+)
+
+# Minimum seconds between metadata requests to the same domain (0 = disabled)
+LD_METADATA_DOMAIN_COOLDOWN_SEC = float(
+    os.getenv("LD_METADATA_DOMAIN_COOLDOWN_SEC", 0)
+)
+
+# Site adapters (per-domain scripts, credentials, subscriptions)
+LD_SITE_ADAPTERS_DIR = os.getenv(
+    "LD_SITE_ADAPTERS_DIR", os.path.join(BASE_DIR, "data", "site_adapters")
 )
 
 # Asset / snapshot settings

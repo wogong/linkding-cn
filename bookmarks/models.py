@@ -16,7 +16,8 @@ from django.db.models import Q
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.http import QueryDict
-from django.utils.translation import gettext_lazy as _, pgettext_lazy
+from django.utils.translation import gettext_lazy as _
+from django.utils.translation import pgettext_lazy
 
 from bookmarks.utils import normalize_url, unique
 from bookmarks.validators import BookmarkURLValidator
@@ -1146,6 +1147,7 @@ class UserProfile(models.Model):
     reader_settings = models.JSONField(default=dict, null=False)
     bookmark_quick_tags = models.JSONField(default=list, blank=True, null=False)
     bookmark_toolbar_modules = models.JSONField(default=list, blank=True, null=False)
+    bookmark_toolbar_auto_hide = models.BooleanField(default=False, null=False)
 
     # 随机按钮设置
     RANDOM_MODE_LIST = "list"
@@ -1624,6 +1626,7 @@ class UserProfileForm(forms.ModelForm):
             "bookmark_quick_edits",
             "bookmark_quick_tags",
             "bookmark_toolbar_modules",
+            "bookmark_toolbar_auto_hide",
             "bookmark_action_display_mode",
             "bookmark_status_display_mode",
             "bookmark_quick_edit_display_mode",
@@ -1685,6 +1688,7 @@ class UserProfileQuickSettingsForm(forms.ModelForm):
             "bookmark_action_display_mode",
             "bookmark_status_display_mode",
             "bookmark_quick_edit_display_mode",
+            "bookmark_toolbar_auto_hide",
             "permanent_notes",
             "default_mark_unread",
             "default_mark_shared",

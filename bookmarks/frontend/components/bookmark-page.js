@@ -1,14 +1,11 @@
 import { Behavior, registerBehavior } from "./runtime.js";
 import { sanitizeSvgBody } from "../utils/svg.js";
 import { handleBookmarkAction } from "../utils/bookmark-action.js";
+import { getCSRFToken } from "../utils/csrf.js";
 
 // ==========================================
 // 书签列表
 // ==========================================
-
-function getCSRFToken() {
-  return document.cookie.match(/csrftoken=([^;]+)/)?.[1] || "";
-}
 
 function gettext(s) {
   return window.gettext ? window.gettext(s) : s;
@@ -738,7 +735,7 @@ class BookmarkItem extends Behavior {
 
     tagsContainer._editing = true;
     const currentTags = Array.from(tagsContainer.querySelectorAll("a")).map(
-      (tag) => tag.textContent.replace("#", ""),
+      (tag) => tag.textContent,
     );
 
     tagsContainer.style.display = "none";
@@ -849,7 +846,7 @@ class BookmarkItem extends Behavior {
     const tagsContainer = this.element.querySelector(".tags");
     if (!tagsContainer) return [];
     return Array.from(tagsContainer.querySelectorAll("a"))
-      .map((a) => a.textContent.replace(/^#/, "").trim())
+      .map((a) => a.textContent.trim())
       .filter(Boolean);
   }
 
@@ -1015,7 +1012,7 @@ class BookmarkItem extends Behavior {
 
       const link = document.createElement("a");
       link.href = `?q=%23${encodeURIComponent(tag)}`;
-      link.textContent = `#${tag}`;
+      link.textContent = tag;
       tagsContainer.appendChild(link);
     });
     tagsContainer.style.display = "";
@@ -1492,6 +1489,10 @@ class DomainTreeBehavior extends Behavior {
     // Include view_mode so browser HTTP cache differentiates icon/full mode responses
     const viewMode = this.element?.dataset.domainViewMode || "full";
     sp.set("view_mode", viewMode);
+    // Include domain config fingerprint to bust sessionStorage cache when
+    // custom domain normalization rules change
+    const fingerprint = this.element?.dataset.domainConfigFingerprint;
+    if (fingerprint) sp.set("fp", fingerprint);
     for (const [key, val] of new URLSearchParams(window.location.search)) {
       if (!SKIP.has(key) && val) sp.set(key, val);
     }
@@ -1947,7 +1948,8 @@ async function loadSidebarContent(page) {
   const ctx = ctxEl?.dataset.ctx || "active";
 
   const modules = placeholder.dataset.sidebarLazyModules || "domains,tags,bundles,summary";
-  const cacheKey = `sidebar-content:${ctx}:${modules}`;
+  const fingerprint = placeholder.dataset.domainConfigFingerprint || "";
+  const cacheKey = `sidebar-content:${ctx}:${modules}` + (fingerprint ? `:${fingerprint}` : "");
 
   let html = null;
   try { html = sessionStorage.getItem(cacheKey); } catch {}

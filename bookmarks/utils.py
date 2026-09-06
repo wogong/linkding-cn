@@ -11,7 +11,7 @@ import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 
-import tldextract
+from publicsuffixlist import PublicSuffixList
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.http import HttpResponseRedirect
@@ -224,13 +224,17 @@ def get_domain(url: str) -> str:
     return urllib.parse.urlparse(url).netloc
 
 
-_registrable_domain_extractor = tldextract.TLDExtract(suffix_list_urls=None)
+_psl = PublicSuffixList()
 
 
 def get_registrable_domain(url: str) -> str:
     hostname = urllib.parse.urlparse(url).hostname or ""
     if not hostname:
         return ""
+
+    registrable = _psl.privatesuffix(hostname)
+    return registrable.lower() if registrable else hostname.lower()
+
 
     extracted = _registrable_domain_extractor(hostname)
     if extracted.domain and extracted.suffix:
@@ -625,8 +629,8 @@ def atomic_write(path: str, content: str, encoding: str = 'utf-8'):
 def is_safe_domain_key(domain_key: str) -> bool:
     """Check that a domain key is safe for use as a filename component.
 
-    Disallows path traversal, leading dots, and characters outside
-    alphanumeric + hyphen + underscore + dot.
+    Allows wildcard prefix (e.g. *.example.com). Disallows path traversal,
+    leading dots, and characters outside alphanumeric + hyphen + underscore + dot + star.
     """
     if not domain_key:
         return False
@@ -634,4 +638,4 @@ def is_safe_domain_key(domain_key: str) -> bool:
         return False
     if '/' in domain_key or '\\' in domain_key or '..' in domain_key:
         return False
-    return bool(re.match(r'^[A-Za-z0-9][A-Za-z0-9._-]*$', domain_key))
+    return bool(re.match(r'^[A-Za-z0-9*][A-Za-z0-9._*-]*$', domain_key))

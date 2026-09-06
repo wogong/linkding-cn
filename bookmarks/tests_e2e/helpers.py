@@ -14,7 +14,7 @@ class LinkdingE2ETestCase(LiveServerTestCase, BookmarkFactoryMixin):
         user.profile.enable_favicons = False
         user.profile.save(update_fields=["enable_favicons"])
         self.client.force_login(user)
-        self.cookie = self.client.cookies["sessionid"]
+        self.cookie = self.client.cookies["ld_sessionid"]
 
     def setup_browser(self, playwright) -> BrowserContext:
         browser = playwright.chromium.launch(headless=True)
@@ -22,7 +22,7 @@ class LinkdingE2ETestCase(LiveServerTestCase, BookmarkFactoryMixin):
         context.add_cookies(
             [
                 {
-                    "name": "sessionid",
+                    "name": "ld_sessionid",
                     "value": self.cookie.value,
                     "domain": self.live_server_url.replace("http:", ""),
                     "path": "/",

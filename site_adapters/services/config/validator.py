@@ -1,8 +1,15 @@
 """
 Validator — 配置验证 + 字段分类
 
-合并了原 engine.py 的验证函数和 classifier.py 的字段分类逻辑。
-编辑器自动补全函数（get_http_headers_set 等）也在此模块。
+Issue 结构:
+    {
+        'level': 'error' | 'warning' | 'info',
+        'code': str,       # 机器可读的 issue 类型
+        'message': str,    # 人类可读描述
+        'file': str,       # 文件路径 (可选)
+        'adapter': str,    # adapter id.name (可选)
+        'path': str,       # 配置路径，如 example.com.snapshot.scripts[0].path (可选)
+    }
 """
 
 import json
@@ -13,6 +20,7 @@ import re
 from site_adapters.services.config import (
     is_safe_script_path,
     load_jsonc_file,
+    load_jsonc_file_with_warnings,
     parse_jsonc,
     _resolve_path,
 )
@@ -20,153 +28,138 @@ from site_adapters.services.config import (
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# 路径
+# Issue helper
 # ---------------------------------------------------------------------------
-_BASE_DIR = os.path.dirname(__file__)
-_SERVICES_DIR = os.path.dirname(_BASE_DIR)
-_SOURCE_ETC_DIR = os.path.join(_SERVICES_DIR, 'engine', 'references')
+
+def _issue(
+    level: str,
+    code: str,
+    message: str,
+    file: str | None = None,
+    adapter: str | None = None,
+    path: str | None = None,
+) -> dict:
+    """Build a structured issue dict."""
+    d = {'level': level, 'code': code, 'message': message}
+    if file:
+        d['file'] = file
+    if adapter:
+        d['adapter'] = adapter
+    if path:
+        d['path'] = path
+    return d
+
+
+# ---------------------------------------------------------------------------
+# 自动类型校验（基于 fields.py 的 type 字符串）
+# ---------------------------------------------------------------------------
+
+def _check_type(value, type_str: str) -> bool:
+    """Check if *value* matches the type declared in fields.py.
+
+    Returns True if valid, False if invalid.
+    """
+    if type_str == 'int':
+        return isinstance(value, int) and not isinstance(value, bool)
+    if type_str == 'bool':
+        return isinstance(value, bool)
+    if type_str == 'str':
+        return isinstance(value, str)
+    if type_str == 'str|null':
+        return value is None or isinstance(value, str)
+    if type_str == 'str|array<str>':
+        if isinstance(value, str):
+            return True
+        return isinstance(value, list) and all(isinstance(i, str) for i in value)
+    if type_str == 'bool|array<str>':
+        if isinstance(value, bool):
+            return True
+        return isinstance(value, list) and all(isinstance(i, str) for i in value)
+    if type_str == 'array<str>':
+        return isinstance(value, list) and all(isinstance(i, str) for i in value)
+    if type_str == 'object<string, string>':
+        return isinstance(value, dict) and all(
+            isinstance(k, str) and isinstance(v, str) for k, v in value.items()
+        )
+    if type_str == 'object':
+        return isinstance(value, dict)
+    if type_str == 'rewrite':
+        if not isinstance(value, list):
+            return False
+        if len(value) == 2 and isinstance(value[0], str) and isinstance(value[1], str):
+            return True
+        return all(
+            isinstance(rule, list) and len(rule) == 2
+            and isinstance(rule[0], str) and isinstance(rule[1], str)
+            for rule in value
+        )
+    if type_str == 'auth':
+        return value is None or isinstance(value, dict)
+    if type_str == 'array<{path, hook}>':
+        if not isinstance(value, list):
+            return False
+        return all(isinstance(item, dict) for item in value)
+    # Enum types: "html"|"xml"|"json" or "auto"|"login" etc.
+    if '|' in type_str and '<' not in type_str:
+        import re
+        options = re.findall(r'"([^"]+)"', type_str)
+        if options:
+            return value in options
+    # Fallback: no type check available
+    return True
+
+
+def _auto_type_check(issues, label, section, key, value, file, adapter):
+    """Auto-check field type against fields.py declaration."""
+    field_def = ALL_SECTIONS.get(section, {}).get(key, {})
+    type_str = field_def.get('type', '')
+    if not type_str:
+        return
+    # Skip types handled by special validators
+    if type_str in ('auth', 'array<{path, hook}>', 'rewrite'):
+        return
+    if not _check_type(value, type_str):
+        issues.append(_issue(
+            'error', 'type_mismatch',
+            f"{label}.{section}.{key} must be {type_str}, got {type(value).__name__}",
+            file=file, adapter=adapter, path=f"{label}.{section}.{key}",
+        ))
+
 
 # ---------------------------------------------------------------------------
 # 缓存
 # ---------------------------------------------------------------------------
-_http_headers_set: set[str] | None = None
-_http_headers_descs: dict[str, str] | None = None
 _singlefile_args_set: set[str] | None = None
 _defuddle_params_set: set[str] | None = None
 
 # ---------------------------------------------------------------------------
 # 各板块合法字段
 # ---------------------------------------------------------------------------
-
-DEFAULT_FIELDS = frozenset({
-    "timeout", "proxy",
-    "request_url", "rewrite_url",
-    "http", "auth",
-})
-
-METADATA_FIELDS = frozenset({
-    "select_title", "select_description", "select_image",
-    "script",
-    "timeout", "proxy",
-    "request_url", "rewrite_url",
-    "http", "auth",
-})
-
-SNAPSHOT_FIELDS = frozenset({
-    "keep_elements", "remove_elements", "process_lazy_images",
-    "remove_classes", "set_styles",
-    "script",
-    "singlefile_args",
-    "toggles",
-    "timeout", "proxy",
-    "request_url", "rewrite_url",
-    "http", "auth",
-})
-
-READER_FIELDS = frozenset({
-    "defuddle_args",
-    "timeout", "proxy",
-    "http", "auth",
-})
-
-# ---------------------------------------------------------------------------
-# 兜底列表
-# ---------------------------------------------------------------------------
-
-COMMON_HTTP_HEADERS = frozenset({
-    "Accept", "Accept-Encoding", "Accept-Language", "Authorization",
-    "Cache-Control", "Connection", "Content-Type", "Cookie",
-    "Host", "Origin", "Pragma", "Referer", "User-Agent",
-    "X-Forwarded-For", "X-Requested-With",
-})
-
-_SINGLEFILE_ARGS_FALLBACK = frozenset({
-    "--browser-cookies-file", "--browser-script", "--user-agent",
-    "--http-proxy-server", "--http-header", "--browser-executable-path",
-    "--browser-load-max-time", "--browser-wait-delay", "--browser-wait-until",
-    "--remove-hidden-elements", "--remove-frames",
-    "--load-deferred-images", "--dump-content", "--error-file",
-    "--user-script-enabled", "--compress-CSS", "--compress-HTML",
-})
-
-_DEFUDDLE_PARAMS_FALLBACK = frozenset({
-    "contentSelector", "removeExactSelectors", "removePartialSelectors",
-    "removeHiddenElements", "removeLowScoring", "removeSmallImages",
-    "removeImages", "standardize", "url", "markdown", "separateMarkdown",
-    "debug", "language", "useAsync", "includeReplies", "profile",
-})
-
-# ---------------------------------------------------------------------------
-# etc 文件加载
-# ---------------------------------------------------------------------------
-
-_ETC_DELIMITERS = ('|', ',', ' ')
-
-def _parse_etc_line(line: str) -> tuple[str, str] | None:
-    """Parse one line: 'Name' or 'Name | Description'. Delimiters: | , space"""
-    line = line.strip()
-    if not line or line.startswith('#'):
-        return None
-    for i, ch in enumerate(line):
-        if ch in _ETC_DELIMITERS:
-            return line[:i].strip(), line[i+1:].strip()
-    return line, ''
-
-def _get_user_etc_dir() -> str:
-    try:
-        from django.conf import settings
-        return os.path.join(settings.LD_SITE_ADAPTERS_DIR, 'etc')
-    except Exception:
-        return ''
-
-def _load_from_etc(filename: str, fallback: frozenset) -> tuple[set[str], dict[str, str]]:
-    """Load from engine/references/ (user dir first), return (set, {name: desc})"""
-    user_dir = _get_user_etc_dir()
-    for d in (user_dir, _SOURCE_ETC_DIR):
-        path = os.path.join(d, filename) if d else ''
-        if path and os.path.exists(path):
-            try:
-                names, descs = set(), {}
-                with open(path, encoding='utf-8') as f:
-                    for line in f:
-                        parsed = _parse_etc_line(line)
-                        if parsed:
-                            names.add(parsed[0])
-                            if parsed[1]:
-                                descs[parsed[0]] = parsed[1]
-                if names:
-                    return names, descs
-            except OSError:
-                pass
-    return set(fallback), {}
-
-
-def get_http_headers_set() -> set[str]:
-    global _http_headers_set
-    if _http_headers_set is None:
-        _http_headers_set = _load_from_etc('http_headers.txt', COMMON_HTTP_HEADERS)[0]
-    return _http_headers_set
-
-
-def get_http_headers_descs() -> dict[str, str]:
-    """Return HTTP header descriptions (if provided in etc file)"""
-    global _http_headers_descs
-    if _http_headers_descs is None:
-        _http_headers_descs = _load_from_etc('http_headers.txt', COMMON_HTTP_HEADERS)[1]
-    return _http_headers_descs
+from site_adapters.services.config.fields import (
+    DEFAULT_FIELDS,
+    DEFUDDLE_ARG_FIELDS,
+    METADATA_FIELDS,
+    SNAPSHOT_FIELDS,
+    READER_FIELDS,
+    ALL_SECTIONS,
+    SINGLEFILE_ARG_NAMES,
+)
 
 
 def get_singlefile_args_set() -> set[str]:
     global _singlefile_args_set
     if _singlefile_args_set is None:
-        _singlefile_args_set = _load_from_etc('singlefile_args.txt', _SINGLEFILE_ARGS_FALLBACK)[0]
+        _singlefile_args_set = set(SINGLEFILE_ARG_NAMES)
     return _singlefile_args_set
 
 
 def get_defuddle_params_set() -> set[str]:
     global _defuddle_params_set
     if _defuddle_params_set is None:
-        _defuddle_params_set = _load_from_etc('defuddle_params.txt', _DEFUDDLE_PARAMS_FALLBACK)[0]
+        _defuddle_params_set = {
+            key for key, info in DEFUDDLE_ARG_FIELDS.items()
+            if not info.get("reserved")
+        }
     return _defuddle_params_set
 
 
@@ -175,10 +168,10 @@ def get_defuddle_params_set() -> set[str]:
 # ---------------------------------------------------------------------------
 
 _SECTION_FIELDS = {
-    'default': DEFAULT_FIELDS,
-    'metadata': METADATA_FIELDS,
-    'snapshot': SNAPSHOT_FIELDS,
-    'reader': READER_FIELDS,
+    'defaults': set(DEFAULT_FIELDS.keys()),
+    'metadata': set(METADATA_FIELDS.keys()),
+    'snapshot': set(SNAPSHOT_FIELDS.keys()),
+    'reader': set(READER_FIELDS.keys()),
 }
 
 def classify_field(section: str, key: str) -> str:
@@ -187,17 +180,10 @@ def classify_field(section: str, key: str) -> str:
     - "field": known field for this section
     - "unknown": unrecognized field
     """
-    fields = _SECTION_FIELDS.get(section, frozenset())
+    fields = _SECTION_FIELDS.get(section, set())
     if key in fields:
         return "field"
     return "unknown"
-
-
-def is_http_header(name: str) -> bool:
-    headers = get_http_headers_set()
-    if headers:
-        return name in headers
-    return bool(re.match(r'^[A-Z]', name))
 
 
 def is_known_singlefile_arg(name: str) -> bool:
@@ -225,14 +211,14 @@ def separate_http_fields(data: dict) -> tuple[dict, dict]:
     return app, headers
 
 
-def validate_section_fields(section: str, data: dict) -> list[str]:
-    """Validate section fields, return warnings. Unknown fields are discarded."""
-    warnings = []
-    fields = _SECTION_FIELDS.get(section, frozenset())
+def validate_section_fields(section: str, data: dict) -> list[dict]:
+    """Validate section fields, return issues. Unknown fields are discarded."""
+    issues = []
+    fields = _SECTION_FIELDS.get(section, set())
     for key in data:
         if key not in fields:
-            warnings.append(f"WARN: {section}.{key} is unknown, discarded")
-    return warnings
+            issues.append(_issue('warning', 'unknown_field', f"{section}.{key} is unknown, discarded"))
+    return issues
 
 
 # ---------------------------------------------------------------------------
@@ -243,186 +229,241 @@ def _is_safe_name(name: str) -> bool:
     return bool(name) and name == os.path.basename(name) and '/' not in name and '\\' not in name and '..' not in name
 
 
-def _validate_subscriptions(issues: list[str], subscriptions):
-    if subscriptions is None:
+def _validate_subscriptions(issues: list[dict], adapters, file: str | None = None, adapters_dir: str | None = None):
+    if adapters is None:
         return
-    if not isinstance(subscriptions, list):
-        issues.append("ERROR: _subscriptions 必须是数组")
+    if not isinstance(adapters, list):
+        issues.append(_issue('error', 'adapters_not_list', "_adapters must be an array", file=file))
         return
-    for index, sub in enumerate(subscriptions):
-        label = f"_subscriptions[{index}]"
-        if not isinstance(sub, dict):
-            issues.append(f"ERROR: {label} 必须是对象")
+    from site_adapters.services.subscriptions import is_remote_source, resolve_adapter_path, _normalize_source_to_directory
+    for index, adp in enumerate(adapters):
+        label = f"_adapters[{index}]"
+        if not isinstance(adp, dict):
+            issues.append(_issue('error', 'adapter_entry_not_object', f"{label} must be an object", file=file, path=label))
             continue
-        from urllib.parse import urlparse
-        parsed = urlparse(sub.get('url', ''))
-        if parsed.scheme != 'https' or not parsed.netloc:
-            issues.append(f"ERROR: {label}.url 必须是 HTTPS URL")
-        name = sub.get('name', '')
+        name = adp.get('name', '')
         if name and not _is_safe_name(name):
-            issues.append(f"ERROR: {label}.name 非法")
-        interval = sub.get('update_interval', 86400)
+            issues.append(_issue('error', 'adapter_name_invalid', f"{label}.name is invalid", file=file, path=f"{label}.name"))
+        source = adp.get('source', '')
+        if source:
+            if is_remote_source(source):
+                from urllib.parse import urlparse
+                parsed = urlparse(source)
+                if parsed.scheme != 'https' or not parsed.netloc:
+                    issues.append(_issue('error', 'adapter_source_not_https', f"{label}.source must be an HTTPS URL", file=file, path=f"{label}.source"))
+            else:
+                # Resolve relative source paths against adapters_dir, same as resolve_adapter_path
+                resolved = resolve_adapter_path(name, source, adapters_dir, adapter_id=adp.get('id', '')) if adapters_dir else source
+                if not os.path.exists(resolved):
+                    issues.append(_issue('warning', 'adapter_source_not_found', f"{label}.source local file not found: {source}", file=file, path=f"{label}.source"))
+        interval = adp.get('update_interval', 86400)
         if not isinstance(interval, int) or interval <= 0:
-            issues.append(f"ERROR: {label}.update_interval 必须是正整数")
+            issues.append(_issue('error', 'update_interval_invalid', f"{label}.update_interval must be a positive integer", file=file, path=f"{label}.update_interval"))
 
 
-def _check_exclusive(issues, label, data, groups):
-    """检查互斥参数组，同组内超过一个则警告"""
-    for group in groups:
-        present = []
-        for key in group:
-            val = data
-            for part in key.split('.'):
-                val = (val if isinstance(val, dict) else {}).get(part)
-            if val:
-                present.append(key)
-        if len(present) > 1:
-            issues.append(f"WARN: {label}: {', '.join(present)} 互斥，只有 {present[0]} 生效")
-
-
-def _validate_cookie_block(issues: list[str], label: str, cookie: dict, file_dir: str):
+def _validate_cookie_block(issues: list[dict], label: str, cookie: dict, file_dir: str, file: str | None = None, adapter: str | None = None):
     """Validate a cookie config block."""
     if not isinstance(cookie, dict):
-        issues.append(f"ERROR: {label} must be an object")
+        issues.append(_issue('error', 'cookie_block_error', f"{label} must be an object", file=file, adapter=adapter, path=label))
         return
-    valid_types = ("anon", "login")
-    ctype = cookie.get("type", "anon")
+    valid_types = ("auto", "login")
+    ctype = cookie.get("type", "auto")
     if ctype not in valid_types:
-        issues.append(f"ERROR: {label}.type must be one of {valid_types}, got '{ctype}'")
+        issues.append(_issue('error', 'cookie_block_error', f"{label}.type must be one of {valid_types}, got '{ctype}'", file=file, adapter=adapter, path=f"{label}.type"))
     # verify
     verify = cookie.get("verify")
     if verify is not None:
         if not isinstance(verify, dict):
-            issues.append(f"ERROR: {label}.verify must be an object")
+            issues.append(_issue('error', 'cookie_block_error', f"{label}.verify must be an object", file=file, adapter=adapter, path=f"{label}.verify"))
         else:
             check = verify.get("check")
             if check is not None:
                 if not isinstance(check, list) or not all(isinstance(s, str) for s in check):
-                    issues.append(f"ERROR: {label}.verify.check must be a string array")
-            invalid_pats = verify.get("invalid_patterns")
+                    issues.append(_issue('error', 'cookie_block_error', f"{label}.verify.check must be a string array", file=file, adapter=adapter, path=f"{label}.verify.check"))
+            invalid_pats = verify.get("content_check", {}).get("invalid_patterns", []) if isinstance(verify.get("content_check"), dict) else verify.get("invalid_patterns", [])
             if invalid_pats is not None:
                 if not isinstance(invalid_pats, list) or not all(isinstance(s, str) for s in invalid_pats):
-                    issues.append(f"ERROR: {label}.verify.invalid_patterns must be a string array")
+                    issues.append(_issue('error', 'cookie_block_error', f"{label}.verify.invalid_patterns must be a string array", file=file, adapter=adapter, path=f"{label}.verify.invalid_patterns"))
             valid_selector = verify.get("valid_selector")
             if valid_selector is not None and not isinstance(valid_selector, str):
-                issues.append(f"ERROR: {label}.verify.valid_selector must be a string")
+                issues.append(_issue('error', 'cookie_block_error', f"{label}.verify.valid_selector must be a string", file=file, adapter=adapter, path=f"{label}.verify.valid_selector"))
             # warn about unknown keys
             for key in verify:
-                if key not in ("check", "invalid_patterns", "valid_selector"):
-                    issues.append(f"WARN: {label}.verify.{key} is unknown, will be ignored")
+                if key not in ("check", "check_selectors", "invalid_patterns", "invalid_selectors", "valid_selector", "http_head_probe", "content_check", "probe"):
+                    issues.append(_issue('warning', 'unknown_field', f"{label}.verify.{key} is unknown, will be ignored", file=file, adapter=adapter, path=f"{label}.verify.{key}"))
     # refresh
     refresh = cookie.get("refresh")
     if refresh is not None:
         if not isinstance(refresh, dict):
-            issues.append(f"ERROR: {label}.refresh must be an object")
+            issues.append(_issue('error', 'cookie_block_error', f"{label}.refresh must be an object", file=file, adapter=adapter, path=f"{label}.refresh"))
         else:
             for key in refresh:
-                if key not in ("url", "wait_cookie", "timeout"):
-                    issues.append(f"WARN: {label}.refresh.{key} is unknown, will be ignored")
+                if key not in ("url", "wait_cookie", "timeout", "interval", "user_data_dir"):
+                    issues.append(_issue('warning', 'unknown_field', f"{label}.refresh.{key} is unknown, will be ignored", file=file, adapter=adapter, path=f"{label}.refresh.{key}"))
     # refresh_interval
-    ri = cookie.get("refresh_interval")
-    if ri is not None:
-        if not isinstance(ri, (int, float)) or ri <= 0:
-            issues.append(f"ERROR: {label}.refresh_interval must be a positive number")
+    refresh_block = cookie.get("refresh")
+    ri = None
+    if isinstance(refresh_block, dict):
+        ri = refresh_block.get("interval", cookie.get("refresh_interval"))
+    else:
+        ri = cookie.get("refresh_interval")
+    if ri is not None and (not isinstance(ri, (int, float)) or ri <= 0):
+        issues.append(_issue('error', 'cookie_block_error', f"{label}.refresh.interval must be a positive number", file=file, adapter=adapter, path=f"{label}.refresh.interval"))
     # warn about unknown keys at cookie level
     for key in cookie:
-        if key not in ("type", "verify", "refresh", "refresh_interval"):
-            issues.append(f"WARN: {label}.{key} is unknown, will be ignored")
+        if key not in ("enabled", "type", "verify", "refresh", "help"):
+            issues.append(_issue('warning', 'unknown_field', f"{label}.{key} is unknown, will be ignored", file=file, adapter=adapter, path=f"{label}.{key}"))
 
 
-def _validate_auth_block(issues: list[str], label: str, auth: dict, file_dir: str):
+def _validate_auth_block(issues: list[dict], label: str, auth: dict, file_dir: str, file: str | None = None, adapter: str | None = None):
     """Validate an auth config block."""
     if not isinstance(auth, dict):
-        issues.append(f"ERROR: {label} must be an object")
+        issues.append(_issue('error', 'auth_block_error', f"{label} must be an object", file=file, adapter=adapter, path=label))
         return
     # Validate cookie sub-block
     cookie = auth.get('cookie')
     if cookie is not None:
-        _validate_cookie_block(issues, f"{label}.cookie", cookie, file_dir)
+        _validate_cookie_block(issues, f"{label}.cookie", cookie, file_dir, file=file, adapter=adapter)
     # Validate headers sub-block
     headers = auth.get('headers')
     if headers is not None:
         if not isinstance(headers, dict):
-            issues.append(f"ERROR: {label}.headers must be an object")
+            issues.append(_issue('error', 'auth_block_error', f"{label}.headers must be an object", file=file, adapter=adapter, path=f"{label}.headers"))
         else:
-            for name, config in headers.items():
-                if not isinstance(name, str):
-                    issues.append(f"ERROR: {label}.headers key must be a string")
-                if config and not isinstance(config, dict):
-                    issues.append(f"ERROR: {label}.headers.{name} must be an object")
-    # Validate token sub-block
-    token = auth.get('token')
-    if token is not None:
-        if not isinstance(token, dict):
-            issues.append(f"ERROR: {label}.token must be an object")
+            reserved = ('enabled', 'help', 'values')
+            has_values = 'values' in headers
+            if has_values:
+                # Structured form: validate enabled, help, values
+                if 'enabled' in headers and not isinstance(headers['enabled'], bool):
+                    issues.append(_issue('error', 'auth_block_error', f"{label}.headers.enabled must be a boolean", file=file, adapter=adapter, path=f"{label}.headers.enabled"))
+                if 'help' in headers and not isinstance(headers['help'], str):
+                    issues.append(_issue('error', 'auth_block_error', f"{label}.headers.help must be a string", file=file, adapter=adapter, path=f"{label}.headers.help"))
+                vals = headers.get('values')
+                if vals is not None:
+                    if not isinstance(vals, dict):
+                        issues.append(_issue('error', 'auth_block_error', f"{label}.headers.values must be an object", file=file, adapter=adapter, path=f"{label}.headers.values"))
+                    else:
+                        for name, config in vals.items():
+                            if not isinstance(name, str):
+                                issues.append(_issue('error', 'auth_block_error', f"{label}.headers.values key must be a string", file=file, adapter=adapter, path=f"{label}.headers.values"))
+                            if config is not None and not isinstance(config, str):
+                                issues.append(_issue('error', 'auth_block_error', f"{label}.headers.values.{name} must be a string", file=file, adapter=adapter, path=f"{label}.headers.values.{name}"))
+                # Warn about unknown keys outside values/enabled/help
+                for key in headers:
+                    if key not in reserved:
+                        issues.append(_issue('warning', 'unknown_field', f"{label}.headers.{key} is unknown, will be ignored", file=file, adapter=adapter, path=f"{label}.headers.{key}"))
+            else:
+                # Flat form: enabled/help are reserved, rest are header names
+                for name, config in headers.items():
+                    if name in ('enabled', 'help'):
+                        continue
+                    if not isinstance(name, str):
+                        issues.append(_issue('error', 'auth_block_error', f"{label}.headers key must be a string", file=file, adapter=adapter, path=f"{label}.headers"))
+                    if config is not None and not isinstance(config, str):
+                        issues.append(_issue('error', 'auth_block_error', f"{label}.headers.{name} must be a string", file=file, adapter=adapter, path=f"{label}.headers.{name}"))
+    # Validate oauth2 sub-block
+    oauth2 = auth.get("oauth2")
+    if oauth2 is not None:
+        prefix = f"{label}.oauth2"
+        if not isinstance(oauth2, dict):
+            issues.append(_issue('error', 'auth_block_error', f"{prefix} must be an object", file=file, adapter=adapter, path=prefix))
         else:
-            valid_types = ("anon", "login")
-            ttype = token.get("type")
-            if ttype is None:
-                issues.append(f"ERROR: {label}.token.type is required")
-            elif ttype not in valid_types:
-                issues.append(f"ERROR: {label}.token.type must be one of {valid_types}, got '{ttype}'")
-            endpoint = token.get("endpoint")
+            endpoint = oauth2.get("endpoint")
             if not isinstance(endpoint, str) or not endpoint.strip():
-                issues.append(f"ERROR: {label}.token.endpoint must be a non-empty string")
-            for key in ("client_id", "client_secret", "grant_type", "format", "access_path", "refresh_path", "expires_path", "header", "header_format"):
-                value = token.get(key)
+                issues.append(_issue('error', 'auth_block_error', f"{prefix}.endpoint must be a non-empty string", file=file, adapter=adapter, path=f"{prefix}.endpoint"))
+            for key in ("client_id", "client_secret", "grant_type", "format",
+                         "access_token_path", "access_path",
+                         "refresh_token_path", "refresh_path",
+                         "expires_in_path", "expires_path",
+                         "header", "header_format"):
+                value = oauth2.get(key)
                 if value is not None and not isinstance(value, str):
-                    issues.append(f"ERROR: {label}.token.{key} must be a string")
-            extra_params = token.get("extra_params")
+                    issues.append(_issue('error', 'auth_block_error', f"{prefix}.{key} must be a string", file=file, adapter=adapter, path=f"{prefix}.{key}"))
+            extra_params = oauth2.get("extra_params")
             if extra_params is not None:
                 if not isinstance(extra_params, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in extra_params.items()):
-                    issues.append(f"ERROR: {label}.token.extra_params must be a string map")
-            verify = token.get("verify")
-            if verify is not None:
-                if not isinstance(verify, dict):
-                    issues.append(f"ERROR: {label}.token.verify must be an object")
-                else:
-                    check = verify.get("check")
-                    if check is not None:
-                        if not isinstance(check, list) or not all(isinstance(s, str) for s in check):
-                            issues.append(f"ERROR: {label}.token.verify.check must be a string array")
-                    invalid_pats = verify.get("invalid_patterns")
-                    if invalid_pats is not None:
-                        if not isinstance(invalid_pats, list) or not all(isinstance(s, str) for s in invalid_pats):
-                            issues.append(f"ERROR: {label}.token.verify.invalid_patterns must be a string array")
-                    valid_selector = verify.get("valid_selector")
-                    if valid_selector is not None and not isinstance(valid_selector, str):
-                        issues.append(f"ERROR: {label}.token.verify.valid_selector must be a string")
-                    for key in verify:
-                        if key not in ("check", "invalid_patterns", "valid_selector"):
-                            issues.append(f"WARN: {label}.token.verify.{key} is unknown, will be ignored")
+                    issues.append(_issue('error', 'auth_block_error', f"{prefix}.extra_params must be a string map", file=file, adapter=adapter, path=f"{prefix}.extra_params"))
+    # Validate basic_auth sub-block
+    basic_auth = auth.get('basic_auth')
+    if basic_auth is not None:
+        if not isinstance(basic_auth, dict):
+            issues.append(_issue('error', 'auth_block_error', f"{label}.basic_auth must be an object", file=file, adapter=adapter, path=f"{label}.basic_auth"))
     # Warn about unknown keys
     for key in auth:
-        if key not in ('cookie', 'headers', 'token'):
-            issues.append(f"WARN: {label}.{key} is unknown, will be ignored")
+        if key not in ('cookie', 'headers', 'oauth2', 'basic_auth'):
+            issues.append(_issue('warning', 'unknown_field', f"{label}.{key} is unknown, will be ignored", file=file, adapter=adapter, path=f"{label}.{key}"))
 
 
-def _validate_domain_config(issues: list[str], label: str, data: dict, file_dir: str):
+def _validate_routes(issues: list[dict], label: str, routes, file_dir: str, file: str | None = None, adapter: str | None = None):
+    """Validate a routes block."""
+    if not isinstance(routes, dict):
+        issues.append(_issue('error', 'routes_not_object',
+            f"{label}.routes must be an object (pattern -> config)",
+            file=file, adapter=adapter, path=f"{label}.routes"))
+        return
+    for pattern, route_config in routes.items():
+        route_label = f'{label}.routes["{pattern}"]'
+        # Validate regex
+        try:
+            re.compile(pattern)
+        except re.error as e:
+            issues.append(_issue('error', 'route_pattern_invalid',
+                f"{route_label} invalid regex: {e}",
+                file=file, adapter=adapter, path=route_label))
+        # Validate route config structure
+        if not isinstance(route_config, dict):
+            issues.append(_issue('error', 'route_config_not_object',
+                f"{route_label} must be an object",
+                file=file, adapter=adapter, path=route_label))
+            continue
+        if route_config.get('type') == 'alias':
+            issues.append(_issue('warning', 'route_alias_not_supported',
+                f"{route_label}: alias type not supported in routes, will be ignored",
+                file=file, adapter=adapter, path=route_label))
+            continue
+        # Recursively validate route config as domain config,
+        # but disallow nested routes
+        _validate_domain_config(issues, route_label, route_config, file_dir,
+                                file=file, adapter=adapter, allow_routes=False)
+
+
+def _validate_domain_config(issues: list[dict], label: str, data: dict, file_dir: str, file: str | None = None, adapter: str | None = None, allow_routes: bool = True):
     if not isinstance(data, dict):
-        issues.append(f"ERROR: {label} top level must be an object")
+        issues.append(_issue('error', 'domain_not_object', f"{label} top level must be an object", file=file, adapter=adapter, path=label))
         return
     if data.get('type') == 'alias':
         if not data.get('target'):
-            issues.append(f"ERROR: {label} alias missing target")
+            issues.append(_issue('error', 'alias_missing_target', f"{label} alias missing target", file=file, adapter=adapter, path=label))
         return
     # Validate auth at top level (shared across all sections)
     top_auth = data.get('auth')
     if top_auth is not None:
-        _validate_auth_block(issues, f"{label}.auth", top_auth, file_dir)
+        _validate_auth_block(issues, f"{label}.auth", top_auth, file_dir, file=file, adapter=adapter)
 
-    # Validate default section
-    default = data.get('default', {})
+    # Validate defaults section
+    default = data.get('defaults', {})
     if default:
         if not isinstance(default, dict):
-            issues.append(f"ERROR: {label}.default must be an object")
+            issues.append(_issue('error', 'section_not_object', f"{label}.defaults must be an object", file=file, adapter=adapter, path=f"{label}.defaults"))
         else:
             for key in default:
-                if classify_field('default', key) == 'unknown':
-                    issues.append(f"WARN: {label}.default.{key} is unknown, will be ignored at runtime")
+                if classify_field('defaults', key) == 'unknown':
+                    issues.append(_issue('warning', 'unknown_field', f"{label}.defaults.{key} is unknown, will be ignored at runtime", file=file, adapter=adapter, path=f"{label}.defaults.{key}"))
+                else:
+                    _auto_type_check(issues, label, 'defaults', key, default[key], file, adapter)
             auth = default.get('auth')
             if auth is not None:
-                _validate_auth_block(issues, f"{label}.default.auth", auth, file_dir)
+                _validate_auth_block(issues, f"{label}.defaults.auth", auth, file_dir, file=file, adapter=adapter)
+
+    # Validate routes
+    routes = data.get('routes')
+    if routes is not None:
+        if not allow_routes:
+            issues.append(_issue('warning', 'routes_unexpected_location',
+                f"{label}.routes is not supported here (only at domain level), will be ignored",
+                file=file, adapter=adapter, path=f"{label}.routes"))
+        else:
+            _validate_routes(issues, label, routes, file_dir, file=file, adapter=adapter)
 
     # Validate sections
     for section in ('metadata', 'snapshot', 'reader'):
@@ -430,80 +471,232 @@ def _validate_domain_config(issues: list[str], label: str, data: dict, file_dir:
         if not sec:
             continue
         if not isinstance(sec, dict):
-            issues.append(f"ERROR: {label}.{section} must be an object")
+            issues.append(_issue('error', 'section_not_object', f"{label}.{section} must be an object", file=file, adapter=adapter, path=f"{label}.{section}"))
             continue
         for key, value in sec.items():
             if classify_field(section, key) == 'unknown':
-                issues.append(f"WARN: {label}.{section}.{key} is unknown, will be ignored at runtime")
+                issues.append(_issue('warning', 'unknown_field', f"{label}.{section}.{key} is unknown, will be ignored at runtime", file=file, adapter=adapter, path=f"{label}.{section}.{key}"))
+            else:
+                _auto_type_check(issues, label, section, key, value, file, adapter)
+            if key == 'scripts':
+                if not isinstance(value, list):
+                    issues.append(_issue('error', 'scripts_not_array', f"{label}.{section}.scripts must be an array", file=file, adapter=adapter, path=f"{label}.{section}.scripts"))
+                else:
+                    replace_count = 0
+                    seen_hooks = set()
+                    for i, item in enumerate(value):
+                        if not isinstance(item, dict):
+                            issues.append(_issue('error', 'script_entry_not_object', f"{label}.{section}.scripts[{i}] must be an object", file=file, adapter=adapter, path=f"{label}.{section}.scripts[{i}]"))
+                            continue
+                        script_path = item.get('path', '')
+                        hook_val = item.get('hook', '')
+                        if hook_val not in ('before', 'after', 'replace'):
+                            issues.append(_issue('error', 'script_hook_invalid', f"{label}.{section}.scripts[{i}].hook must be before/after/replace, got '{hook_val}'", file=file, adapter=adapter, path=f"{label}.{section}.scripts[{i}].hook"))
+                        if hook_val == 'replace':
+                            replace_count += 1
+                        # Validate optional per-script timeout
+                        script_timeout = item.get('timeout')
+                        if script_timeout is not None:
+                            if not isinstance(script_timeout, int) or isinstance(script_timeout, bool) or script_timeout <= 0:
+                                issues.append(_issue('error', 'script_timeout_invalid', f"{label}.{section}.scripts[{i}].timeout must be a positive integer", file=file, adapter=adapter, path=f"{label}.{section}.scripts[{i}].timeout"))
+                        if script_path:
+                            if '/' not in script_path and not os.path.isabs(script_path):
+                                script_path = os.path.join('scripts', script_path)
+                            resolved = _resolve_path(script_path, file_dir) if not os.path.isabs(script_path) else script_path
+                            if not os.path.exists(resolved):
+                                issues.append(_issue('error', 'script_path_not_found', f"{label}.{section}.scripts[{i}].path not found: {item.get('path')}", file=file, adapter=adapter, path=f"{label}.{section}.scripts[{i}].path"))
+                            elif not is_safe_script_path(resolved, file_dir):
+                                issues.append(_issue('error', 'script_path_unsafe', f"{label}.{section}.scripts[{i}].path not allowed: {item.get('path')}", file=file, adapter=adapter, path=f"{label}.{section}.scripts[{i}].path"))
+                    if replace_count > 1:
+                        issues.append(_issue('error', 'replace_hook_duplicate', f"{label}.{section}.scripts has {replace_count} replace hooks, only 1 allowed", file=file, adapter=adapter, path=f"{label}.{section}.scripts"))
             if key.endswith('_script') or key == 'script':
                 script_path = _resolve_path(value, file_dir) if isinstance(value, str) else ''
                 if value and not isinstance(value, str):
-                    issues.append(f"ERROR: {label}.{section}.{key} must be a string path")
+                    issues.append(_issue('error', 'script_field_not_string', f"{label}.{section}.{key} must be a string path", file=file, adapter=adapter, path=f"{label}.{section}.{key}"))
                 elif script_path and not os.path.exists(script_path):
-                    issues.append(f"ERROR: {label}.{section}.{key} script not found: {value}")
+                    issues.append(_issue('error', 'script_path_not_found', f"{label}.{section}.{key} script not found: {value}", file=file, adapter=adapter, path=f"{label}.{section}.{key}"))
                 elif script_path and not is_safe_script_path(script_path, file_dir):
-                    issues.append(f"ERROR: {label}.{section}.{key} script path not allowed: {value}")
+                    issues.append(_issue('error', 'script_path_unsafe', f"{label}.{section}.{key} script path not allowed: {value}", file=file, adapter=adapter, path=f"{label}.{section}.{key}"))
         auth = sec.get('auth')
         if auth is not None:
-            _validate_auth_block(issues, f"{label}.{section}.auth", auth, file_dir)
+            _validate_auth_block(issues, f"{label}.{section}.auth", auth, file_dir, file=file, adapter=adapter)
+        if section == 'metadata':
+            xmlns = sec.get('xmlns')
+            if xmlns is not None and (
+                not isinstance(xmlns, dict)
+                or not all(
+                    isinstance(prefix, str)
+                    and isinstance(uri, str)
+                    and prefix
+                    and uri
+                    for prefix, uri in xmlns.items()
+                )
+            ):
+                issues.append(
+                    _issue('error', 'xmlns_invalid', f"{label}.metadata.xmlns must be a string-to-string prefix map", file=file, adapter=adapter, path=f"{label}.metadata.xmlns")
+                )
+            use_browser = sec.get('use_browser')
+            if use_browser is not None:
+                if not isinstance(use_browser, dict):
+                    issues.append(_issue('error', 'use_browser_invalid', f"{label}.metadata.use_browser must be an object or null", file=file, adapter=adapter, path=f"{label}.metadata.use_browser"))
+                else:
+                    for sub_key, sub_val in use_browser.items():
+                        if sub_key not in ('enabled', 'wait_until', 'wait_elements', 'timeout'):
+                            issues.append(_issue('warning', 'unknown_field', f"{label}.metadata.use_browser.{sub_key} is unknown, will be ignored", file=file, adapter=adapter, path=f"{label}.metadata.use_browser.{sub_key}"))
+                        elif sub_key == 'enabled' and not isinstance(sub_val, bool):
+                            issues.append(_issue('error', 'use_browser_invalid', f"{label}.metadata.use_browser.enabled must be a boolean", file=file, adapter=adapter, path=f"{label}.metadata.use_browser.enabled"))
+                        elif sub_key == 'wait_until' and sub_val not in ('domcontentloaded', 'load', 'networkidle'):
+                            issues.append(_issue('error', 'use_browser_invalid', f"{label}.metadata.use_browser.wait_until must be one of domcontentloaded, load, networkidle", file=file, adapter=adapter, path=f"{label}.metadata.use_browser.wait_until"))
+                        elif sub_key == 'wait_elements':
+                            if isinstance(sub_val, str):
+                                pass
+                            elif isinstance(sub_val, list):
+                                if not all(isinstance(s, str) for s in sub_val):
+                                    issues.append(_issue('error', 'use_browser_invalid', f"{label}.metadata.use_browser.wait_elements must be a string or array of strings", file=file, adapter=adapter, path=f"{label}.metadata.use_browser.wait_elements"))
+                            else:
+                                issues.append(_issue('error', 'use_browser_invalid', f"{label}.metadata.use_browser.wait_elements must be a string or array of strings", file=file, adapter=adapter, path=f"{label}.metadata.use_browser.wait_elements"))
+                        elif sub_key == 'timeout' and sub_val is not None:
+                            if not isinstance(sub_val, int) or isinstance(sub_val, bool) or sub_val <= 0:
+                                issues.append(_issue('error', 'use_browser_invalid', f"{label}.metadata.use_browser.timeout must be a positive integer or null", file=file, adapter=adapter, path=f"{label}.metadata.use_browser.timeout"))
         if section == 'snapshot':
             args = sec.get('singlefile_args', {})
             if args and not isinstance(args, dict):
-                issues.append(f"ERROR: {label}.snapshot.singlefile_args must be an object")
+                issues.append(_issue('error', 'section_not_object', f"{label}.snapshot.singlefile_args must be an object", file=file, adapter=adapter, path=f"{label}.snapshot.singlefile_args"))
             for arg in (args if isinstance(args, dict) else {}):
                 if not is_known_singlefile_arg(arg):
-                    issues.append(f"WARN: {label}.snapshot.singlefile_args.{arg} unknown")
-            _check_exclusive(issues, f"{label}.{section}", sec, [
-                ('script', 'keep_elements', 'remove_elements', 'remove_classes', 'set_styles', 'singlefile_args'),
-            ])
+                    issues.append(_issue('warning', 'singlefile_arg_unknown', f"{label}.snapshot.singlefile_args.{arg} unknown", file=file, adapter=adapter, path=f"{label}.snapshot.singlefile_args.{arg}"))
+            scripts = sec.get('scripts')
+            has_replace = (
+                isinstance(scripts, list)
+                and any(isinstance(item, dict) and item.get('hook') == 'replace' for item in scripts)
+            )
+            if has_replace:
+                declarative_fields = [
+                    'keep_elements', 'remove_elements', 'remove_classes',
+                    'set_styles', 'singlefile_args', 'process_carousels',
+                ]
+                present = [
+                    key for key in declarative_fields
+                    if sec.get(key) not in (None, [], {})
+                ]
+                if present:
+                    issues.append(
+                        _issue('warning', 'replace_bypasses_declarative', f"{label}.{section}: replace script bypasses {', '.join(present)}", file=file, adapter=adapter, path=f"{label}.{section}")
+                    )
         if section == 'reader':
             args = sec.get('defuddle_args', {})
             if args and not isinstance(args, dict):
-                issues.append(f"ERROR: {label}.reader.defuddle_args must be an object")
+                issues.append(_issue('error', 'section_not_object', f"{label}.reader.defuddle_args must be an object", file=file, adapter=adapter, path=f"{label}.reader.defuddle_args"))
             for arg in (args if isinstance(args, dict) else {}):
                 if not is_known_defuddle_param(arg):
-                    issues.append(f"WARN: {label}.reader.defuddle_args.{arg} unknown")
+                    issues.append(_issue('warning', 'defuddle_arg_unknown', f"{label}.reader.defuddle_args.{arg} unknown", file=file, adapter=adapter, path=f"{label}.reader.defuddle_args.{arg}"))
 
 
-def validate_config(base_dir: str, domain_filename: str = '') -> list[str]:
+def validate_config(base_dir: str, domain_filename: str = '') -> list[dict]:
+    """Validate all adapter configs, returning a list of structured issue dicts."""
     issues = []
     if not os.path.isdir(base_dir):
-        issues.append(f"ERROR: 目录不存在: {base_dir}")
+        issues.append(_issue('error', 'dir_not_found', f"Directory not found: {base_dir}", path=base_dir))
         return issues
 
-    if not domain_filename:
-        # 检查 global.jsonc
-        global_path = os.path.join(base_dir, 'global.jsonc')
-        if os.path.exists(global_path):
-            try:
-                global_data = load_jsonc_file(global_path)
-                if not isinstance(global_data, dict):
-                    issues.append("ERROR: global.jsonc 顶层必须是对象")
-                else:
-                    _validate_subscriptions(issues, global_data.get('_subscriptions'))
-                    if '*' in global_data:
-                        _validate_domain_config(issues, 'global.jsonc.*', global_data.get('*'), os.path.dirname(global_path))
-            except json.JSONDecodeError as e:
-                issues.append(f"ERROR: global.jsonc 解析失败: {e}")
+    adapters_dir = os.path.join(base_dir, 'adapters')
 
-    # 检查域名文件
-    domains_dir = os.path.join(base_dir, 'domains')
-    if os.path.isdir(domains_dir):
-        filenames = [domain_filename] if domain_filename else os.listdir(domains_dir)
-        for fname in filenames:
-            if not (fname.endswith('.jsonc') or fname.endswith('.json')):
-                continue
-            if fname != os.path.basename(fname) or '/' in fname or '\\' in fname or '..' in fname:
-                issues.append(f"ERROR: 非法文件名: {fname}")
-                continue
-            fpath = os.path.join(domains_dir, fname)
-            if not os.path.exists(fpath):
-                issues.append(f"ERROR: 文件不存在: {fname}")
-                continue
+    if not domain_filename:
+        config_path = os.path.join(adapters_dir, 'config.jsonc')
+        if os.path.exists(config_path):
             try:
-                data = load_jsonc_file(fpath)
-                _validate_domain_config(issues, fname, data, os.path.dirname(fpath))
+                config_data = load_jsonc_file(config_path)
+                if not isinstance(config_data, dict):
+                    issues.append(_issue('error', 'config_not_object', "config.jsonc top level must be an object", file=config_path))
+                else:
+                    _validate_subscriptions(issues, config_data.get('_adapters'), file=config_path, adapters_dir=adapters_dir)
             except json.JSONDecodeError as e:
-                issues.append(f"ERROR: {fname} 解析失败: {e}")
+                issues.append(_issue('error', 'config_parse_error', f"config.jsonc parse failed: {e}", file=config_path))
+
+        if os.path.isdir(adapters_dir):
+            adapters_list = []
+            if os.path.exists(config_path):
+                try:
+                    cfg = load_jsonc_file(config_path)
+                    if isinstance(cfg, dict):
+                        adapters_list = cfg.get('_adapters', [])
+                except Exception:
+                    pass
+            if not isinstance(adapters_list, list):
+                adapters_list = []
+
+            for item in adapters_list:
+                if not isinstance(item, dict):
+                    continue
+                if item.get('enabled') is False:
+                    continue
+                name = item.get('name', '')
+                source = item.get('source', '')
+                adapter_id = item.get('id', '')
+                adapter_label = f"{adapter_id}.{name}" if adapter_id else name
+                if not source:
+                    issues.append(_issue('warning', 'adapter_missing_source', f"Adapter missing source: {name}", path=name))
+                    continue
+                from site_adapters.services.subscriptions import resolve_adapter_path
+                file_path = resolve_adapter_path(name, source, adapters_dir, adapter_id=adapter_id)
+
+                if not os.path.exists(file_path):
+                    issues.append(_issue('warning', 'adapter_file_not_found', f"Adapter file not found: {name}", file=file_path, adapter=adapter_label))
+                    continue
+
+                try:
+                    data, dup_warnings = load_jsonc_file_with_warnings(file_path)
+                    # Report duplicate keys
+                    for w in dup_warnings:
+                        issues.append(_issue(
+                            'warning', 'duplicate_key',
+                            f"Duplicate key '{w['key']}' appears {w['count']} times (last value used)",
+                            file=file_path, adapter=adapter_label, path=w['key'],
+                        ))
+                    if not isinstance(data, dict):
+                        issues.append(_issue('error', 'adapter_file_not_object', f"{name} top level must be an object", file=file_path, adapter=adapter_label))
+                        continue
+                    domains = data.get('domains', {})
+                    if isinstance(domains, dict):
+                        for domain_key, domain_config in domains.items():
+                            label = f"{name}/{domain_key}"
+                            _validate_domain_config(issues, label, domain_config, os.path.dirname(file_path), file=file_path, adapter=adapter_label)
+                    glob_defaults = data.get('defaults')
+                    global_defaults_data = data.get('_builtin')
+                    if glob_defaults and isinstance(glob_defaults, dict):
+                        _validate_domain_config(issues, f"{name}.defaults", glob_defaults, os.path.dirname(file_path), file=file_path, adapter=adapter_label, allow_routes=False)
+                    if global_defaults_data and isinstance(global_defaults_data, dict):
+                        _validate_domain_config(issues, f"{name}._builtin", global_defaults_data, os.path.dirname(file_path), file=file_path, adapter=adapter_label, allow_routes=False)
+                except json.JSONDecodeError as e:
+                    issues.append(_issue('error', 'config_parse_error', f"{name} parse failed: {e}", file=file_path, adapter=adapter_label))
+    else:
+        from site_adapters.services.subscriptions import _read_subscription_file, resolve_adapter_path
+        adapters_list = []
+        config_path = os.path.join(adapters_dir, 'config.jsonc')
+        if os.path.exists(config_path):
+            try:
+                cfg = load_jsonc_file(config_path)
+                if isinstance(cfg, dict):
+                    adapters_list = cfg.get('_adapters', [])
+            except Exception:
+                pass
+        if not isinstance(adapters_list, list):
+            adapters_list = []
+
+        found = False
+        for item in adapters_list:
+            if not isinstance(item, dict) or item.get('enabled') is False:
+                continue
+            source = item.get('source', '')
+            if not source:
+                continue
+            file_path = resolve_adapter_path(item.get('name', ''), source, adapters_dir, item.get('id', ''))
+            data = _read_subscription_file(file_path)
+            if data and isinstance(data.get('domains'), dict) and domain_filename in data['domains']:
+                _validate_domain_config(issues, domain_filename, data['domains'][domain_filename], os.path.dirname(file_path), file=file_path)
+                found = True
+                break
+        if not found:
+            issues.append(_issue('error', 'domain_not_found', f"Domain not found: {domain_filename}", path=domain_filename))
 
     return issues

@@ -1,8 +1,8 @@
 """
-浏览器引擎提供者 — 构建期确定唯一引擎，运行期零探测
+浏览器引擎提供者 — 运行期按 LD_BROWSER_ENGINE 选择引擎
 
-构建期由 Dockerfile 根据 LD_BROWSER_ENGINE + LD_BROWSER_CLOAKBROWSER_LICENSE_TYPE
-下载并固化二进制到镜像内。运行期只读配置启动对应引擎。
+CloakBrowser 二进制由构建期下载并固化；Chromium 模式会在运行期发现
+可执行路径。运行期根据配置启动对应引擎。
 
 Public API:
     get_browser_config()  → dict with engine, binary_path, etc.
@@ -51,6 +51,8 @@ def _find_chromium_path() -> str:
         '/usr/bin/chromium-browser',
         '/usr/bin/google-chrome',
         '/usr/bin/google-chrome-stable',
+        '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     ]:
         if os.path.isfile(path) and os.access(path, os.X_OK):
             return path
@@ -93,6 +95,7 @@ def _launch_cloakbrowser(headless: bool = True, **kwargs):
 
 def _launch_chromium(headless: bool = True, **kwargs):
     from playwright.sync_api import sync_playwright
+    from contextlib import suppress
     exec_path = _find_chromium_path()
     pw = sync_playwright().start()
     launch_args = ['--no-sandbox', '--disable-blink-features=AutomationControlled']
@@ -105,4 +108,16 @@ def _launch_chromium(headless: bool = True, **kwargs):
         **kwargs,
     )
     browser.__playwright__ = pw
+    # Wrap browser.close() so stopping the Playwright event loop is automatic.
+    # Without pw.stop() the asyncio loop leaks into the calling thread, and
+    # Django's async-unsafe guard then raises SynchronousOnlyOperation on
+    # every subsequent DB access (e.g. session lookups) on that pooled thread.
+    _original_close = browser.close
+    def _close_and_stop_playwright(*a, **kw):
+        try:
+            _original_close(*a, **kw)
+        finally:
+            with suppress(Exception):
+                pw.stop()
+    browser.close = _close_and_stop_playwright
     return browser

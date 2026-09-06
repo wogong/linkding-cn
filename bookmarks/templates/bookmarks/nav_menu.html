@@ -5,7 +5,7 @@
     <a href="{% url 'linkding:bookmarks.new' %}" class="btn btn-primary mr-2">{% translate "Add" %}</a>
     <ld-dropdown class="dropdown">
       <button class="btn btn-link dropdown-toggle" tabindex="0">
-        {% translate "Bookmarks" context "nav" %}
+        {% translate "Bookmarks" %}
       </button>
       <ul class="menu" role="list" tabindex="-1">
         <li class="menu-item">
@@ -41,7 +41,7 @@
           <a href="{% url 'linkding:settings.rss_subscriptions' %}" class="menu-link">{% translate "RSS subscriptions" %}</a>
         </li>
         <li class="menu-item">
-          <a href="{% url 'linkding:settings.site_adapters_user' %}" class="menu-link">{% translate "Site Adapters" %}</a>
+          <a href="{% url 'linkding:settings.adapters' %}" class="menu-link">{% translate "Adapters" %}</a>
         </li>
         {% if request.user.is_superuser %}
           <li class="menu-item">
@@ -100,7 +100,7 @@
           <a href="{% url 'linkding:settings.rss_subscriptions' %}" class="menu-link">{% translate "RSS subscriptions" %}</a>
         </li>
         <li class="menu-item">
-          <a href="{% url 'linkding:settings.site_adapters_user' %}" class="menu-link">{% translate "Site Adapters" %}</a>
+          <a href="{% url 'linkding:settings.adapters' %}" class="menu-link">{% translate "Adapters" %}</a>
         </li>
         {% if request.user.is_superuser %}
           <li class="menu-item">

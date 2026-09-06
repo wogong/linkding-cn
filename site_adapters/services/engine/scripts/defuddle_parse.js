@@ -30,7 +30,7 @@ const {
   extractRawMarkdown,
   cleanMarkdownContent,
   countWords,
-} = require("../../vendor/defuddle.js");
+} = require("../../../../bookmarks/services/vendor/defuddle.js");
 
 const input = JSON.parse(readFileSync(0, "utf-8"));
 
@@ -58,11 +58,6 @@ function resolveContentSelector(sel, htmlStr) {
     try { if (doc.querySelector(s)) return s; } catch {}
   }
   return sel[0]; // fallback
-}
-
-if (options.contentSelector && Array.isArray(options.contentSelector)) {
-  // html may already be loaded; if so resolve now, otherwise defer
-  // (for htmlPath case, we can resolve immediately after reading)
 }
 
 const defuddleOpts = {

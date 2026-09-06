@@ -6,25 +6,25 @@ import tempfile
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
-from site_adapters.services.config.validator import classify_field
+from bookmarks.services.website_loader import (
+    load_website_metadata,
+    normalize_content_type,
+)
 from site_adapters.services.auth.cookies import (
-    get_cookie_for_domain,
-    has_cookie_for_domain,
-    load_cookie_file,
     verify_and_refresh,
 )
+from site_adapters.services.auth.credentials import get_shared_cookie
 from site_adapters.services.config import parse_jsonc
 from site_adapters.services.config.loader import show_config
-from site_adapters.services.config.validator import validate_config
 from site_adapters.services.config.resolver import (
     get_metadata_config,
     get_reader_config,
     get_snapshot_config,
 )
+from site_adapters.services.config.validator import classify_field, validate_config
 from site_adapters.services.subscriptions import (
     fetch_subscription,
 )
-from bookmarks.services.website_loader import load_website_metadata
 
 
 class Command(BaseCommand):
@@ -46,7 +46,7 @@ class Command(BaseCommand):
 
         cookie = sub.add_parser("cookie")
         cookie.add_argument("url")
-        cookie.add_argument("--section", choices=("metadata", "snapshot"), default="metadata")
+        cookie.add_argument("--section", choices=("metadata", "snapshot", "reader"), default="metadata")
 
         pipeline = sub.add_parser("pipeline")
         pipeline.add_argument("url")
@@ -55,6 +55,9 @@ class Command(BaseCommand):
 
         subscription = sub.add_parser("validate-subscription")
         subscription.add_argument("source")
+
+        prefetch = sub.add_parser("prefetch-subscriptions")
+        prefetch.add_argument("--force", action="store_true")
 
         from_us = sub.add_parser("from-userscript")
         from_us.add_argument("source")
@@ -68,8 +71,10 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS("site adapters ok"))
             return
         for issue in issues:
-            style = self.style.ERROR if issue.startswith("ERROR") else self.style.WARNING
-            self.stdout.write(style(issue))
+            level = issue['level'] if isinstance(issue, dict) else 'error'
+            style = self.style.ERROR if level == 'error' else self.style.WARNING
+            msg = issue['message'] if isinstance(issue, dict) else str(issue)
+            self.stdout.write(style(msg))
 
     def handle_show_config(self, opts):
         result = show_config(opts["url"], opts["dir"] or settings.LD_SITE_ADAPTERS_DIR)
@@ -90,20 +95,19 @@ class Command(BaseCommand):
             return
         domain_key = config.get("_domain_key", "")
         cookie_config = config.get("cookie", {})
-        cookie_file = cookie_config.get("file", "")
-        before = load_cookie_file(cookie_file) if cookie_file else get_cookie_for_domain(domain_key)
+        before = config.get("_user_cookie") or get_shared_cookie(hostname=domain_key, scope=opts["section"])[0]
         after = before
         if cookie_config:
             after = verify_and_refresh(
-                cookie_config,
-                opts["url"],
-                domain_key,
-                {"url": opts["url"], "status": 0, "title": "", "body_preview": ""},
+                cookie_config=cookie_config,
+                url=opts["url"],
+                domain_key=domain_key,
+                verify_context={"url": opts["url"], "status": 0, "title": "", "body_preview": ""},
+                scope=opts["section"],
             )
         self.stdout.write(json.dumps({
             "domain": domain_key,
-            "cookie_file": cookie_file,
-            "has_cookie": bool((load_cookie_file(cookie_file) if cookie_file else None) or has_cookie_for_domain(domain_key)),
+            "has_cookie": bool(config.get("_user_cookie") or get_shared_cookie(hostname=domain_key, scope=opts["section"])[0]),
             "refreshed": bool(after and after != before),
         }, indent=2, ensure_ascii=False))
 
@@ -112,9 +116,10 @@ class Command(BaseCommand):
         from bookmarks.services.snapshot_processor import create_snapshot
 
         url = opts["url"]
+        snapshot_config = get_snapshot_config(url)
         result = {
             "metadata_config": get_metadata_config(url),
-            "snapshot_config": get_snapshot_config(url),
+            "snapshot_config": snapshot_config,
             "reader_config": get_reader_config(url),
             "metadata": load_website_metadata(url, ignore_cache=True).to_dict(),
         }
@@ -122,14 +127,27 @@ class Command(BaseCommand):
         snapshot_path = opts["output"]
         try:
             if not opts["skip_snapshot"]:
+                snapshot_extension = (
+                    normalize_content_type((snapshot_config or {}).get("content_type"))
+                    or "html"
+                )
                 if not snapshot_path:
                     tmp_dir = tempfile.mkdtemp()
-                    snapshot_path = os.path.join(tmp_dir, "snapshot.html")
+                    snapshot_path = os.path.join(
+                        tmp_dir, f"snapshot.{snapshot_extension}"
+                    )
                 create_snapshot(url, snapshot_path)
                 result["snapshot"] = {"path": snapshot_path, "size": os.path.getsize(snapshot_path)}
                 with open(snapshot_path, encoding="utf-8") as f:
-                    html = f.read()
-                result["reader"] = reader_processor.parse_html(html, url=url)
+                    raw_content = f.read()
+                if snapshot_extension in ("json", "xml"):
+                    result["reader"] = reader_processor.parse_content(
+                        raw_content, snapshot_extension, url=url
+                    )
+                else:
+                    result["reader"] = reader_processor.parse_html(
+                        raw_content, url=url
+                    )
             else:
                 result["reader"] = reader_processor.parse_url(url)
             self.stdout.write(json.dumps(result, indent=2, ensure_ascii=False, default=str))
@@ -148,8 +166,50 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"subscription ok, {len(data.get('domains', {}))} domains"))
             return
         for issue in issues:
-            style = self.style.ERROR if issue.startswith("ERROR") else self.style.WARNING
-            self.stdout.write(style(issue))
+            level = issue['level'] if isinstance(issue, dict) else 'error'
+            style = self.style.ERROR if level == 'error' else self.style.WARNING
+            msg = issue['message'] if isinstance(issue, dict) else str(issue)
+            self.stdout.write(style(msg))
+
+    def handle_prefetch_subscriptions(self, opts):
+        """Download remote subscriptions that are missing or due for refresh."""
+        from site_adapters.services.config.bootstrap import ensure_base_dirs
+        from site_adapters.services.subscriptions import (
+            fetch_all_subscriptions,
+            fetch_subscription,
+        )
+        from site_adapters.views.helpers import _get_adapters_list
+
+        ensure_base_dirs()
+        adapters = _get_adapters_list()
+        remote_adapters = [
+            adapter
+            for adapter in adapters
+            if isinstance(adapter, dict)
+            and adapter.get("enabled") is not False
+            and str(adapter.get("source", "")).startswith("https://")
+        ]
+        paths = []
+
+        if opts["force"]:
+            for adapter in remote_adapters:
+                source = adapter.get("source", "")
+                path = fetch_subscription(
+                    source,
+                    name=adapter.get("name", ""),
+                    adapter_id=adapter.get("id", ""),
+                    force=True,
+                    update_interval=adapter.get("update_interval", 86400),
+                )
+                if path:
+                    paths.append(path)
+        else:
+            paths = fetch_all_subscriptions(remote_adapters)
+
+        if paths:
+            self.stdout.write(self.style.SUCCESS(f"prefetched {len(paths)} subscription(s)"))
+        else:
+            self.stdout.write(self.style.SUCCESS("no subscriptions needed prefetching"))
 
     def _load_subscription(self, source: str):
         if os.path.isdir(source):
@@ -177,18 +237,24 @@ class Command(BaseCommand):
 
     def _load_subscription_dir(self, path: str):
         root = os.path.abspath(path)
-        # 尝试读取单文件格式
-        sub_file = os.path.join(root, "subscription.jsonc")
+        # 尝试读取 adapters.jsonc
+        sub_file = os.path.join(root, "adapters.jsonc")
         if os.path.exists(sub_file):
             with open(sub_file, encoding="utf-8") as f:
                 data = parse_jsonc(f.read())
             if isinstance(data, dict) and isinstance(data.get("domains"), dict):
-                # 记录 scripts 目录中的文件
                 scripts_dir = os.path.join(root, "scripts")
                 if os.path.isdir(scripts_dir):
                     data["_available_scripts"] = os.listdir(scripts_dir)
                 return data, root
-        # 回退：尝试目录格式（兼容旧格式）
+        # 回退：旧 subscription.jsonc
+        old_sub = os.path.join(root, "subscription.jsonc")
+        if os.path.exists(old_sub):
+            with open(old_sub, encoding="utf-8") as f:
+                data = parse_jsonc(f.read())
+            if isinstance(data, dict) and isinstance(data.get("domains"), dict):
+                return data, root
+        # 回退：旧目录格式
         data = {"domains": {}}
         global_path = os.path.join(root, "global.jsonc")
         if os.path.exists(global_path):
@@ -207,42 +273,44 @@ class Command(BaseCommand):
         return data, root
 
     def _validate_subscription_data(self, data: dict, root: str):
+        from site_adapters.services.config.validator import _issue
         issues = []
         domains = data.get("domains", {})
         if not isinstance(domains, dict):
-            return ["ERROR: domains must be an object"]
+            return [_issue('error', 'domains_not_object', "domains must be an object")]
         for domain_key, value in domains.items():
             if "/" in domain_key or "\\" in domain_key or ".." in domain_key:
-                issues.append(f"ERROR: invalid domain key: {domain_key}")
+                issues.append(_issue('error', 'invalid_domain_key', f"invalid domain key: {domain_key}", path=domain_key))
                 continue
             if isinstance(value, str):
                 continue
             if not isinstance(value, dict):
-                issues.append(f"ERROR: {domain_key} must be an object")
+                issues.append(_issue('error', 'domain_not_object', f"{domain_key} must be an object", path=domain_key))
                 continue
             if value.get("type") == "alias":
                 if not value.get("target"):
-                    issues.append(f"ERROR: {domain_key} alias missing target")
+                    issues.append(_issue('error', 'alias_missing_target', f"{domain_key} alias missing target", path=domain_key))
                 continue
             for section in ("metadata", "snapshot", "reader"):
                 sec = value.get(section, {})
                 if not sec:
                     continue
                 if not isinstance(sec, dict):
-                    issues.append(f"ERROR: {domain_key}.{section} must be an object")
+                    issues.append(_issue('error', 'section_not_object', f"{domain_key}.{section} must be an object", path=f"{domain_key}.{section}"))
                     continue
                 for field, field_value in sec.items():
                     if classify_field(section, field) == "unknown":
-                        issues.append(f"WARN: {domain_key}.{section}.{field} is unknown")
+                        issues.append(_issue('warning', 'unknown_field', f"{domain_key}.{section}.{field} is unknown", path=f"{domain_key}.{section}.{field}"))
                     if field == "script" or field.endswith("_script"):
                         self._check_subscription_script(issues, root, domain_key, section, field, field_value)
         return issues
 
     def _check_subscription_script(self, issues, root, domain_key, section, field, value):
+        from site_adapters.services.config.validator import _issue
         if not value:
             return
         if not isinstance(value, str):
-            issues.append(f"ERROR: {domain_key}.{section}.{field} must be a string path or URL")
+            issues.append(_issue('error', 'script_field_not_string', f"{domain_key}.{section}.{field} must be a string path or URL", path=f"{domain_key}.{section}.{field}"))
             return
         # URL 引用：只检查格式
         if value.startswith("http://") or value.startswith("https://"):
@@ -253,7 +321,7 @@ class Command(BaseCommand):
         else:
             script_path = os.path.normpath(os.path.join(root, "scripts", value))
         if not os.path.exists(script_path):
-            issues.append(f"WARN: {domain_key}.{section}.{field} script not found locally: {value}")
+            issues.append(_issue('warning', 'script_path_not_found', f"{domain_key}.{section}.{field} script not found locally: {value}", path=f"{domain_key}.{section}.{field}"))
 
 
     def handle_from_userscript(self, opts):

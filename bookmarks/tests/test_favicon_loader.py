@@ -46,7 +46,13 @@ class FaviconLoaderTestCase(TestCase):
         with favicon_loader._provider_health._lock:
             favicon_loader._provider_health._initialized = True
 
+        # 全局 mock requests.get，防止测试发出真实 HTTP 请求
+        self._requests_patcher = mock.patch("requests.get")
+        self._mock_requests_get = self._requests_patcher.start()
+        self._mock_requests_get.return_value = self.create_mock_response()
+
     def tearDown(self) -> None:
+        self._requests_patcher.stop()
         self.temp_favicon_folder.cleanup()
         self.favicon_folder_override.disable()
 
@@ -55,6 +61,11 @@ class FaviconLoaderTestCase(TestCase):
 
     def clear_favicon_folder(self):
         folder = Path(settings.LD_FAVICON_FOLDER)
+        # 安全检查：确保不会删除真正的 favicon 文件夹
+        assert str(folder) == self.temp_favicon_folder.name, (
+            f"Refusing to clear favicon folder {folder} - expected temp folder "
+            f"{self.temp_favicon_folder.name}"
+         )
         for file in folder.iterdir():
             if file.is_file():
                 file.unlink()
@@ -88,6 +99,11 @@ class FaviconLoaderTestCase(TestCase):
         with mock.patch("requests.get") as mock_get:
             mock_get.return_value = self.create_mock_response()
             folder = Path(settings.LD_FAVICON_FOLDER)
+            # 安全检查：确保不会删除真正的 favicon 文件夹
+            assert str(folder) == self.temp_favicon_folder.name, (
+                f"Refusing to remove favicon folder {folder} - expected temp folder "
+                f"{self.temp_favicon_folder.name}"
+            )
             folder.rmdir()
             self.assertFalse(folder.exists())
 
@@ -117,7 +133,7 @@ class FaviconLoaderTestCase(TestCase):
             self.assertTrue(self.icon_exists("other_domain_com.png"))
 
     def test_fetch_replaces_existing_variant(self):
-        """新扩展名的文件会替换旧扩展名的变体。"""
+        """下载新文件后旧变体保留（清理由 _fetch_domain_favicon_task 在缓存更新后统一执行）。"""
         with mock.patch("requests.get") as mock_get:
             mock_get.return_value = self.create_mock_response(
                 content_type="image/x-icon",
@@ -137,8 +153,8 @@ class FaviconLoaderTestCase(TestCase):
 
         self.assertEqual(result, "example_com.png")
         self.assertTrue(self.icon_exists("example_com.png"))
-        self.assertFalse(self.icon_exists("example_com.ico"))
-        self.assertEqual(self.count_icons(), 1)
+        self.assertTrue(self.icon_exists("example_com.ico"))  # 旧变体保留，任务层负责清理
+        self.assertEqual(self.count_icons(), 2)  # 新旧文件共存，任务层负责清理
         self.assertTrue(self.get_icon_data("example_com.png").startswith(bytes([0x89, 0x50, 0x4E, 0x47])))
 
     def test_fetch_returns_empty_on_request_error(self):

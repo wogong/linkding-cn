@@ -244,6 +244,9 @@ class WebsiteLoaderTestCase(TestCase):
                 "bookmarks.services.website_loader.get_metadata_config",
                 return_value={"script": "custom.py"},
             ),
+            mock.patch(
+                "bookmarks.services.website_loader.load_page", return_value=""
+            ),
             mock.patch("os.path.exists", return_value=True),
             mock.patch(
                 "bookmarks.services.website_loader.run_script",

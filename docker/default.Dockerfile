@@ -33,7 +33,7 @@ RUN if [ -n "$APT_MIRROR" ]; then \
     fi
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get -y install build-essential pkg-config libpq-dev libicu-dev libsqlite3-dev wget unzip libffi-dev libssl-dev curl git
+    apt-get update && apt-get -y install build-essential pkg-config libpq-dev libicu-dev libsqlite3-dev wget unzip libffi-dev libssl-dev libpcre2-dev curl git
 WORKDIR /etc/linkding
 # install uv, use installer script for now as distroless images are not availabe for armv7
 ADD https://astral.sh/uv/0.8.13/install.sh /uv-installer.sh
@@ -78,7 +78,7 @@ RUN if [ -n "$APT_MIRROR" ]; then \
 # install runtime dependencies
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get -y install mime-support libpq-dev libicu-dev libssl3 curl gettext
+    apt-get update && apt-get -y install mime-support libpq-dev libicu-dev libssl3 libpcre2-8-0 curl gettext
 WORKDIR /etc/linkding
 # copy python dependencies
 COPY --from=build-deps /etc/linkding/.venv /etc/linkding/.venv
@@ -88,6 +88,7 @@ COPY --from=compile-icu /etc/linkding/libicu.so libicu.so
 COPY . .
 # then overwrite static assets with fresh build output
 COPY --from=node-build /etc/linkding/bookmarks/static bookmarks/static/
+COPY --from=node-build /etc/linkding/site_adapters/static site_adapters/static/
 # copy bundled defuddle for server-side reader processing
 COPY --from=node-build /etc/linkding/bookmarks/services/vendor/defuddle.js bookmarks/services/vendor/defuddle.js
 COPY --from=node-build /etc/linkding/node_modules/defuddle/README.md /tmp/defuddle-README.md

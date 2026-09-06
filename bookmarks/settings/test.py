@@ -1,6 +1,6 @@
 """
 Test settings for linkding webapp.
-Optimized for speed: in-memory database, synchronous tasks, minimal logging.
+Optimized for speed: in-memory database and task queue, minimal logging.
 """
 
 # ruff: noqa
@@ -17,10 +17,12 @@ DATABASES = {
     }
 }
 
-# Huey tasks execute synchronously in tests
+# Task tests enable immediate mode explicitly; views must not run dispatch loops.
 HUEY = {
     **HUEY,
-    "immediate": True,
+    "huey_class": "huey.MemoryHuey",
+    "immediate": False,
+    "connection": {},
 }
 
 # Disable background tasks

@@ -30,7 +30,7 @@ ARG APK_MIRROR=""
 RUN if [ -n "$APK_MIRROR" ]; then \
         sed -i "s|dl-cdn.alpinelinux.org|$APK_MIRROR|g" /etc/apk/repositories; \
     fi
-RUN apk update && apk add alpine-sdk linux-headers libpq-dev pkgconfig icu-dev sqlite-dev libffi-dev openssl-dev rust cargo git
+RUN apk update && apk add alpine-sdk linux-headers libpq-dev pkgconfig icu-dev sqlite-dev libffi-dev openssl-dev pcre2-dev rust cargo git
 WORKDIR /etc/linkding
 # install uv, use installer script for now as distroless images are not availabe for armv7
 ADD https://astral.sh/uv/0.8.13/install.sh /uv-installer.sh
@@ -71,7 +71,7 @@ ARG APK_MIRROR=""
 RUN if [ -n "$APK_MIRROR" ]; then \
         sed -i "s|dl-cdn.alpinelinux.org|$APK_MIRROR|g" /etc/apk/repositories; \
     fi
-RUN apk update && apk add bash curl icu libpq mailcap libssl3 gettext
+RUN apk update && apk add bash curl icu libpq mailcap libssl3 pcre2 gettext
 # create www-data user and group
 RUN set -x ; \
   addgroup -g 82 -S www-data ; \
@@ -85,6 +85,7 @@ COPY --from=compile-icu /etc/linkding/libicu.so libicu.so
 COPY . .
 # then overwrite static assets with fresh build output
 COPY --from=node-build /etc/linkding/bookmarks/static bookmarks/static/
+COPY --from=node-build /etc/linkding/site_adapters/static site_adapters/static/
 # copy bundled defuddle for server-side reader processing
 COPY --from=node-build /etc/linkding/bookmarks/services/vendor/defuddle.js bookmarks/services/vendor/defuddle.js
 COPY --from=node-build /etc/linkding/node_modules/defuddle/README.md /tmp/defuddle-README.md

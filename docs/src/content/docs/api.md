@@ -38,6 +38,7 @@ Parameters:
 - `offset` - Index from which to start returning results
 - `modified_since` - Filter results to only include bookmarks modified after the specified date (format: ISO 8601, e.g. "2025-01-01T00:00:00Z")
 - `added_since` - Filter results to only include bookmarks added after the specified date (format: ISO 8601, e.g. "2025-05-29T00:00:00Z")
+- `bundle` - Filter results by bundle id to only include bookmarks matched by a given bundle
 
 Example response:
 
@@ -167,10 +168,13 @@ PATCH /api/bookmarks/<id>/
 ```
 
 Updates a bookmark.
-When using `POST`, at least all required fields must be provided (currently only `url`).
+When using `PUT`, at least all required fields must be provided (currently only `url`).
 When using `PATCH`, only the fields that should be updated need to be provided.
 Regardless which method is used, any field that is not provided is not modified.
 Tags are simply assigned using their names.
+
+Note that [auto tagging](/auto-tagging) rules are applied on every update: tags from
+matching rules are merged into `tag_names`, even if the request does not include that field.
 
 If the provided URL is already bookmarked this returns an error.
 
@@ -355,6 +359,14 @@ Example payload:
   "name": "example"
 }
 ```
+
+**Delete**
+
+```
+DELETE /api/tags/<id>/
+```
+
+Deletes a tag by ID.
 
 ### Bundles
 

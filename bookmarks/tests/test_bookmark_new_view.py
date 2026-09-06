@@ -269,6 +269,13 @@ class BookmarkNewViewTestCase(TestCase, BookmarkFactoryMixin):
             self.assertEqual(response.status_code, 200)
             self.assertIn('Cache-Control', response)
             self.assertIn('max-age=86400', response['Cache-Control'])
+            self.assertEqual(response['Content-Security-Policy'], 'sandbox')
+            cached_response = self.client.get(
+                reverse("linkding:favicon_image", args=["example.com"]),
+                HTTP_IF_NONE_MATCH=response['ETag'],
+            )
+            self.assertEqual(cached_response.status_code, 304)
+            self.assertEqual(cached_response['Content-Security-Policy'], 'sandbox')
         finally:
             override.disable()
             temp_dir.cleanup()
@@ -282,6 +289,7 @@ class BookmarkNewViewTestCase(TestCase, BookmarkFactoryMixin):
         self.assertIn('Cache-Control', response)
         # 兜底图标使用 no-cache，确保后台任务完成后浏览器能立即拉取真实图标
         self.assertIn('no-cache', response['Cache-Control'])
+        self.assertEqual(response['Content-Security-Policy'], 'sandbox')
 
     def test_should_show_respective_share_hint(self):
         self.user.profile.enable_sharing = True

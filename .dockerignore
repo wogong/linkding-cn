@@ -17,7 +17,8 @@
 !/esbuild.config.mjs
 !/scripts
 !/scripts/generate-site-adapters-etc.sh
-!/supervisord.conf
+!/supervisord-tasks.conf
+!/supervisord-all.conf
 !/uv.lock
 !/uwsgi.ini
 !/version.txt

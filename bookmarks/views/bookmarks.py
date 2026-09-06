@@ -802,6 +802,7 @@ def favicon_image(request: HttpRequest, domain: str):
     if if_none_match and if_none_match == etag:
         resp = HttpResponse(status=304)
         resp["ETag"] = etag
+        resp["Content-Security-Policy"] = "sandbox"
         if real_file_available:
             resp["Cache-Control"] = "public, max-age=86400"
         else:
@@ -812,6 +813,7 @@ def favicon_image(request: HttpRequest, domain: str):
     if real_file_available:
         content_type = mimetypes.guess_type(str(favicon_filepath))[0] or 'image/png'
         resp = FileResponse(favicon_filepath.open('rb'), content_type=content_type)
+        resp["Content-Security-Policy"] = "sandbox"
         resp["Cache-Control"] = "public, max-age=86400"
         resp["ETag"] = etag
         return resp
@@ -825,6 +827,7 @@ def favicon_image(request: HttpRequest, domain: str):
         resp = HttpResponseNotFound()
     resp["Cache-Control"] = "no-cache"
     resp["ETag"] = etag
+    resp["Content-Security-Policy"] = "sandbox"
     return resp
 
 

@@ -1,3 +1,4 @@
+from dataclasses import replace
 from unittest.mock import patch
 from unittest import skip
 from urllib.parse import quote
@@ -150,6 +151,9 @@ class BookmarkFormE2ETestCase(LinkdingE2ETestCase):
             expect(details).to_have_attribute("open", value="")
 
     def test_create_should_preview_auto_tags(self):
+        self.website_loader_mock.side_effect = lambda url, **kwargs: replace(
+            mock_website_metadata, url=url
+        )
         profile = self.get_or_create_test_user().profile
         profile.auto_tagging_rules = "github.com dev github"
         profile.save()
